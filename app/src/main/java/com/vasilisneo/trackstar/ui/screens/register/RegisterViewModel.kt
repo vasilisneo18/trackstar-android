@@ -7,8 +7,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 
 enum class EmailCheckStatus { IDLE, CHECKING, AVAILABLE, EXISTS }
+
+/** Mirrors iOS's UserGender (CreateUserProfileRequest.swift) — just male/female, no "prefer not to say". */
+enum class UserGender { FEMALE, MALE }
 
 /**
  * Mirrors iOS's RegisterViewModel, scoped for now to what the Email Entry and Create
@@ -35,6 +39,21 @@ class RegisterViewModel : ViewModel() {
         private set
     var errorMessage by mutableStateOf<String?>(null)
         private set
+
+    // Personal Details (step 2/5)
+    var firstName by mutableStateOf("")
+        private set
+    var lastName by mutableStateOf("")
+        private set
+    var gender by mutableStateOf<UserGender?>(null)
+        private set
+    var dateOfBirth by mutableStateOf(LocalDate.now().minusYears(20))
+        private set
+    var country by mutableStateOf("")
+        private set
+
+    val isPersonalDetailsValid: Boolean
+        get() = firstName.trim().isNotEmpty() && lastName.trim().isNotEmpty()
 
     val isValidEmail: Boolean
         get() = email.contains("@") && email.contains(".")
@@ -72,6 +91,12 @@ class RegisterViewModel : ViewModel() {
     fun resetEmailCheckStatus() {
         emailCheckStatus = EmailCheckStatus.IDLE
     }
+
+    fun onFirstNameChange(value: String) { firstName = value; errorMessage = null }
+    fun onLastNameChange(value: String) { lastName = value; errorMessage = null }
+    fun onGenderChange(value: UserGender) { gender = value }
+    fun onDateOfBirthChange(value: LocalDate) { dateOfBirth = value }
+    fun onCountryChange(value: String) { country = value }
 
     /** Simulates the exists/available check — every email is treated as new/available for now. */
     fun checkEmail() {

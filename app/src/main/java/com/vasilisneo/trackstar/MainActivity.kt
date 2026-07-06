@@ -23,6 +23,7 @@ import com.vasilisneo.trackstar.ui.screens.landing.LandingScreen
 import com.vasilisneo.trackstar.ui.screens.login.LoginScreen
 import com.vasilisneo.trackstar.ui.screens.register.CreatePasswordScreen
 import com.vasilisneo.trackstar.ui.screens.register.EmailEntryScreen
+import com.vasilisneo.trackstar.ui.screens.register.PersonalDetailsScreen
 import com.vasilisneo.trackstar.ui.screens.register.RegisterViewModel
 import com.vasilisneo.trackstar.ui.theme.TrackstarTheme
 
@@ -89,7 +90,16 @@ class MainActivity : ComponentActivity() {
                                 CreatePasswordScreen(
                                     viewModel = registerViewModel,
                                     onBackClick = { navController.popBackStack() },
-                                    onContinue = { /* TODO: Personal Details step not built yet */ }
+                                    onContinue = { navController.navigate("personal_details") }
+                                )
+                            }
+                            composable("personal_details") { backStackEntry ->
+                                val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("register") }
+                                val registerViewModel: RegisterViewModel = viewModel(parentEntry)
+                                PersonalDetailsScreen(
+                                    viewModel = registerViewModel,
+                                    onBackClick = { navController.popBackStack() },
+                                    onContinue = { /* TODO: Body Metrics step not built yet */ }
                                 )
                             }
                         }

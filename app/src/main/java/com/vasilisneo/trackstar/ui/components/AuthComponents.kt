@@ -30,7 +30,9 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.CircularProgressIndicator
@@ -182,6 +184,93 @@ fun AuthScreenScaffold(
                 Spacer(modifier = Modifier.height(48.dp))
             }
         }
+    }
+}
+
+/** Matches fieldLabel(_:) on iOS: small 12sp semibold caps label above a field, e.g. "DATE OF BIRTH". */
+@Composable
+fun AuthFieldLabel(text: String, modifier: Modifier = Modifier) {
+    Text(
+        text = text,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = Color.White.copy(alpha = 0.4f),
+        letterSpacing = 0.5.sp,
+        modifier = modifier
+    )
+}
+
+/** Matches the DOB/Country field-style buttons on iOS's Personal Details screen:
+ *  52dp tall, 8%-white fill, 20dp corners, leading icon, trailing chevron. */
+@Composable
+fun AuthFieldButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    isPlaceholder: Boolean = false,
+    trailing: @Composable () -> Unit = {},
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .background(FieldBackground, FieldShape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp)
+    ) {
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = Color.White.copy(alpha = 0.45f),
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(10.dp))
+        }
+        Text(
+            text = text,
+            fontSize = 16.sp,
+            color = if (isPlaceholder) Color.White.copy(alpha = 0.35f) else Color.White,
+            modifier = Modifier.weight(1f)
+        )
+        trailing()
+    }
+}
+
+/** Matches selectorButton(_:selected:) on iOS's Personal Details screen: a toggleable
+ *  pill — solid white + black checkmark when selected, 8%-white + outline circle otherwise. */
+@Composable
+fun AuthSelectorButton(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .clip(FieldShape)
+            .background(if (selected) Color.White else FieldBackground)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp)
+    ) {
+        Text(
+            text = text,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (selected) Color.Black else Color.White.copy(alpha = 0.6f),
+            modifier = Modifier.weight(1f)
+        )
+        Icon(
+            imageVector = if (selected) Icons.Filled.CheckCircle else Icons.Filled.Circle,
+            contentDescription = null,
+            tint = if (selected) Color.Black else Color.White.copy(alpha = 0.25f),
+            modifier = Modifier.size(18.dp)
+        )
     }
 }
 
