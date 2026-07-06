@@ -18,7 +18,10 @@ class MainActivity : ComponentActivity() {
         setContent {
             TrackstarTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-                    LoginScreen()
+                    // showBackButton matches iOS's real usage — AuthCoordinator.showLoginScreen()
+                    // always sets showBackButton = true (Login is pushed from a Welcome screen).
+                    // onBackClick is a no-op for now since there's no Welcome screen here yet.
+                    LoginScreen(showBackButton = true)
                 }
             }
         }

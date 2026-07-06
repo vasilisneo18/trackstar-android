@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.CircularProgressIndicator
@@ -32,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
@@ -62,8 +64,49 @@ fun AuthBackground(
                 .align(Alignment.Center)
                 .offset(x = glowOffsetX, y = glowOffsetY)
                 .size(380.dp)
-                .blur(80.dp)
+                // Unbounded: without this, blur() clips to its own rectangular bounds,
+                // turning the soft circular glow into a hard-edged square patch.
+                .blur(radius = 80.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
                 .background(TrackstarAccent.copy(alpha = 0.13f), CircleShape)
+        )
+    }
+}
+
+/** Matches registrationWordmark on iOS: fixed, non-interactive "Trackstar" wordmark
+ *  pinned near the bottom of the screen, behind the scrollable content. */
+@Composable
+fun AuthWordmark(modifier: Modifier = Modifier) {
+    Text(
+        text = "Trackstar",
+        fontSize = 30.sp,
+        fontWeight = FontWeight.ExtraBold,
+        color = Color(0xFF17171F),
+        modifier = modifier.fillMaxWidth().padding(bottom = 20.dp),
+        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+    )
+}
+
+/** Matches glassCircle() on iOS: 44dp translucent circle, used for the nav bar back button. */
+@Composable
+fun GlassCircleIconButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    contentDescription: String? = null,
+    icon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Filled.ChevronLeft,
+) {
+    Box(
+        modifier = modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.15f))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = Color.White,
+            modifier = Modifier.size(20.dp)
         )
     }
 }
@@ -236,8 +279,9 @@ fun GoogleSignInButton(
 
 /**
  * Visual match for LoginView's native SignInWithAppleButton(.white) — Android has no
- * platform equivalent, so this is a plain styled pill (same 56dp/28dp/white-bg spec) with
- * a text label. Swap for a real Sign in with Apple REST/web flow if that's ever wired up.
+ * platform equivalent, so this is a plain styled pill (same 56dp/28dp/white-bg spec,
+ * same "Sign in with Apple" label) but without the real Apple glyph (no Android asset
+ * for it). Swap for a real Sign in with Apple REST/web flow if that's ever wired up.
  */
 @Composable
 fun AppleSignInButtonPlaceholder(
@@ -257,7 +301,7 @@ fun AppleSignInButtonPlaceholder(
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = if (isLoading) "Signing in…" else "Continue with Apple",
+            text = if (isLoading) "Signing in…" else "Sign in with Apple",
             fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold,
             color = Color.Black
