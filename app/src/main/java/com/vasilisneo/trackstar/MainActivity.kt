@@ -29,6 +29,8 @@ import com.vasilisneo.trackstar.ui.screens.register.FitnessProfileScreen
 import com.vasilisneo.trackstar.ui.screens.register.GoalsScreen
 import com.vasilisneo.trackstar.ui.screens.register.PersonalDetailsScreen
 import com.vasilisneo.trackstar.ui.screens.register.RegisterViewModel
+import com.vasilisneo.trackstar.ui.screens.main.MainAppScreen
+import com.vasilisneo.trackstar.ui.screens.main.ProfileScreen
 import com.vasilisneo.trackstar.ui.theme.TrackstarTheme
 
 class MainActivity : ComponentActivity() {
@@ -69,11 +71,22 @@ class MainActivity : ComponentActivity() {
                                 showBackButton = true,
                                 onBackClick = { navController.popBackStack() },
                                 initialEmail = initialEmail,
-                                onForgotPassword = { navController.navigate("forgot_password") }
+                                onForgotPassword = { navController.navigate("forgot_password") },
+                                onLoginSuccess = {
+                                    navController.navigate("main") {
+                                        popUpTo("landing") { inclusive = true }
+                                    }
+                                }
                             )
                         }
                         composable("forgot_password") {
                             ForgotPasswordScreen(onBackClick = { navController.popBackStack() })
+                        }
+                        composable("main") {
+                            MainAppScreen(onProfileClick = { navController.navigate("profile") })
+                        }
+                        composable("profile") {
+                            ProfileScreen(onBackClick = { navController.popBackStack() })
                         }
 
                         // Registration flow — nested graph so every step shares one
@@ -134,7 +147,13 @@ class MainActivity : ComponentActivity() {
                                 GoalsScreen(
                                     viewModel = registerViewModel,
                                     onBackClick = { navController.popBackStack() },
-                                    onContinue = { /* TODO: wire real POST /api/auth/register + navigate to main app */ }
+                                    // TODO: wire real POST /api/auth/register before navigating —
+                                    // this just proves the destination exists for now.
+                                    onContinue = {
+                                        navController.navigate("main") {
+                                            popUpTo("landing") { inclusive = true }
+                                        }
+                                    }
                                 )
                             }
                         }

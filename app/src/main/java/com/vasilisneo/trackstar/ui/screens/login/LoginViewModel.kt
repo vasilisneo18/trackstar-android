@@ -47,12 +47,13 @@ class LoginViewModel : ViewModel() {
         showPassword = !showPassword
     }
 
-    fun login() {
+    fun login(onSuccess: () -> Unit = {}) {
         if (!isLoginEnabled || isLoading) return
         viewModelScope.launch {
             isLoading = true
             delay(800)
             isLoading = false
+            onSuccess()
         }
     }
 

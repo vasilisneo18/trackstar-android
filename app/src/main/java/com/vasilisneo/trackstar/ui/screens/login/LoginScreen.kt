@@ -38,6 +38,7 @@ fun LoginScreen(
     showBackButton: Boolean = false,
     onBackClick: () -> Unit = {},
     onForgotPassword: () -> Unit = {},
+    onLoginSuccess: () -> Unit = {},
     initialEmail: String = "",
 ) {
     // Matches iOS's navigateToLogin(email:) — pre-fills the email field when arriving
@@ -83,7 +84,7 @@ fun LoginScreen(
         // Primary Log In button
         AuthCapsuleButton(
             text = "Log In",
-            onClick = viewModel::login,
+            onClick = { viewModel.login(onLoginSuccess) },
             isLoading = viewModel.isLoading,
             enabled = viewModel.isLoginEnabled,
             modifier = Modifier.padding(top = 20.dp)
