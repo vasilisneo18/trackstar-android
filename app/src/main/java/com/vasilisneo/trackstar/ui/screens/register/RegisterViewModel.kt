@@ -22,15 +22,26 @@ enum class FitnessLevel(val label: String) {
     ELITE("Elite"),
 }
 
+/** Mirrors iOS's UserGoal (ViewModel/RegisterViewModel.swift). Icon/color mapping lives in
+ *  GoalsScreen.kt (UI concern), same split FitnessLevel uses with FitnessProfileScreen.kt. */
+enum class UserGoal(val label: String, val subtitle: String, val isCoachGoal: Boolean = false) {
+    LOSE_FAT("Lose Fat", "Burn fat & drop weight"),
+    BUILD_MUSCLE("Build Muscle", "Gain strength & size"),
+    TRACK_TRAINING("Track & Log", "Record every session"),
+    PERFORMANCE("Performance", "Hit new records"),
+    EAT_BETTER("Eat Better", "Plan meals & macros"),
+    COACHING("Get Coaching", "Work with a coach"),
+    MONITOR_ATHLETES("Monitor Athletes", "Manage clients & track progress", isCoachGoal = true),
+}
+
 /**
- * Mirrors iOS's RegisterViewModel, scoped for now to what the Email Entry and Create
- * Password steps need (email, password, confirmPassword, emailCheckStatus, errorMessage).
- * Fields for the remaining steps (personal details, body metrics, fitness profile, goals)
- * get added here once those screens are built — same shared-across-the-whole-flow shape
- * as iOS, just built incrementally.
+ * Mirrors iOS's RegisterViewModel — shared across all 5 registration steps (Email Entry,
+ * Create Password, Personal Details, Body Metrics, Fitness Profile, Goals) via Navigation
+ * Compose's nested-graph pattern, same shape as iOS's single shared instance passed down
+ * the whole NavigationStack.
  *
  * checkEmail() is a local simulation, not a real POST /api/auth/check-email call —
- * networking isn't wired up yet anywhere in this app.
+ * networking isn't wired up yet anywhere in this app (nor is the final register() submit).
  */
 class RegisterViewModel : ViewModel() {
     var email by mutableStateOf("")
@@ -77,6 +88,13 @@ class RegisterViewModel : ViewModel() {
         private set
     var trainingDaysPerWeek by mutableStateOf(3)
         private set
+
+    // Goals (step 5/5)
+    var goals by mutableStateOf<Set<UserGoal>>(emptySet())
+        private set
+
+    val isGoalsValid: Boolean
+        get() = goals.isNotEmpty()
 
     val isValidEmail: Boolean
         get() = email.contains("@") && email.contains(".")
@@ -127,6 +145,11 @@ class RegisterViewModel : ViewModel() {
 
     fun onFitnessLevelChange(value: FitnessLevel) { fitnessLevel = value }
     fun onTrainingDaysPerWeekChange(value: Int) { trainingDaysPerWeek = value }
+
+    fun toggleGoal(goal: UserGoal) {
+        goals = if (goals.contains(goal)) goals - goal else goals + goal
+        errorMessage = null
+    }
 
     /** Simulates the exists/available check — every email is treated as new/available for now. */
     fun checkEmail() {

@@ -25,6 +25,7 @@ import com.vasilisneo.trackstar.ui.screens.register.BodyMetricsScreen
 import com.vasilisneo.trackstar.ui.screens.register.CreatePasswordScreen
 import com.vasilisneo.trackstar.ui.screens.register.EmailEntryScreen
 import com.vasilisneo.trackstar.ui.screens.register.FitnessProfileScreen
+import com.vasilisneo.trackstar.ui.screens.register.GoalsScreen
 import com.vasilisneo.trackstar.ui.screens.register.PersonalDetailsScreen
 import com.vasilisneo.trackstar.ui.screens.register.RegisterViewModel
 import com.vasilisneo.trackstar.ui.theme.TrackstarTheme
@@ -119,7 +120,16 @@ class MainActivity : ComponentActivity() {
                                 FitnessProfileScreen(
                                     viewModel = registerViewModel,
                                     onBackClick = { navController.popBackStack() },
-                                    onContinue = { /* TODO: Goals step not built yet */ }
+                                    onContinue = { navController.navigate("goals") }
+                                )
+                            }
+                            composable("goals") { backStackEntry ->
+                                val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("register") }
+                                val registerViewModel: RegisterViewModel = viewModel(parentEntry)
+                                GoalsScreen(
+                                    viewModel = registerViewModel,
+                                    onBackClick = { navController.popBackStack() },
+                                    onContinue = { /* TODO: wire real POST /api/auth/register + navigate to main app */ }
                                 )
                             }
                         }
