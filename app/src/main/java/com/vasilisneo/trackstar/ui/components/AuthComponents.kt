@@ -6,6 +6,7 @@ package com.vasilisneo.trackstar.ui.components
 // system component library; these are auth-screen-specific on purpose, same as iOS.
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -271,6 +272,73 @@ fun AuthSelectorButton(
             tint = if (selected) Color.Black else Color.White.copy(alpha = 0.25f),
             modifier = Modifier.size(18.dp)
         )
+    }
+}
+
+/** Matches metricField(_:) on iOS's Body Metrics screen: 52dp tall, centered text,
+ *  14dp corners, 8%-white fill with a 10%-white 1dp border. Decimal-pad keyboard. */
+@Composable
+fun AuthMetricField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .height(52.dp)
+            .background(FieldBackground, RoundedCornerShape(14.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(14.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            textStyle = TextStyle(color = Color.White, fontSize = 16.sp, textAlign = TextAlign.Center),
+            cursorBrush = SolidColor(Color.White),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+            decorationBox = { innerTextField ->
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxWidth()) {
+                    if (value.isEmpty()) Text(placeholder, color = PlaceholderColor, fontSize = 16.sp, textAlign = TextAlign.Center)
+                    innerTextField()
+                }
+            }
+        )
+    }
+}
+
+/** Matches unitToggle(label:) on iOS's Body Metrics screen: a fixed 72x52dp pill button
+ *  that cycles the field's unit (e.g. cm -> ft/in, kg -> st/lb -> lb -> kg). */
+@Composable
+fun AuthUnitToggleButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .width(72.dp)
+            .height(52.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color.White.copy(alpha = 0.18f))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
+    }
+}
+
+/** Matches the static (non-interactive) unit label next to Target Weight on iOS: same
+ *  72x52dp footprint as the toggle button, but a plain dimmed label — target weight
+ *  always follows the current-weight unit rather than toggling independently. */
+@Composable
+fun AuthUnitStaticLabel(label: String, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .width(72.dp)
+            .height(52.dp)
+            .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(14.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f))
     }
 }
 

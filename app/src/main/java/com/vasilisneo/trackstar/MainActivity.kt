@@ -21,6 +21,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.vasilisneo.trackstar.ui.screens.landing.LandingScreen
 import com.vasilisneo.trackstar.ui.screens.login.LoginScreen
+import com.vasilisneo.trackstar.ui.screens.register.BodyMetricsScreen
 import com.vasilisneo.trackstar.ui.screens.register.CreatePasswordScreen
 import com.vasilisneo.trackstar.ui.screens.register.EmailEntryScreen
 import com.vasilisneo.trackstar.ui.screens.register.PersonalDetailsScreen
@@ -99,7 +100,16 @@ class MainActivity : ComponentActivity() {
                                 PersonalDetailsScreen(
                                     viewModel = registerViewModel,
                                     onBackClick = { navController.popBackStack() },
-                                    onContinue = { /* TODO: Body Metrics step not built yet */ }
+                                    onContinue = { navController.navigate("body_metrics") }
+                                )
+                            }
+                            composable("body_metrics") { backStackEntry ->
+                                val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("register") }
+                                val registerViewModel: RegisterViewModel = viewModel(parentEntry)
+                                BodyMetricsScreen(
+                                    viewModel = registerViewModel,
+                                    onBackClick = { navController.popBackStack() },
+                                    onContinue = { /* TODO: Fitness Profile step not built yet */ }
                                 )
                             }
                         }

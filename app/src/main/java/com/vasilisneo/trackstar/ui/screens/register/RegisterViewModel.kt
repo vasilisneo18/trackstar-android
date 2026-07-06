@@ -55,6 +55,15 @@ class RegisterViewModel : ViewModel() {
     val isPersonalDetailsValid: Boolean
         get() = firstName.trim().isNotEmpty() && lastName.trim().isNotEmpty()
 
+    // Body Metrics (step 3/5) — always stored in metric (cm/kg); ft-in and st/lb are
+    // local UI-only conversions on the screen itself, same as iOS's local @State.
+    var heightCm by mutableStateOf("")
+        private set
+    var weightKg by mutableStateOf("")
+        private set
+    var targetWeightKg by mutableStateOf("")
+        private set
+
     val isValidEmail: Boolean
         get() = email.contains("@") && email.contains(".")
 
@@ -97,6 +106,10 @@ class RegisterViewModel : ViewModel() {
     fun onGenderChange(value: UserGender) { gender = value }
     fun onDateOfBirthChange(value: LocalDate) { dateOfBirth = value }
     fun onCountryChange(value: String) { country = value }
+
+    fun onHeightCmChange(value: String) { heightCm = value }
+    fun onWeightKgChange(value: String) { weightKg = value }
+    fun onTargetWeightKgChange(value: String) { targetWeightKg = value }
 
     /** Simulates the exists/available check — every email is treated as new/available for now. */
     fun checkEmail() {
