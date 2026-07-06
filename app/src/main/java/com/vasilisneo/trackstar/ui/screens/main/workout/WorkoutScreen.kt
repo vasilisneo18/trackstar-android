@@ -128,7 +128,7 @@ fun WorkoutScreen(
             }
 
             // Rest-day empty state
-            Box(modifier = Modifier.fillMaxSize().padding(horizontal = 40.dp), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.fillMaxSize().padding(horizontal = 40.dp, vertical = 100.dp), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Box(contentAlignment = Alignment.Center) {
                         Box(modifier = Modifier.size(120.dp).background(Color.White.copy(alpha = 0.05f), CircleShape))
