@@ -19,16 +19,18 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.SportsGymnastics
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -53,7 +55,7 @@ import com.vasilisneo.trackstar.ui.screens.main.workout.WorkoutScreen
 private data class MainTab(val route: String, val label: String, val icon: ImageVector)
 
 private val MainTabs = listOf(
-    MainTab("workout", "Workout", Icons.Filled.FitnessCenter),
+    MainTab("workout", "Workout", Icons.Filled.SportsGymnastics),
     MainTab("stats", "Stats", Icons.Filled.BarChart),
     MainTab("myteam", "MyTeam", Icons.Filled.Groups),
     MainTab("diet", "Diet", Icons.Filled.Restaurant),
@@ -93,32 +95,37 @@ private fun FloatingTabBar(
     val currentRoute = backStackEntry?.destination
 
     Row(
-        horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 12.dp)
-            .clip(RoundedCornerShape(32.dp))
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(26.dp))
             .background(TabBarSurface)
-            .padding(vertical = 10.dp, horizontal = 6.dp)
     ) {
         MainTabs.forEach { tab ->
             val selected = currentRoute?.hierarchy?.any { it.route == tab.route } == true
-            TabBarItem(
-                tab = tab,
-                selected = selected,
-                onClick = {
-                    tabNavController.navigate(tab.route) {
-                        popUpTo(tabNavController.graph.findStartDestination().id) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                TabBarItem(
+                    tab = tab,
+                    selected = selected,
+                    onClick = {
+                        tabNavController.navigate(tab.route) {
+                            popUpTo(tabNavController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
-                }
-            )
+                )
+            }
         }
     }
 }
+
+// Fixed min width so the selected pill is the same size on every tab regardless of label
+// length ("Diet" vs "MyTeam") — sizing the pill to each label's own text width made the
+// capsules visibly different sizes across tabs.
+private val TabPillMinWidth = 72.dp
 
 @Composable
 private fun TabBarItem(
@@ -129,14 +136,15 @@ private fun TabBarItem(
     val contentColor = if (selected) Color.White else Color.White.copy(alpha = 0.5f)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        verticalArrangement = Arrangement.spacedBy(1.dp),
         modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
+            .defaultMinSize(minWidth = TabPillMinWidth)
+            .clip(RoundedCornerShape(16.dp))
             .background(if (selected) Color.White.copy(alpha = 0.15f) else Color.Transparent)
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(8.dp)
     ) {
-        Icon(tab.icon, contentDescription = tab.label, tint = contentColor, modifier = Modifier.padding(bottom = 1.dp))
-        Text(tab.label, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = contentColor)
+        Icon(tab.icon, contentDescription = tab.label, tint = contentColor, modifier = Modifier.size(20.dp))
+        Text(tab.label, fontSize = 10.sp, fontWeight = FontWeight.Medium, color = contentColor)
     }
 }
