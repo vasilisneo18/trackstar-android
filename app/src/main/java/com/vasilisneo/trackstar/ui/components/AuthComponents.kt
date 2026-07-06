@@ -276,35 +276,3 @@ fun GoogleSignInButton(
         }
     }
 }
-
-/**
- * Visual match for LoginView's native SignInWithAppleButton(.white) — Android has no
- * platform equivalent, so this is a plain styled pill (same 56dp/28dp/white-bg spec,
- * same "Sign in with Apple" label) but without the real Apple glyph (no Android asset
- * for it). Swap for a real Sign in with Apple REST/web flow if that's ever wired up.
- */
-@Composable
-fun AppleSignInButtonPlaceholder(
-    isLoading: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-) {
-    val isEnabled = enabled && !isLoading
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(56.dp)
-            .clip(RoundedCornerShape(28.dp))
-            .background(Color.White)
-            .clickable(enabled = isEnabled, onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = if (isLoading) "Signing in…" else "Sign in with Apple",
-            fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = Color.Black
-        )
-    }
-}

@@ -32,7 +32,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.vasilisneo.trackstar.ui.components.AppleSignInButtonPlaceholder
 import com.vasilisneo.trackstar.ui.components.AuthBackground
 import com.vasilisneo.trackstar.ui.components.AuthCapsuleButton
 import com.vasilisneo.trackstar.ui.components.AuthSecureField
@@ -139,19 +138,12 @@ fun LoginScreen(
 
                 OrDivider(modifier = Modifier.padding(top = 20.dp, bottom = 16.dp))
 
-                // Social sign-in
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    GoogleSignInButton(
-                        isLoading = viewModel.isGoogleLoading,
-                        enabled = !viewModel.isLoading && !viewModel.isAppleLoading,
-                        onClick = viewModel::loginWithGoogle
-                    )
-                    AppleSignInButtonPlaceholder(
-                        isLoading = viewModel.isAppleLoading,
-                        enabled = !viewModel.isLoading && !viewModel.isGoogleLoading,
-                        onClick = viewModel::loginWithApple
-                    )
-                }
+                // Social sign-in — Google only; no Apple Sign In on Android
+                GoogleSignInButton(
+                    isLoading = viewModel.isGoogleLoading,
+                    enabled = !viewModel.isLoading,
+                    onClick = viewModel::loginWithGoogle
+                )
 
                 viewModel.errorMessage?.let { error ->
                     Text(

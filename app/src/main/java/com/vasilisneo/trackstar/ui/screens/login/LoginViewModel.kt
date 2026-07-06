@@ -10,10 +10,11 @@ import kotlinx.coroutines.launch
 
 /**
  * Mirrors the state LoginViewModel exposes on iOS (isLoading, isGoogleLoading,
- * isAppleLoading, errorMessage, isLoginEnabled). No backend call is wired up yet —
- * networking (Retrofit/OkHttp against fitness-book-api's /api/auth/login, JWT storage)
- * is a separate piece of work. login()/loginWithGoogle()/loginWithApple() only drive
- * the loading state so the UI states (spinner, disabled opacity) are real and testable.
+ * errorMessage, isLoginEnabled) — minus Apple sign-in, which doesn't exist on Android.
+ * No backend call is wired up yet — networking (Retrofit/OkHttp against
+ * fitness-book-api's /api/auth/login, JWT storage) is a separate piece of work.
+ * login()/loginWithGoogle() only drive the loading state so the UI states (spinner,
+ * disabled opacity) are real and testable.
  */
 class LoginViewModel : ViewModel() {
     var email by mutableStateOf("")
@@ -25,8 +26,6 @@ class LoginViewModel : ViewModel() {
     var isLoading by mutableStateOf(false)
         private set
     var isGoogleLoading by mutableStateOf(false)
-        private set
-    var isAppleLoading by mutableStateOf(false)
         private set
     var errorMessage by mutableStateOf<String?>(null)
         private set
@@ -58,20 +57,11 @@ class LoginViewModel : ViewModel() {
     }
 
     fun loginWithGoogle() {
-        if (isLoading || isGoogleLoading || isAppleLoading) return
+        if (isLoading || isGoogleLoading) return
         viewModelScope.launch {
             isGoogleLoading = true
             delay(800)
             isGoogleLoading = false
-        }
-    }
-
-    fun loginWithApple() {
-        if (isLoading || isGoogleLoading || isAppleLoading) return
-        viewModelScope.launch {
-            isAppleLoading = true
-            delay(800)
-            isAppleLoading = false
         }
     }
 }
