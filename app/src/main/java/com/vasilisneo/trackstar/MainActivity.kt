@@ -20,6 +20,7 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.vasilisneo.trackstar.ui.screens.landing.LandingScreen
+import com.vasilisneo.trackstar.ui.screens.login.ForgotPasswordScreen
 import com.vasilisneo.trackstar.ui.screens.login.LoginScreen
 import com.vasilisneo.trackstar.ui.screens.register.BodyMetricsScreen
 import com.vasilisneo.trackstar.ui.screens.register.CreatePasswordScreen
@@ -67,8 +68,12 @@ class MainActivity : ComponentActivity() {
                             LoginScreen(
                                 showBackButton = true,
                                 onBackClick = { navController.popBackStack() },
-                                initialEmail = initialEmail
+                                initialEmail = initialEmail,
+                                onForgotPassword = { navController.navigate("forgot_password") }
                             )
+                        }
+                        composable("forgot_password") {
+                            ForgotPasswordScreen(onBackClick = { navController.popBackStack() })
                         }
 
                         // Registration flow — nested graph so every step shares one
