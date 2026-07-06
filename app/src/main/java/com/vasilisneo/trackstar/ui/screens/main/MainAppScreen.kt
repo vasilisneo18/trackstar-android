@@ -103,9 +103,10 @@ private fun FloatingTabBar(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp) // outer margin from the screen edges
             .clip(RoundedCornerShape(26.dp))
             .background(TabBarSurface)
+            .padding(8.dp) // inner inset between the capsule's edge and the tab row itself
     ) {
         MainTabs.forEach { tab ->
             val selected = currentRoute?.hierarchy?.any { it.route == tab.route } == true
