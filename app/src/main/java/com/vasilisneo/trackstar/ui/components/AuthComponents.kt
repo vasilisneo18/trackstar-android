@@ -217,6 +217,7 @@ fun AuthFieldButton(
         modifier = modifier
             .fillMaxWidth()
             .height(52.dp)
+            .clip(FieldShape)
             .background(FieldBackground, FieldShape)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp)

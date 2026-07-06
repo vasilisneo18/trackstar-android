@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -129,6 +130,7 @@ private fun LevelCard(
     Column(
         verticalArrangement = Arrangement.spacedBy(6.dp),
         modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
             .background(
                 if (selected) FitnessAccent.copy(alpha = 0.1f) else Color.White.copy(alpha = 0.05f),
                 RoundedCornerShape(16.dp)
@@ -171,6 +173,7 @@ private fun DayPill(
     androidx.compose.foundation.layout.Box(
         modifier = modifier
             .height(48.dp)
+            .clip(RoundedCornerShape(12.dp))
             .background(
                 if (selected) FitnessAccent.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.05f),
                 RoundedCornerShape(12.dp)
