@@ -14,6 +14,14 @@ enum class EmailCheckStatus { IDLE, CHECKING, AVAILABLE, EXISTS }
 /** Mirrors iOS's UserGender (CreateUserProfileRequest.swift) — just male/female, no "prefer not to say". */
 enum class UserGender { FEMALE, MALE }
 
+/** Mirrors iOS's FitnessLevel (Model/AthleteNotes.swift). */
+enum class FitnessLevel(val label: String) {
+    BEGINNER("Beginner"),
+    INTERMEDIATE("Intermediate"),
+    ADVANCED("Advanced"),
+    ELITE("Elite"),
+}
+
 /**
  * Mirrors iOS's RegisterViewModel, scoped for now to what the Email Entry and Create
  * Password steps need (email, password, confirmPassword, emailCheckStatus, errorMessage).
@@ -64,6 +72,12 @@ class RegisterViewModel : ViewModel() {
     var targetWeightKg by mutableStateOf("")
         private set
 
+    // Fitness Profile (step 4/5)
+    var fitnessLevel by mutableStateOf(FitnessLevel.BEGINNER)
+        private set
+    var trainingDaysPerWeek by mutableStateOf(3)
+        private set
+
     val isValidEmail: Boolean
         get() = email.contains("@") && email.contains(".")
 
@@ -110,6 +124,9 @@ class RegisterViewModel : ViewModel() {
     fun onHeightCmChange(value: String) { heightCm = value }
     fun onWeightKgChange(value: String) { weightKg = value }
     fun onTargetWeightKgChange(value: String) { targetWeightKg = value }
+
+    fun onFitnessLevelChange(value: FitnessLevel) { fitnessLevel = value }
+    fun onTrainingDaysPerWeekChange(value: Int) { trainingDaysPerWeek = value }
 
     /** Simulates the exists/available check — every email is treated as new/available for now. */
     fun checkEmail() {
