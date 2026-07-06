@@ -28,9 +28,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.SportsGymnastics
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,10 +52,14 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.vasilisneo.trackstar.ui.screens.main.workout.WorkoutScreen
 
+// No Material icon matches iOS's overhead-barbell-press glyph exactly, and a hand-drawn
+// substitute didn't read clearly at this size (looked like an hourglass) — FitnessCenter
+// is a standard, unambiguous "workout" icon even though it's a dumbbell object rather than
+// a person doing that exact pose.
 private data class MainTab(val route: String, val label: String, val icon: ImageVector)
 
 private val MainTabs = listOf(
-    MainTab("workout", "Workout", Icons.Filled.SportsGymnastics),
+    MainTab("workout", "Workout", Icons.Filled.FitnessCenter),
     MainTab("stats", "Stats", Icons.Filled.BarChart),
     MainTab("myteam", "MyTeam", Icons.Filled.Groups),
     MainTab("diet", "Diet", Icons.Filled.Restaurant),
@@ -127,6 +131,14 @@ private fun FloatingTabBar(
 // capsules visibly different sizes across tabs.
 private val TabPillMinWidth = 72.dp
 
+// A percent-based RoundedCornerShape only reads as a true capsule when width is much
+// larger than height; here the two are close enough that percent=50 rendered as an
+// egg/ellipse instead of a stadium. A fixed dp radius set to roughly half the pill's own
+// height (icon 20dp + 1dp spacing + ~13dp text + 8dp top/bottom padding ≈ 50dp tall) gives
+// a real flat-sided capsule — the same "shape language" as the outer bar's own fixed-radius
+// RoundedCornerShape(26.dp), just scaled to the smaller pill.
+private val TabPillCornerRadius = 24.dp
+
 @Composable
 private fun TabBarItem(
     tab: MainTab,
@@ -139,7 +151,7 @@ private fun TabBarItem(
         verticalArrangement = Arrangement.spacedBy(1.dp),
         modifier = Modifier
             .defaultMinSize(minWidth = TabPillMinWidth)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(TabPillCornerRadius))
             .background(if (selected) Color.White.copy(alpha = 0.15f) else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(8.dp)
