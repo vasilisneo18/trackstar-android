@@ -1,5 +1,6 @@
 package com.vasilisneo.trackstar
 
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -9,12 +10,20 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.vasilisneo.trackstar.ui.screens.landing.LandingScreen
 import com.vasilisneo.trackstar.ui.screens.login.LoginScreen
+import com.vasilisneo.trackstar.ui.screens.register.CreatePasswordScreen
+import com.vasilisneo.trackstar.ui.screens.register.EmailEntryScreen
+import com.vasilisneo.trackstar.ui.screens.register.RegisterViewModel
 import com.vasilisneo.trackstar.ui.theme.TrackstarTheme
 
 class MainActivity : ComponentActivity() {
@@ -25,7 +34,8 @@ class MainActivity : ComponentActivity() {
             TrackstarTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     // Mirrors AuthCoordinator on iOS: Landing is the real entry point
-                    // (.resetStack root), Login is pushed from it with a back button.
+                    // (.resetStack root), Login/Create-Account are pushed from it with a
+                    // back button.
                     val navController = rememberNavController()
                     NavHost(
                         navController = navController,
@@ -41,15 +51,47 @@ class MainActivity : ComponentActivity() {
                     ) {
                         composable("landing") {
                             LandingScreen(
-                                onCreateAccount = { /* TODO: Create Account flow not built yet */ },
+                                onCreateAccount = { navController.navigate("register") },
                                 onLogin = { navController.navigate("login") }
                             )
                         }
-                        composable("login") {
+                        composable(
+                            route = "login?email={email}",
+                            arguments = listOf(navArgument("email") { type = NavType.StringType; defaultValue = "" })
+                        ) { backStackEntry ->
+                            val initialEmail = backStackEntry.arguments?.getString("email") ?: ""
                             LoginScreen(
                                 showBackButton = true,
-                                onBackClick = { navController.popBackStack() }
+                                onBackClick = { navController.popBackStack() },
+                                initialEmail = initialEmail
                             )
+                        }
+
+                        // Registration flow — nested graph so every step shares one
+                        // RegisterViewModel instance (same shape as iOS's shared
+                        // RegisterViewModel passed down the whole NavigationStack).
+                        navigation(startDestination = "email_entry", route = "register") {
+                            composable("email_entry") { backStackEntry ->
+                                val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("register") }
+                                val registerViewModel: RegisterViewModel = viewModel(parentEntry)
+                                EmailEntryScreen(
+                                    viewModel = registerViewModel,
+                                    onBackClick = { navController.popBackStack() },
+                                    onNewEmail = { navController.navigate("create_password") },
+                                    onExistingEmail = { email ->
+                                        navController.navigate("login?email=${Uri.encode(email)}")
+                                    }
+                                )
+                            }
+                            composable("create_password") { backStackEntry ->
+                                val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("register") }
+                                val registerViewModel: RegisterViewModel = viewModel(parentEntry)
+                                CreatePasswordScreen(
+                                    viewModel = registerViewModel,
+                                    onBackClick = { navController.popBackStack() },
+                                    onContinue = { /* TODO: Personal Details step not built yet */ }
+                                )
+                            }
                         }
                     }
                 }

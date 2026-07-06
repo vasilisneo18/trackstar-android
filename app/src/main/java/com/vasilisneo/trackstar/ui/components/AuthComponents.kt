@@ -7,20 +7,28 @@ package com.vasilisneo.trackstar.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Visibility
@@ -45,6 +53,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -111,6 +120,83 @@ fun GlassCircleIconButton(
     }
 }
 
+/**
+ * Common shell shared by every scrollable auth screen (Login, Email Entry, Create
+ * Password, ...): background + wordmark + fixed nav row (back button, optional trailing
+ * content like a step indicator) + a scrollable column with the big title/subtitle block
+ * already laid out. Doesn't reproduce iOS's scroll-collapse nav bar title animation — see
+ * LoginScreen's file comment for why that's an intentional scope cut.
+ */
+@Composable
+fun AuthScreenScaffold(
+    title: String,
+    subtitle: String,
+    showBackButton: Boolean,
+    onBackClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    glowOffsetY: Dp = (-160).dp,
+    navBarTrailing: @Composable () -> Unit = { Spacer(modifier = Modifier.width(44.dp)) },
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Box(modifier = modifier.fillMaxSize()) {
+        AuthBackground(glowOffsetY = glowOffsetY)
+
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+            AuthWordmark()
+        }
+
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (showBackButton) {
+                    GlassCircleIconButton(onClick = onBackClick, contentDescription = "Back")
+                } else {
+                    Spacer(modifier = Modifier.width(44.dp))
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                navBarTrailing()
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .imePadding()
+                    .padding(horizontal = 20.dp)
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(top = 12.dp, bottom = 32.dp)
+                ) {
+                    Text(title, fontSize = 34.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Text(subtitle, fontSize = 16.sp, color = Color.White.copy(alpha = 0.45f))
+                }
+
+                content()
+
+                Spacer(modifier = Modifier.height(48.dp))
+            }
+        }
+    }
+}
+
+/** Matches the repeated red error-message style used across every auth screen. */
+@Composable
+fun AuthErrorText(message: String, modifier: Modifier = Modifier) {
+    Text(
+        text = message,
+        fontSize = 13.sp,
+        color = Color.Red.copy(alpha = 0.85f),
+        textAlign = TextAlign.Center,
+        modifier = modifier.fillMaxWidth().padding(top = 10.dp)
+    )
+}
+
 private val FieldShape = RoundedCornerShape(20.dp)
 private val FieldBackground = Color.White.copy(alpha = 0.08f)
 private val PlaceholderColor = Color.White.copy(alpha = 0.55f)
@@ -173,6 +259,7 @@ fun AuthSecureField(
                 BasicTextField(
                     value = value,
                     onValueChange = onValueChange,
+                    modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     textStyle = TextStyle(color = Color.White, fontSize = 16.sp),
                     cursorBrush = SolidColor(Color.White),
