@@ -1,0 +1,7 @@
+<resources>
+    <!-- Base application theme — Compose owns the real UI theming (see ui/theme/Theme.kt);
+         this is only used for the window background before Compose content is drawn. -->
+    <style name="Theme.Trackstar" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/trackstar_background</item>
+    </style>
+</resources>

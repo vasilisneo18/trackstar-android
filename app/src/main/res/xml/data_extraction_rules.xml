@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <!-- No custom rules yet — add <exclude domain="..." path="..."/> entries
+             once local persistence (e.g. Room/DataStore) is in place. -->
+    </cloud-backup>
+</data-extraction-rules>

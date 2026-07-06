@@ -1,0 +1,6 @@
+<resources>
+    <!-- Matches the iOS app's "Midnight" theme accent/background -->
+    <color name="trackstar_accent">#2E80FF</color>
+    <color name="trackstar_background">#0D0D17</color>
+    <color name="ic_launcher_background">#0D0D17</color>
+</resources>
