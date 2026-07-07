@@ -29,6 +29,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,6 +58,10 @@ fun LandingScreen(
     onQuickLoginSuccess: () -> Unit = {},
     loginViewModel: LoginViewModel = viewModel(),
 ) {
+    // Re-check TokenStore every time Landing is (re)composed — matches InitialView's
+    // .onAppear re-checking canQuickLogin on every reveal, not just once per ViewModel
+    // lifetime, so the card reappears after dismissContinueAs() the next time you're back.
+    LaunchedEffect(Unit) { loginViewModel.refreshCachedEmail() }
     val cachedEmail = loginViewModel.cachedEmail
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -72,7 +77,7 @@ fun LandingScreen(
                     isLoading = loginViewModel.isLoading,
                     errorMessage = loginViewModel.errorMessage,
                     onContinue = { loginViewModel.quickLogin(onQuickLoginSuccess) },
-                    onNotYou = { loginViewModel.forgetCachedUser() },
+                    onNotYou = { loginViewModel.dismissContinueAs() },
                 )
             } else {
                 ButtonsSection(onCreateAccount = onCreateAccount, onLogin = onLogin)
