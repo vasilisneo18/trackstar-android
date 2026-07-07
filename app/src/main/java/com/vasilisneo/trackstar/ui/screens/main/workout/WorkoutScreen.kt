@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,7 +62,12 @@ fun WorkoutScreen(
     val today = LocalDate.now()
 
     Box(modifier = Modifier.fillMaxSize().background(TrackstarBackground)) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+        // Lift the wordmark above the floating tab bar (which overlays the bottom of this
+        // full-screen tab content) instead of letting it sit hidden behind it.
+        Box(
+            modifier = Modifier.fillMaxSize().navigationBarsPadding().padding(bottom = 76.dp),
+            contentAlignment = Alignment.BottomCenter
+        ) {
             AuthWordmark()
         }
 
