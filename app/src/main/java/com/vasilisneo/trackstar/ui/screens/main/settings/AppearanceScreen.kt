@@ -59,7 +59,7 @@ private val Themes = listOf(
 )
 
 @Composable
-fun AppearanceScreen(onBackClick: () -> Unit = {}) {
+fun AppearanceScreen(onBackClick: () -> Unit = {}, onUpgrade: () -> Unit = {}) {
     var selected by remember { mutableStateOf("Midnight") }
 
     SettingsScaffold(title = "Appearance", subtitle = "Choose a background theme", onBack = onBackClick) {
@@ -73,7 +73,7 @@ fun AppearanceScreen(onBackClick: () -> Unit = {}) {
                         ThemeSwatchCell(
                             theme = theme,
                             selected = theme.name == selected,
-                            onClick = { if (!theme.locked) selected = theme.name },
+                            onClick = { if (theme.locked) onUpgrade() else selected = theme.name },
                             modifier = Modifier.weight(1f)
                         )
                     }

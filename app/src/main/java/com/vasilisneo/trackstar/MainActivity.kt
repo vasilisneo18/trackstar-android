@@ -12,7 +12,9 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -44,6 +46,7 @@ import com.vasilisneo.trackstar.ui.screens.main.settings.AppSettingsScreen
 import com.vasilisneo.trackstar.ui.screens.main.settings.AppearanceScreen
 import com.vasilisneo.trackstar.ui.screens.main.settings.CloseAccountScreen
 import com.vasilisneo.trackstar.ui.screens.main.settings.NotificationsScreen
+import com.vasilisneo.trackstar.ui.screens.subscription.SubscriptionScreen
 import com.vasilisneo.trackstar.ui.theme.TrackstarTheme
 
 class MainActivity : ComponentActivity() {
@@ -120,8 +123,20 @@ class MainActivity : ComponentActivity() {
                                     }
                                 },
                                 onPersonalInfo = { navController.navigate("personal_info") },
-                                onSettings = { navController.navigate("settings") }
+                                onSettings = { navController.navigate("settings") },
+                                onUpgrade = { navController.navigate("subscription") }
                             )
+                        }
+                        composable(
+                            "subscription",
+                            // iOS presents this as a fullScreenCover — slide up from the
+                            // bottom like a modal rather than the horizontal auth push.
+                            enterTransition = { slideInVertically(initialOffsetY = { it }) },
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                            popExitTransition = { slideOutVertically(targetOffsetY = { it }) },
+                        ) {
+                            SubscriptionScreen(onDismiss = { navController.popBackStack() })
                         }
                         composable("personal_info") {
                             PersonalInfoScreen(onBackClick = { navController.popBackStack() })
@@ -136,7 +151,10 @@ class MainActivity : ComponentActivity() {
                             NotificationsScreen(onBackClick = { navController.popBackStack() })
                         }
                         composable("settings_appearance") {
-                            AppearanceScreen(onBackClick = { navController.popBackStack() })
+                            AppearanceScreen(
+                                onBackClick = { navController.popBackStack() },
+                                onUpgrade = { navController.navigate("subscription") }
+                            )
                         }
                         composable("settings_app_settings") {
                             AppSettingsScreen(onBackClick = { navController.popBackStack() })

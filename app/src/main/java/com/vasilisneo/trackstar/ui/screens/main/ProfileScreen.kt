@@ -98,6 +98,7 @@ fun ProfileScreen(
     onLogout: () -> Unit = {},
     onPersonalInfo: () -> Unit = {},
     onSettings: () -> Unit = {},
+    onUpgrade: () -> Unit = {},
 ) {
     val profile = PlaceholderProfile
 
@@ -126,7 +127,7 @@ fun ProfileScreen(
             ) {
                 ProfileHeader(profile)
 
-                PersonalSection(profile)
+                PersonalSection(profile, onUpgrade = onUpgrade)
 
                 AppSection(onPersonalInfo = onPersonalInfo, onSettings = onSettings)
 
@@ -179,12 +180,12 @@ private fun ProfileHeader(profile: ProfileData) {
 }
 
 @Composable
-private fun PersonalSection(profile: ProfileData) {
+private fun PersonalSection(profile: ProfileData, onUpgrade: () -> Unit) {
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
     ) {
-        LevelUpCard()
+        LevelUpCard(onClick = onUpgrade)
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatCard(icon = Icons.Filled.Person, title = "Gender", value = profile.gender, unit = "", modifier = Modifier.weight(1f))
@@ -198,7 +199,7 @@ private fun PersonalSection(profile: ProfileData) {
 }
 
 @Composable
-private fun LevelUpCard() {
+private fun LevelUpCard(onClick: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -215,7 +216,7 @@ private fun LevelUpCard() {
                     )
                 )
             )
-            .clickable { /* subscription flow not built yet */ }
+            .clickable(onClick = onClick)
             .padding(horizontal = 16.dp)
     ) {
         Icon(Icons.Filled.MilitaryTech, contentDescription = null, tint = Color(0xFFE6B325), modifier = Modifier.size(20.dp))
