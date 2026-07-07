@@ -89,16 +89,18 @@ fun LandingScreen(
     // cached email becomes available, so the card slides up over the buttons rather than
     // swapping them out — the branding section never reflows.
     var showContinueAs by remember { mutableStateOf(false) }
+    val dragOffset = remember { Animatable(0f) }
     LaunchedEffect(cachedEmail) {
         if (cachedEmail != null) {
             delay(250)
+            dragOffset.snapTo(0f)
             showContinueAs = true
         } else {
             showContinueAs = false
         }
     }
 
-    val dragOffset = remember { Animatable(0f) }
+
     val scope = rememberCoroutineScope()
     val dismissThresholdPx = with(LocalDensity.current) { 60.dp.toPx() }
 
@@ -136,14 +138,17 @@ fun LandingScreen(
                     .pointerInput(Unit) {
                         detectVerticalDragGestures(
                             onDragEnd = {
-                                scope.launch {
-                                    if (dragOffset.value > dismissThresholdPx) {
-                                        loginViewModel.dismissContinueAs()
-                                        showContinueAs = false
-                                        dragOffset.snapTo(0f)
-                                    } else {
-                                        dragOffset.animateTo(0f, animationSpec = spring())
-                                    }
+                                if (dragOffset.value > dismissThresholdPx) {
+                                    // Let AnimatedVisibility's own exit transition take over
+                                    // from wherever the drag left off — do NOT reset
+                                    // dragOffset here. Snapping it to 0 at the same moment
+                                    // showContinueAs flips to false raced against the exit
+                                    // animation's own slide-down, causing the card to jump
+                                    // back into view for a frame before disappearing.
+                                    loginViewModel.dismissContinueAs()
+                                    showContinueAs = false
+                                } else {
+                                    scope.launch { dragOffset.animateTo(0f, animationSpec = spring()) }
                                 }
                             },
                             onDragCancel = { scope.launch { dragOffset.animateTo(0f, animationSpec = spring()) } },
