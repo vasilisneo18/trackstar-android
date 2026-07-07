@@ -146,9 +146,9 @@ private fun TabBarItem(
             .clip(RoundedCornerShape(percent = 50))
             .background(if (selected) Color.White.copy(alpha = 0.15f) else Color.Transparent)
             .clickable(onClick = onClick)
-            .padding(vertical = 8.dp)
+            .padding(vertical = 5.dp) // smaller so the overall bar is shorter, matching iOS
     ) {
-        Icon(tab.icon, contentDescription = tab.label, tint = contentColor, modifier = Modifier.size(22.dp))
+        Icon(tab.icon, contentDescription = tab.label, tint = contentColor, modifier = Modifier.size(25.dp))
         Text(tab.label, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = contentColor)
     }
 }
