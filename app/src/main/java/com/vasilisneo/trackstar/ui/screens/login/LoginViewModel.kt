@@ -17,9 +17,11 @@ import kotlinx.coroutines.launch
  * disabled opacity) are real and testable.
  */
 class LoginViewModel : ViewModel() {
-    var email by mutableStateOf("")
+    // Dev convenience: prefill test credentials so login is one tap during development.
+    // Remove (reset to "") once real auth is wired up.
+    var email by mutableStateOf("vasilis@example.com")
         private set
-    var password by mutableStateOf("")
+    var password by mutableStateOf("password123")
         private set
     var showPassword by mutableStateOf(false)
         private set

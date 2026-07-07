@@ -36,7 +36,10 @@ import com.vasilisneo.trackstar.ui.screens.register.GoalsScreen
 import com.vasilisneo.trackstar.ui.screens.register.PersonalDetailsScreen
 import com.vasilisneo.trackstar.ui.screens.register.RegisterViewModel
 import com.vasilisneo.trackstar.ui.screens.main.MainAppScreen
+import com.vasilisneo.trackstar.ui.screens.main.PersonalInfoScreen
 import com.vasilisneo.trackstar.ui.screens.main.ProfileScreen
+import com.vasilisneo.trackstar.ui.screens.main.SettingsDetailScreen
+import com.vasilisneo.trackstar.ui.screens.main.SettingsScreen
 import com.vasilisneo.trackstar.ui.theme.TrackstarTheme
 
 class MainActivity : ComponentActivity() {
@@ -111,8 +114,26 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate("landing") {
                                         popUpTo("landing") { inclusive = true }
                                     }
-                                }
+                                },
+                                onPersonalInfo = { navController.navigate("personal_info") },
+                                onSettings = { navController.navigate("settings") }
                             )
+                        }
+                        composable("personal_info") {
+                            PersonalInfoScreen(onBackClick = { navController.popBackStack() })
+                        }
+                        composable("settings") {
+                            SettingsScreen(
+                                onBackClick = { navController.popBackStack() },
+                                onOpenDetail = { title -> navController.navigate("settings_detail/${Uri.encode(title)}") }
+                            )
+                        }
+                        composable(
+                            route = "settings_detail/{title}",
+                            arguments = listOf(navArgument("title") { type = NavType.StringType })
+                        ) { backStackEntry ->
+                            val title = backStackEntry.arguments?.getString("title") ?: "Settings"
+                            SettingsDetailScreen(title = title, onBackClick = { navController.popBackStack() })
                         }
 
                         // Registration flow — nested graph so every step shares one

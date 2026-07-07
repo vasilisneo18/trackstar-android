@@ -52,6 +52,7 @@ import com.vasilisneo.trackstar.ui.components.AuthCapsuleButton
 import com.vasilisneo.trackstar.ui.components.AuthErrorText
 import com.vasilisneo.trackstar.ui.components.AuthFieldButton
 import com.vasilisneo.trackstar.ui.components.AuthFieldLabel
+import com.vasilisneo.trackstar.ui.components.CountryPickerSheet
 import com.vasilisneo.trackstar.ui.components.AuthScreenScaffold
 import com.vasilisneo.trackstar.ui.components.AuthSelectorButton
 import com.vasilisneo.trackstar.ui.components.AuthTextField
@@ -191,87 +192,5 @@ fun PersonalDetailsScreen(
             onSelect = { viewModel.onCountryChange(it) },
             onDismiss = { showCountryPicker = false }
         )
-    }
-}
-
-private data class CountryOption(val name: String, val flag: String)
-
-private fun regionFlagEmoji(isoCode: String): String =
-    isoCode.uppercase().map { 0x1F1E6 - 'A'.code + it.code }
-        .joinToString("") { String(Character.toChars(it)) }
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CountryPickerSheet(
-    selectedCountry: String,
-    onSelect: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val allCountries = remember {
-        Locale.getISOCountries()
-            .mapNotNull { code ->
-                val name = Locale.Builder().setRegion(code).build().getDisplayCountry(Locale.getDefault())
-                if (name.isBlank() || name == code) null else CountryOption(name, regionFlagEmoji(code))
-            }
-            .distinctBy { it.name }
-            .sortedBy { it.name }
-    }
-    var searchText by remember { mutableStateOf("") }
-    val filtered = remember(searchText) {
-        if (searchText.isBlank()) allCountries
-        else allCountries.filter { it.name.contains(searchText, ignoreCase = true) }
-    }
-    val sheetState = rememberModalBottomSheetState()
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        containerColor = TrackstarSurface,
-    ) {
-        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-            Text(
-                "Country",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-            OutlinedTextField(
-                value = searchText,
-                onValueChange = { searchText = it },
-                placeholder = { Text("Search countries", color = Color.White.copy(alpha = 0.4f)) },
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = Color.White,
-                    unfocusedTextColor = Color.White,
-                    focusedBorderColor = Color.White.copy(alpha = 0.4f),
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
-                    cursorColor = Color.White,
-                ),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-            )
-            LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
-                items(filtered) { country ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onSelect(country.name); onDismiss() }
-                            .padding(vertical = 12.dp)
-                    ) {
-                        Text(country.flag, fontSize = 22.sp)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(country.name, fontSize = 16.sp, color = Color.White, modifier = Modifier.weight(1f))
-                        if (country.name == selectedCountry) {
-                            Icon(
-                                imageVector = Icons.Filled.Check,
-                                contentDescription = null,
-                                tint = Color(0xFF2E80FF)
-                            )
-                        }
-                    }
-                }
-            }
-        }
     }
 }

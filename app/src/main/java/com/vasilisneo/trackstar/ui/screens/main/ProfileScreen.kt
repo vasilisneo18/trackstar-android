@@ -96,6 +96,8 @@ private val CardSurface = Color.White.copy(alpha = 0.06f)
 fun ProfileScreen(
     onBackClick: () -> Unit = {},
     onLogout: () -> Unit = {},
+    onPersonalInfo: () -> Unit = {},
+    onSettings: () -> Unit = {},
 ) {
     val profile = PlaceholderProfile
 
@@ -126,7 +128,7 @@ fun ProfileScreen(
 
                 PersonalSection(profile)
 
-                AppSection()
+                AppSection(onPersonalInfo = onPersonalInfo, onSettings = onSettings)
 
                 LogoutSection(onLogout = onLogout)
             }
@@ -297,11 +299,11 @@ private fun StatFace(icon: ImageVector, iconTint: Color, value: String, unit: St
 }
 
 @Composable
-private fun AppSection() {
+private fun AppSection(onPersonalInfo: () -> Unit, onSettings: () -> Unit) {
     ProfileGroup {
-        ProfileRow(icon = Icons.Outlined.Badge, label = "Personal Info", onClick = { /* detail not built yet */ })
+        ProfileRow(icon = Icons.Outlined.Badge, label = "Personal Info", onClick = onPersonalInfo)
         HorizontalDivider(color = Color.White.copy(alpha = 0.08f), modifier = Modifier.padding(start = 62.dp))
-        ProfileRow(icon = Icons.Filled.Settings, label = "Settings", onClick = { /* detail not built yet */ })
+        ProfileRow(icon = Icons.Filled.Settings, label = "Settings", onClick = onSettings)
     }
 }
 
