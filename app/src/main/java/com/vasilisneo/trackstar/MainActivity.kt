@@ -114,6 +114,10 @@ class MainActivity : ComponentActivity() {
                             // scale so it grows in over the stationary main screen.
                             enterTransition = { fadeIn() + scaleIn(initialScale = 0.92f) },
                             popExitTransition = { fadeOut() + scaleOut(targetScale = 0.92f) },
+                            // Hold still when a child (Subscription modal, Personal Info,
+                            // Settings) is pushed over it, instead of parallax-sliding left.
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
                         ) {
                             ProfileScreen(
                                 onBackClick = { navController.popBackStack() },
@@ -150,7 +154,12 @@ class MainActivity : ComponentActivity() {
                         composable("settings_notifications") {
                             NotificationsScreen(onBackClick = { navController.popBackStack() })
                         }
-                        composable("settings_appearance") {
+                        composable(
+                            "settings_appearance",
+                            // Hold still while the Subscription modal slides up over it.
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                        ) {
                             AppearanceScreen(
                                 onBackClick = { navController.popBackStack() },
                                 onUpgrade = { navController.navigate("subscription") }
