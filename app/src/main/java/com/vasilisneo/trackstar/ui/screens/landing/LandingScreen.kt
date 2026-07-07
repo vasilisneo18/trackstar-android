@@ -5,9 +5,17 @@ package com.vasilisneo.trackstar.ui.screens.landing
 // LoginScreen has a back button. When there's a cached signed-out user, shows iOS's
 // "Continue as" quick-login card for one-tap re-login.
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -17,12 +25,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.CircularProgressIndicator
@@ -30,14 +38,24 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,6 +64,9 @@ import com.vasilisneo.trackstar.R
 import com.vasilisneo.trackstar.ui.components.AuthBackground
 import com.vasilisneo.trackstar.ui.components.AuthErrorText
 import com.vasilisneo.trackstar.ui.screens.login.LoginViewModel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 // Local to this screen, distinct from the app's theme accent — matches iOS's
 // `private let accent = Color(red: 0.35, green: 0.45, blue: 1.0)` in LandingView.
@@ -64,6 +85,23 @@ fun LandingScreen(
     LaunchedEffect(Unit) { loginViewModel.refreshCachedEmail() }
     val cachedEmail = loginViewModel.cachedEmail
 
+    // Mirrors InitialView: showContinueAs starts false and flips true 0.25s after the
+    // cached email becomes available, so the card slides up over the buttons rather than
+    // swapping them out — the branding section never reflows.
+    var showContinueAs by remember { mutableStateOf(false) }
+    LaunchedEffect(cachedEmail) {
+        if (cachedEmail != null) {
+            delay(250)
+            showContinueAs = true
+        } else {
+            showContinueAs = false
+        }
+    }
+
+    val dragOffset = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    val dismissThresholdPx = with(LocalDensity.current) { 60.dp.toPx() }
+
     Box(modifier = Modifier.fillMaxSize()) {
         AuthBackground(glowOffsetY = (-180).dp)
 
@@ -71,17 +109,51 @@ fun LandingScreen(
             Spacer(modifier = Modifier.weight(1f))
             BrandingSection()
             Spacer(modifier = Modifier.weight(1f))
-            if (cachedEmail != null) {
-                ContinueAsSection(
-                    email = cachedEmail,
-                    isLoading = loginViewModel.isLoading,
-                    errorMessage = loginViewModel.errorMessage,
-                    onContinue = { loginViewModel.quickLogin(onQuickLoginSuccess) },
-                    onNotYou = { loginViewModel.dismissContinueAs() },
-                )
-            } else {
-                ButtonsSection(onCreateAccount = onCreateAccount, onLogin = onLogin)
-            }
+            ButtonsSection(
+                onCreateAccount = onCreateAccount,
+                onLogin = onLogin,
+                modifier = Modifier.alpha(if (showContinueAs) 0f else 1f),
+            )
+        }
+
+        AnimatedVisibility(
+            visible = showContinueAs,
+            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+            modifier = Modifier.align(Alignment.BottomCenter).safeDrawingPadding(),
+        ) {
+            ContinueAsSection(
+                email = cachedEmail.orEmpty(),
+                isLoading = loginViewModel.isLoading,
+                errorMessage = loginViewModel.errorMessage,
+                onContinue = { loginViewModel.quickLogin(onQuickLoginSuccess) },
+                onNotYou = {
+                    loginViewModel.dismissContinueAs()
+                    showContinueAs = false
+                },
+                modifier = Modifier
+                    .offset { IntOffset(0, dragOffset.value.roundToInt()) }
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures(
+                            onDragEnd = {
+                                scope.launch {
+                                    if (dragOffset.value > dismissThresholdPx) {
+                                        loginViewModel.dismissContinueAs()
+                                        showContinueAs = false
+                                        dragOffset.snapTo(0f)
+                                    } else {
+                                        dragOffset.animateTo(0f, animationSpec = spring())
+                                    }
+                                }
+                            },
+                            onDragCancel = { scope.launch { dragOffset.animateTo(0f, animationSpec = spring()) } },
+                            onVerticalDrag = { change, dragAmount ->
+                                change.consume()
+                                scope.launch { dragOffset.snapTo((dragOffset.value + dragAmount).coerceAtLeast(0f)) }
+                            },
+                        )
+                    },
+            )
         }
     }
 }
@@ -134,6 +206,7 @@ private fun ContinueAsSection(
     errorMessage: String?,
     onContinue: () -> Unit,
     onNotYou: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     // iOS wraps the header + card in one shared panel (.ultraThinMaterial, 30pt corners,
     // 20/24/40 padding, 15pt outer margin) instead of the header floating directly on the
@@ -141,7 +214,7 @@ private fun ContinueAsSection(
     // same API-26 reasoning as AuthBackground).
     Column(
         verticalArrangement = Arrangement.spacedBy(20.dp),
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 15.dp)
             .padding(bottom = 32.dp)
@@ -241,10 +314,10 @@ private fun BrandingSection() {
 }
 
 @Composable
-private fun ButtonsSection(onCreateAccount: () -> Unit, onLogin: () -> Unit) {
+private fun ButtonsSection(onCreateAccount: () -> Unit, onLogin: () -> Unit, modifier: Modifier = Modifier) {
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp)
             .padding(bottom = 48.dp)
