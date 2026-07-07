@@ -86,7 +86,14 @@ class MainActivity : ComponentActivity() {
                             MainAppScreen(onProfileClick = { navController.navigate("profile") })
                         }
                         composable("profile") {
-                            ProfileScreen(onBackClick = { navController.popBackStack() })
+                            ProfileScreen(
+                                onBackClick = { navController.popBackStack() },
+                                onLogout = {
+                                    navController.navigate("landing") {
+                                        popUpTo("landing") { inclusive = true }
+                                    }
+                                }
+                            )
                         }
 
                         // Registration flow — nested graph so every step shares one

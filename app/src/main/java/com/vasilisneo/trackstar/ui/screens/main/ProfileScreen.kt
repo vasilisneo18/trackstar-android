@@ -1,34 +1,346 @@
 package com.vasilisneo.trackstar.ui.screens.main
 
-// Minimal stand-in for ProfileView on iOS — reachable via the avatar button on every tab.
-// Real profile content (avatar, name, stats, coach card, settings) is a separate future
-// piece of work; this just proves the navigation wiring out of the tab shell.
+// Visual replica of ProfileView (Trackstar/UI/View/MainApp/Profile/ProfileView.swift) on
+// iOS. Driven by placeholder data (PlaceholderProfile) since there's no auth/session,
+// profile-networking, or subscription system on Android yet — same simulated posture as
+// the login/register flow. Scope cuts vs iOS: the collapsing nav-bar name animation, the
+// QR-connect sheet, the subscription sheet, and the Edit-Profile / Settings / Personal-Info
+// detail screens (the rows are present but currently inert). The tap-to-flip weight→goal
+// stat card is reproduced.
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Cake
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.MilitaryTech
+import androidx.compose.material.icons.filled.MonitorWeight
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Straighten
+import androidx.compose.material.icons.filled.TrackChanges
+import androidx.compose.material.icons.outlined.Badge
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.vasilisneo.trackstar.ui.components.AuthScreenScaffold
+import com.vasilisneo.trackstar.ui.components.GlassCircleIconButton
+import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
+import com.vasilisneo.trackstar.ui.theme.TrackstarBackground
+
+private data class ProfileData(
+    val fullName: String,
+    val initials: String,
+    val email: String,
+    val country: String,
+    val gender: String,
+    val age: Int,
+    val heightCm: Int,
+    val weightKg: Double,
+    val targetWeightKg: Double,
+)
+
+private val PlaceholderProfile = ProfileData(
+    fullName = "Vasilis Neophytou",
+    initials = "VN",
+    email = "vasilis@example.com",
+    country = "Cyprus",
+    gender = "Male",
+    age = 25,
+    heightCm = 178,
+    weightKg = 82.0,
+    targetWeightKg = 75.0,
+)
+
+private val CardSurface = Color.White.copy(alpha = 0.06f)
 
 @Composable
-fun ProfileScreen(onBackClick: () -> Unit = {}) {
-    AuthScreenScaffold(
-        title = "Profile",
-        subtitle = "Coming soon",
-        showBackButton = true,
-        onBackClick = onBackClick,
+fun ProfileScreen(
+    onBackClick: () -> Unit = {},
+    onLogout: () -> Unit = {},
+) {
+    val profile = PlaceholderProfile
+
+    Box(modifier = Modifier.fillMaxSize().background(TrackstarBackground)) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Nav bar
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                GlassCircleIconButton(onClick = onBackClick, icon = Icons.Filled.Close, contentDescription = "Close")
+                Spacer(modifier = Modifier.weight(1f))
+                GlassCircleIconButton(onClick = { /* QR connect not built yet */ }, icon = Icons.Filled.QrCode2, contentDescription = "My QR code")
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 40.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                ProfileHeader(profile)
+
+                PersonalSection(profile)
+
+                AppSection()
+
+                LogoutSection(onLogout = onLogout)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileHeader(profile: ProfileData) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
     ) {
-        Column(modifier = Modifier.fillMaxSize().padding(top = 8.dp)) {
-            Text(
-                "Full profile (avatar, stats, coach card, settings) isn't built yet.",
-                fontSize = 14.sp,
-                color = Color.White.copy(alpha = 0.45f)
+        Box(contentAlignment = Alignment.Center) {
+            // Soft glow behind the avatar
+            Box(
+                modifier = Modifier
+                    .size(100.dp)
+                    .blur(radius = 20.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
+                    .background(TrackstarAccent.copy(alpha = 0.3f), CircleShape)
             )
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .background(
+                        Brush.linearGradient(
+                            listOf(TrackstarAccent.copy(alpha = 0.9f), TrackstarAccent.copy(alpha = 0.45f))
+                        ),
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(profile.initials, fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            }
+        }
+
+        Text(profile.fullName, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Text(profile.email, fontSize = 14.sp, color = Color.White.copy(alpha = 0.45f))
+
+        if (profile.country.isNotEmpty()) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(13.dp))
+                Text(profile.country, fontSize = 13.sp, color = Color.White.copy(alpha = 0.3f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun PersonalSection(profile: ProfileData) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+    ) {
+        LevelUpCard()
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            StatCard(icon = Icons.Filled.Person, title = "Gender", value = profile.gender, unit = "", modifier = Modifier.weight(1f))
+            StatCard(icon = Icons.Filled.Cake, title = "Age", value = profile.age.toString(), unit = "yrs", modifier = Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            StatCard(icon = Icons.Filled.Straighten, title = "Height", value = profile.heightCm.toString(), unit = "cm", modifier = Modifier.weight(1f))
+            WeightStatCard(weight = profile.weightKg, targetWeight = profile.targetWeightKg, modifier = Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun LevelUpCard() {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(60.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(
+                Brush.horizontalGradient(
+                    listOf(
+                        Color(0xFFCD7F32).copy(alpha = 0.35f), // bronze
+                        Color(0xFFB8B8B8).copy(alpha = 0.25f), // silver
+                        Color(0xFFE6B325).copy(alpha = 0.35f), // gold
+                    )
+                )
+            )
+            .clickable { /* subscription flow not built yet */ }
+            .padding(horizontal = 16.dp)
+    ) {
+        Icon(Icons.Filled.MilitaryTech, contentDescription = null, tint = Color(0xFFE6B325), modifier = Modifier.size(20.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text("Level Up", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text("Start your 7-day free trial", fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f))
+        }
+        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(16.dp))
+    }
+}
+
+@Composable
+private fun StatCard(icon: ImageVector, title: String, value: String, unit: String, modifier: Modifier = Modifier) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = modifier
+            .height(100.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(CardSurface),
+    ) {
+        Spacer(modifier = Modifier.weight(1f))
+        Icon(icon, contentDescription = null, tint = Color.White.copy(alpha = 0.75f), modifier = Modifier.size(22.dp))
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(value, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            if (unit.isNotEmpty()) {
+                Text(unit, fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f), modifier = Modifier.padding(bottom = 2.dp))
+            }
+        }
+        Text(title, fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f))
+        Spacer(modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun WeightStatCard(weight: Double, targetWeight: Double, modifier: Modifier = Modifier) {
+    var flipped by remember { mutableStateOf(false) }
+    val rotation by animateFloatAsState(
+        targetValue = if (flipped) 180f else 0f,
+        animationSpec = spring(dampingRatio = 0.7f, stiffness = 300f),
+        label = "weightFlip"
+    )
+    Box(
+        modifier = modifier
+            .height(100.dp)
+            .graphicsLayer {
+                rotationY = rotation
+                cameraDistance = 12f * density
+            }
+            .clip(RoundedCornerShape(20.dp))
+            .background(CardSurface)
+            .clickable { flipped = !flipped },
+        contentAlignment = Alignment.Center
+    ) {
+        if (rotation <= 90f) {
+            StatFace(icon = Icons.Filled.MonitorWeight, iconTint = Color.White.copy(alpha = 0.75f),
+                value = "%.1f".format(weight), unit = "kg", title = "Weight")
+        } else {
+            // Counter-rotate so the back face isn't mirrored
+            Box(modifier = Modifier.graphicsLayer { rotationY = 180f }, contentAlignment = Alignment.Center) {
+                StatFace(icon = Icons.Filled.TrackChanges, iconTint = TrackstarAccent.copy(alpha = 0.85f),
+                    value = "%.1f".format(targetWeight), unit = "kg", title = "Goal")
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatFace(icon: ImageVector, iconTint: Color, value: String, unit: String, title: String) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(22.dp))
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(value, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text(unit, fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f), modifier = Modifier.padding(bottom = 2.dp))
+        }
+        Text(title, fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f))
+    }
+}
+
+@Composable
+private fun AppSection() {
+    ProfileGroup {
+        ProfileRow(icon = Icons.Outlined.Badge, label = "Personal Info", onClick = { /* detail not built yet */ })
+        HorizontalDivider(color = Color.White.copy(alpha = 0.08f), modifier = Modifier.padding(start = 62.dp))
+        ProfileRow(icon = Icons.Filled.Settings, label = "Settings", onClick = { /* detail not built yet */ })
+    }
+}
+
+@Composable
+private fun LogoutSection(onLogout: () -> Unit) {
+    ProfileGroup {
+        ProfileRow(icon = Icons.AutoMirrored.Filled.Logout, label = "Log Out", showChevron = false, onClick = onLogout)
+    }
+}
+
+@Composable
+private fun ProfileGroup(content: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(CardSurface)
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun ProfileRow(icon: ImageVector, label: String, showChevron: Boolean = true, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 18.dp)
+    ) {
+        Box(modifier = Modifier.width(32.dp), contentAlignment = Alignment.CenterStart) {
+            Icon(icon, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+        }
+        Text(label, fontSize = 16.sp, color = Color.White, modifier = Modifier.weight(1f))
+        if (showChevron) {
+            Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Color.White.copy(alpha = 0.25f), modifier = Modifier.size(16.dp))
         }
     }
 }
