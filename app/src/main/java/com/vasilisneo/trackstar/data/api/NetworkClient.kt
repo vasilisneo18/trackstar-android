@@ -1,6 +1,7 @@
 package com.vasilisneo.trackstar.data.api
 
 import com.google.gson.Gson
+import com.vasilisneo.trackstar.data.auth.AuthTokenHolder
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -21,6 +22,18 @@ object NetworkClient {
     private val okHttp: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
+        // Attach the JWT to every request that doesn't already carry one. Public /auth
+        // routes simply ignore it; protected routes (profile, plans, sessions) require it.
+        .addInterceptor { chain ->
+            val request = chain.request()
+            val token = AuthTokenHolder.token
+            val authed = if (token != null && request.header("Authorization") == null) {
+                request.newBuilder().header("Authorization", "Bearer $token").build()
+            } else {
+                request
+            }
+            chain.proceed(authed)
+        }
         .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
         .build()
 
@@ -31,4 +44,5 @@ object NetworkClient {
         .build()
 
     val authApi: AuthApi = retrofit.create(AuthApi::class.java)
+    val profileApi: ProfileApi = retrofit.create(ProfileApi::class.java)
 }

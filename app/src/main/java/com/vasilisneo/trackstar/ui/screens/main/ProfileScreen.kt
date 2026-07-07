@@ -62,8 +62,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalContext
-import com.vasilisneo.trackstar.data.auth.TokenStore
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vasilisneo.trackstar.ui.components.GlassCircleIconButton
 import com.vasilisneo.trackstar.ui.components.initialsFrom
 import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
@@ -75,10 +74,10 @@ private data class ProfileData(
     val email: String,
     val country: String,
     val gender: String,
-    val age: Int,
-    val heightCm: Int,
-    val weightKg: Double,
-    val targetWeightKg: Double,
+    val age: Int?,
+    val heightCm: Int?,
+    val weightKg: Double?,
+    val targetWeightKg: Double?,
 )
 
 private val CardSurface = Color.White.copy(alpha = 0.06f)
@@ -91,23 +90,23 @@ fun ProfileScreen(
     onSettings: () -> Unit = {},
     onUpgrade: () -> Unit = {},
     onQrCode: () -> Unit = {},
+    viewModel: ProfileViewModel = viewModel(),
 ) {
-    // Real identity (name/email) comes from the signed-in session (TokenStore). Body stats
-    // still use placeholder values until GET /api/profile is wired.
-    val context = LocalContext.current
-    val tokenStore = remember { TokenStore(context) }
-    val fullName = listOfNotNull(tokenStore.firstName?.ifBlank { null }, tokenStore.lastName?.ifBlank { null })
-        .joinToString(" ").ifBlank { "Trackstar User" }
+    // Real profile from GET /api/profile, falling back to the cached session name/email
+    // (and "—" for body stats) while the fetch is in flight or if it fails offline.
+    val remote = viewModel.profile
+    val fullName = listOfNotNull(remote?.firstName?.ifBlank { null }, remote?.lastName?.ifBlank { null })
+        .joinToString(" ").ifBlank { viewModel.cachedFullName }
     val profile = ProfileData(
         fullName = fullName,
         initials = initialsFrom(fullName),
-        email = tokenStore.email ?: "—",
-        country = "Cyprus",
-        gender = "Male",
-        age = 25,
-        heightCm = 178,
-        weightKg = 82.0,
-        targetWeightKg = 75.0,
+        email = remote?.email ?: viewModel.cachedEmail,
+        country = remote?.country ?: "",
+        gender = remote?.gender?.replaceFirstChar { it.uppercase() } ?: "—",
+        age = remote?.age,
+        heightCm = remote?.height?.toInt(),
+        weightKg = remote?.weight,
+        targetWeightKg = remote?.targetWeight,
     )
 
     Box(modifier = Modifier.fillMaxSize().background(TrackstarBackground)) {
@@ -139,7 +138,7 @@ fun ProfileScreen(
 
                 AppSection(onPersonalInfo = onPersonalInfo, onSettings = onSettings)
 
-                LogoutSection(onLogout = { tokenStore.clear(); onLogout() })
+                LogoutSection(onLogout = { viewModel.logout(); onLogout() })
             }
         }
     }
@@ -197,10 +196,10 @@ private fun PersonalSection(profile: ProfileData, onUpgrade: () -> Unit) {
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatCard(icon = Icons.Filled.Person, title = "Gender", value = profile.gender, unit = "", modifier = Modifier.weight(1f))
-            StatCard(icon = Icons.Filled.Cake, title = "Age", value = profile.age.toString(), unit = "yrs", modifier = Modifier.weight(1f))
+            StatCard(icon = Icons.Filled.Cake, title = "Age", value = profile.age?.toString() ?: "—", unit = if (profile.age != null) "yrs" else "", modifier = Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            StatCard(icon = Icons.Filled.Straighten, title = "Height", value = profile.heightCm.toString(), unit = "cm", modifier = Modifier.weight(1f))
+            StatCard(icon = Icons.Filled.Straighten, title = "Height", value = profile.heightCm?.toString() ?: "—", unit = if (profile.heightCm != null) "cm" else "", modifier = Modifier.weight(1f))
             WeightStatCard(weight = profile.weightKg, targetWeight = profile.targetWeightKg, modifier = Modifier.weight(1f))
         }
     }
@@ -260,7 +259,7 @@ private fun StatCard(icon: ImageVector, title: String, value: String, unit: Stri
 }
 
 @Composable
-private fun WeightStatCard(weight: Double, targetWeight: Double, modifier: Modifier = Modifier) {
+private fun WeightStatCard(weight: Double?, targetWeight: Double?, modifier: Modifier = Modifier) {
     var flipped by remember { mutableStateOf(false) }
     val rotation by animateFloatAsState(
         targetValue = if (flipped) 180f else 0f,
@@ -281,12 +280,12 @@ private fun WeightStatCard(weight: Double, targetWeight: Double, modifier: Modif
     ) {
         if (rotation <= 90f) {
             StatFace(icon = Icons.Filled.MonitorWeight, iconTint = Color.White.copy(alpha = 0.75f),
-                value = "%.1f".format(weight), unit = "kg", title = "Weight")
+                value = weight?.let { "%.1f".format(it) } ?: "—", unit = if (weight != null) "kg" else "", title = "Weight")
         } else {
             // Counter-rotate so the back face isn't mirrored
             Box(modifier = Modifier.graphicsLayer { rotationY = 180f }, contentAlignment = Alignment.Center) {
                 StatFace(icon = Icons.Filled.TrackChanges, iconTint = TrackstarAccent.copy(alpha = 0.85f),
-                    value = "%.1f".format(targetWeight), unit = "kg", title = "Goal")
+                    value = targetWeight?.let { "%.1f".format(it) } ?: "—", unit = if (targetWeight != null) "kg" else "", title = "Goal")
             }
         }
     }

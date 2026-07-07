@@ -11,6 +11,11 @@ class TokenStore(context: Context) {
 
     private val prefs = context.applicationContext.getSharedPreferences("trackstar_auth", Context.MODE_PRIVATE)
 
+    init {
+        // Seed the interceptor's in-memory token from persisted prefs (survives relaunch).
+        AuthTokenHolder.token = prefs.getString(KEY_TOKEN, null)
+    }
+
     fun save(auth: AuthResponse) {
         prefs.edit().apply {
             putString(KEY_TOKEN, auth.token)
@@ -21,6 +26,7 @@ class TokenStore(context: Context) {
             putString(KEY_LAST_NAME, auth.lastName)
             putString(KEY_ROLE, auth.role)
         }.apply()
+        AuthTokenHolder.token = auth.token
     }
 
     val token: String? get() = prefs.getString(KEY_TOKEN, null)
@@ -30,7 +36,10 @@ class TokenStore(context: Context) {
     val lastName: String? get() = prefs.getString(KEY_LAST_NAME, null)
     val role: String? get() = prefs.getString(KEY_ROLE, null)
 
-    fun clear() = prefs.edit().clear().apply()
+    fun clear() {
+        prefs.edit().clear().apply()
+        AuthTokenHolder.token = null
+    }
 
     private companion object {
         const val KEY_TOKEN = "token"
