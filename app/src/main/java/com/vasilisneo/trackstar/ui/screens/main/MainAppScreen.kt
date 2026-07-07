@@ -99,6 +99,11 @@ private fun FloatingTabBar(
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
+        // Inter-pill gaps come from spacedBy (not per-item side padding) so the first/last
+        // pill sits an equal 5dp from the bar's edge on every side — per-item side padding
+        // would have added on top of the row inset, making the outer horizontal gap larger
+        // than the top/bottom gap.
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
@@ -140,7 +145,6 @@ private fun TabBarItem(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp),
         modifier = modifier
-            .padding(horizontal = 4.dp) // gap between adjacent pills (outside the pill background)
             // percent = 50 makes a true stadium here because the pill is now wide: the corner
             // radius resolves to half the *shorter* (vertical) side, giving fully-rounded ends.
             .clip(RoundedCornerShape(percent = 50))
