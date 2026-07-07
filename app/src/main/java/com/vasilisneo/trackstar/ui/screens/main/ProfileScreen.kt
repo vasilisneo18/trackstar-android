@@ -99,6 +99,7 @@ fun ProfileScreen(
     onPersonalInfo: () -> Unit = {},
     onSettings: () -> Unit = {},
     onUpgrade: () -> Unit = {},
+    onQrCode: () -> Unit = {},
 ) {
     val profile = PlaceholderProfile
 
@@ -114,7 +115,7 @@ fun ProfileScreen(
             ) {
                 GlassCircleIconButton(onClick = onBackClick, icon = Icons.Filled.Close, contentDescription = "Close")
                 Spacer(modifier = Modifier.weight(1f))
-                GlassCircleIconButton(onClick = { /* QR connect not built yet */ }, icon = Icons.Filled.QrCode2, contentDescription = "My QR code")
+                GlassCircleIconButton(onClick = onQrCode, icon = Icons.Filled.QrCode2, contentDescription = "My QR code")
             }
 
             Column(

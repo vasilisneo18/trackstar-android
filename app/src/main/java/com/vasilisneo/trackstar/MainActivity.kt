@@ -40,6 +40,7 @@ import com.vasilisneo.trackstar.ui.screens.register.RegisterViewModel
 import com.vasilisneo.trackstar.ui.screens.main.MainAppScreen
 import com.vasilisneo.trackstar.ui.screens.main.PersonalInfoScreen
 import com.vasilisneo.trackstar.ui.screens.main.ProfileScreen
+import com.vasilisneo.trackstar.ui.screens.main.QRConnectScreen
 import com.vasilisneo.trackstar.ui.screens.main.SettingsScreen
 import com.vasilisneo.trackstar.ui.screens.main.settings.AboutScreen
 import com.vasilisneo.trackstar.ui.screens.main.settings.AppSettingsScreen
@@ -128,8 +129,18 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onPersonalInfo = { navController.navigate("personal_info") },
                                 onSettings = { navController.navigate("settings") },
-                                onUpgrade = { navController.navigate("subscription") }
+                                onUpgrade = { navController.navigate("subscription") },
+                                onQrCode = { navController.navigate("qr") }
                             )
+                        }
+                        composable(
+                            "qr",
+                            enterTransition = { slideInVertically(initialOffsetY = { it }) },
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                            popExitTransition = { slideOutVertically(targetOffsetY = { it }) },
+                        ) {
+                            QRConnectScreen(onBackClick = { navController.popBackStack() })
                         }
                         composable(
                             "subscription",
