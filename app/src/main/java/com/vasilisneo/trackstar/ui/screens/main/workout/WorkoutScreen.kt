@@ -25,7 +25,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.ui.res.painterResource
+import com.vasilisneo.trackstar.R
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -141,10 +142,10 @@ fun WorkoutScreen(
                         Box(modifier = Modifier.size(86.dp).background(Color.White.copy(alpha = 0.07f), CircleShape))
                         Box(modifier = Modifier.size(58.dp).background(Color.White.copy(alpha = 0.10f), CircleShape))
                         Icon(
-                            imageVector = Icons.Filled.FitnessCenter,
+                            painter = painterResource(R.drawable.ic_workout_figure),
                             contentDescription = null,
                             tint = Color.White.copy(alpha = 0.6f),
-                            modifier = Modifier.size(26.dp)
+                            modifier = Modifier.size(30.dp)
                         )
                     }
 

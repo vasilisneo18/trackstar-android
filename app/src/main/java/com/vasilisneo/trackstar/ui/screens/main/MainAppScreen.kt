@@ -25,9 +25,9 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.annotation.DrawableRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.Icon
@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,19 +50,23 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.vasilisneo.trackstar.R
 import com.vasilisneo.trackstar.ui.screens.main.workout.WorkoutScreen
 
-// No Material icon matches iOS's overhead-barbell-press glyph exactly, and a hand-drawn
-// substitute didn't read clearly at this size (looked like an hourglass) — FitnessCenter
-// is a standard, unambiguous "workout" icon even though it's a dumbbell object rather than
-// a person doing that exact pose.
-private data class MainTab(val route: String, val label: String, val icon: ImageVector)
+// Workout uses a custom vector drawable (ic_workout_figure) recreating iOS's overhead-press
+// figure; the other three use Material icons. Exactly one of icon / iconRes is set per tab.
+private data class MainTab(
+    val route: String,
+    val label: String,
+    val icon: ImageVector? = null,
+    @DrawableRes val iconRes: Int? = null,
+)
 
 private val MainTabs = listOf(
-    MainTab("workout", "Workout", Icons.Filled.FitnessCenter),
-    MainTab("stats", "Stats", Icons.Filled.BarChart),
-    MainTab("myteam", "MyTeam", Icons.Filled.Groups),
-    MainTab("diet", "Diet", Icons.Filled.Restaurant),
+    MainTab("workout", "Workout", iconRes = R.drawable.ic_workout_figure),
+    MainTab("stats", "Stats", icon = Icons.Filled.BarChart),
+    MainTab("myteam", "MyTeam", icon = Icons.Filled.Groups),
+    MainTab("diet", "Diet", icon = Icons.Filled.Restaurant),
 )
 
 private val TabBarSurface = Color(0xFF17171F).copy(alpha = 0.92f)
@@ -161,7 +166,16 @@ private fun TabBarItem(
             .clickable(onClick = onClick)
             .padding(vertical = 5.dp) // smaller so the overall bar is shorter, matching iOS
     ) {
-        Icon(tab.icon, contentDescription = tab.label, tint = contentColor, modifier = Modifier.size(30.dp))
+        if (tab.iconRes != null) {
+            Icon(
+                painter = painterResource(tab.iconRes),
+                contentDescription = tab.label,
+                tint = contentColor,
+                modifier = Modifier.size(30.dp)
+            )
+        } else {
+            Icon(tab.icon!!, contentDescription = tab.label, tint = contentColor, modifier = Modifier.size(30.dp))
+        }
         Text(tab.label, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = contentColor)
     }
 }
