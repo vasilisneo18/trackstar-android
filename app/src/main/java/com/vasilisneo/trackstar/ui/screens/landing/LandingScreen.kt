@@ -130,9 +130,19 @@ private fun ContinueAsSection(
     onContinue: () -> Unit,
     onNotYou: () -> Unit,
 ) {
+    // iOS wraps the header + card in one shared panel (.ultraThinMaterial, 30pt corners,
+    // 20/24/40 padding, 15pt outer margin) instead of the header floating directly on the
+    // page background — replicated here with a flat translucent fill (no Modifier.blur(),
+    // same API-26 reasoning as AuthBackground).
     Column(
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 48.dp)
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 15.dp)
+            .padding(bottom = 32.dp)
+            .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(30.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(30.dp))
+            .padding(start = 20.dp, end = 20.dp, top = 24.dp, bottom = 40.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Continue as", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.weight(1f))
