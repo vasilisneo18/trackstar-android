@@ -52,8 +52,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.BlurredEdgeTreatment
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -152,12 +150,21 @@ private fun ProfileHeader(profile: ProfileData) {
         modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
     ) {
         Box(contentAlignment = Alignment.Center) {
-            // Soft glow behind the avatar
+            // Soft glow behind the avatar — a radial gradient rather than Modifier.blur(),
+            // which needs RenderEffect (API 31+) and no-ops below that; minSdk here is 26.
             Box(
                 modifier = Modifier
                     .size(100.dp)
-                    .blur(radius = 20.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
-                    .background(TrackstarAccent.copy(alpha = 0.3f), CircleShape)
+                    .background(
+                        brush = Brush.radialGradient(
+                            colors = listOf(
+                                TrackstarAccent.copy(alpha = 0.45f),
+                                TrackstarAccent.copy(alpha = 0.15f),
+                                TrackstarAccent.copy(alpha = 0f),
+                            )
+                        ),
+                        shape = CircleShape,
+                    )
             )
             Box(
                 modifier = Modifier

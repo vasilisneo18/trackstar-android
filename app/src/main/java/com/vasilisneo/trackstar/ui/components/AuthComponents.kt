@@ -44,10 +44,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
@@ -63,7 +62,11 @@ import androidx.compose.ui.unit.sp
 import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
 import com.vasilisneo.trackstar.ui.theme.TrackstarBackground
 
-/** Flat #0D0D17 fill + a blurred accent-color glow — matches authBackground(offsetY:) on iOS. */
+/** Flat #0D0D17 fill + a soft accent-color glow — matches authBackground(offsetY:) on iOS.
+ *  Uses a radial gradient rather than Modifier.blur(): blur needs RenderEffect (API 31+),
+ *  which silently no-ops below that, and this app's minSdk is 26 — a plain blur() would
+ *  leave the glow invisible on any Android 8-11 device. A gradient renders identically on
+ *  every API level. */
 @Composable
 fun AuthBackground(
     modifier: Modifier = Modifier,
@@ -76,10 +79,16 @@ fun AuthBackground(
                 .align(Alignment.Center)
                 .offset(x = glowOffsetX, y = glowOffsetY)
                 .size(380.dp)
-                // Unbounded: without this, blur() clips to its own rectangular bounds,
-                // turning the soft circular glow into a hard-edged square patch.
-                .blur(radius = 80.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded)
-                .background(TrackstarAccent.copy(alpha = 0.13f), CircleShape)
+                .background(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            TrackstarAccent.copy(alpha = 0.22f),
+                            TrackstarAccent.copy(alpha = 0.10f),
+                            TrackstarAccent.copy(alpha = 0f),
+                        )
+                    ),
+                    shape = CircleShape,
+                )
         )
     }
 }
