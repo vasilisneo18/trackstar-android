@@ -103,13 +103,16 @@ private fun FloatingTabBar(
         // pill sits an equal 5dp from the bar's edge on every side — per-item side padding
         // would have added on top of the row inset, making the outer horizontal gap larger
         // than the top/bottom gap.
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
             .padding(horizontal = 16.dp, vertical = 8.dp) // outer margin from the screen edges
-            .clip(RoundedCornerShape(percent = 50))
-            .background(TabBarSurface)
+            // background(color, shape) draws an antialiased rounded fill; using clip() here
+            // instead would give hard, jagged corners because hardware clipPath isn't
+            // antialiased on Android. No clip is needed since the pills are inset 5dp and
+            // stay inside the bar's rounded corners.
+            .background(TabBarSurface, RoundedCornerShape(percent = 50))
             .padding(5.dp) // inner inset between the capsule's edge and the tab row itself, equal on every side
     ) {
         MainTabs.forEach { tab ->
@@ -147,12 +150,18 @@ private fun TabBarItem(
         modifier = modifier
             // percent = 50 makes a true stadium here because the pill is now wide: the corner
             // radius resolves to half the *shorter* (vertical) side, giving fully-rounded ends.
+            // background(color, shape) draws the antialiased fill; clip() is applied only
+            // afterward to bound the tap ripple (hardware clip is not antialiased, so it must
+            // NOT be what shapes the visible fill or the corners come out jagged).
+            .background(
+                if (selected) Color.White.copy(alpha = 0.15f) else Color.Transparent,
+                RoundedCornerShape(percent = 50)
+            )
             .clip(RoundedCornerShape(percent = 50))
-            .background(if (selected) Color.White.copy(alpha = 0.15f) else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(vertical = 5.dp) // smaller so the overall bar is shorter, matching iOS
     ) {
-        Icon(tab.icon, contentDescription = tab.label, tint = contentColor, modifier = Modifier.size(25.dp))
+        Icon(tab.icon, contentDescription = tab.label, tint = contentColor, modifier = Modifier.size(28.dp))
         Text(tab.label, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = contentColor)
     }
 }
