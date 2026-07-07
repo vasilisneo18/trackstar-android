@@ -5,6 +5,12 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.fillMaxSize
@@ -82,10 +88,23 @@ class MainActivity : ComponentActivity() {
                         composable("forgot_password") {
                             ForgotPasswordScreen(onBackClick = { navController.popBackStack() })
                         }
-                        composable("main") {
+                        composable(
+                            "main",
+                            // Hold still while Profile zooms in/out on top instead of
+                            // parallax-sliding like the auth push flow does.
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                        ) {
                             MainAppScreen(onProfileClick = { navController.navigate("profile") })
                         }
-                        composable("profile") {
+                        composable(
+                            "profile",
+                            // iOS presents Profile with a zoom transition (from the avatar),
+                            // not a horizontal push — approximate it with a fade + slight
+                            // scale so it grows in over the stationary main screen.
+                            enterTransition = { fadeIn() + scaleIn(initialScale = 0.92f) },
+                            popExitTransition = { fadeOut() + scaleOut(targetScale = 0.92f) },
+                        ) {
                             ProfileScreen(
                                 onBackClick = { navController.popBackStack() },
                                 onLogout = {
