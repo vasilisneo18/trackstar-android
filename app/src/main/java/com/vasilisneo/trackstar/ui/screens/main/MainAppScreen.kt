@@ -146,7 +146,7 @@ private fun TabBarItem(
     val contentColor = if (selected) Color.White else Color.White.copy(alpha = 0.5f)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
         modifier = modifier
             // percent = 50 makes a true stadium here because the pill is now wide: the corner
             // radius resolves to half the *shorter* (vertical) side, giving fully-rounded ends.
@@ -161,7 +161,7 @@ private fun TabBarItem(
             .clickable(onClick = onClick)
             .padding(vertical = 5.dp) // smaller so the overall bar is shorter, matching iOS
     ) {
-        Icon(tab.icon, contentDescription = tab.label, tint = contentColor, modifier = Modifier.size(28.dp))
+        Icon(tab.icon, contentDescription = tab.label, tint = contentColor, modifier = Modifier.size(30.dp))
         Text(tab.label, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = contentColor)
     }
 }
