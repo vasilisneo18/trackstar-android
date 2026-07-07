@@ -29,6 +29,15 @@ class TokenStore(context: Context) {
         AuthTokenHolder.token = auth.token
     }
 
+    /** Cache the raw credentials used to sign in, so "Continue as" can re-login with one
+     *  tap after logout. iOS does the same (email + password in Keychain). TODO: encrypt. */
+    fun saveCredentials(email: String, password: String) {
+        prefs.edit()
+            .putString(KEY_LAST_EMAIL, email)
+            .putString(KEY_LAST_PASSWORD, password)
+            .apply()
+    }
+
     val token: String? get() = prefs.getString(KEY_TOKEN, null)
     val isLoggedIn: Boolean get() = token != null
     val email: String? get() = prefs.getString(KEY_EMAIL, null)
@@ -36,7 +45,22 @@ class TokenStore(context: Context) {
     val lastName: String? get() = prefs.getString(KEY_LAST_NAME, null)
     val role: String? get() = prefs.getString(KEY_ROLE, null)
 
+    val lastEmail: String? get() = prefs.getString(KEY_LAST_EMAIL, null)
+    val lastPassword: String? get() = prefs.getString(KEY_LAST_PASSWORD, null)
+    val hasCachedCredentials: Boolean get() = lastEmail != null && lastPassword != null
+
+    /** Sign out: drop the session token/identity but KEEP the cached credentials so the
+     *  Landing screen can still offer "Continue as". */
     fun clear() {
+        prefs.edit()
+            .remove(KEY_TOKEN).remove(KEY_REFRESH).remove(KEY_USER_ID)
+            .remove(KEY_EMAIL).remove(KEY_FIRST_NAME).remove(KEY_LAST_NAME).remove(KEY_ROLE)
+            .apply()
+        AuthTokenHolder.token = null
+    }
+
+    /** Full wipe including cached credentials — for Close Account / "Not you?". */
+    fun clearAll() {
         prefs.edit().clear().apply()
         AuthTokenHolder.token = null
     }
@@ -49,5 +73,7 @@ class TokenStore(context: Context) {
         const val KEY_FIRST_NAME = "firstName"
         const val KEY_LAST_NAME = "lastName"
         const val KEY_ROLE = "role"
+        const val KEY_LAST_EMAIL = "lastEmail"
+        const val KEY_LAST_PASSWORD = "lastPassword"
     }
 }

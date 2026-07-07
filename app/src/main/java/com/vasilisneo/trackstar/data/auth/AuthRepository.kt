@@ -21,14 +21,21 @@ class AuthRepository(private val tokenStore: TokenStore) {
         }
 
     suspend fun login(email: String, password: String): ApiResult<AuthResponse> {
-        val result = apiCall { api.login(LoginRequest(email.trim().lowercase(), password)) }
-        if (result is ApiResult.Success) tokenStore.save(result.data)
+        val cleanEmail = email.trim().lowercase()
+        val result = apiCall { api.login(LoginRequest(cleanEmail, password)) }
+        if (result is ApiResult.Success) {
+            tokenStore.save(result.data)
+            tokenStore.saveCredentials(cleanEmail, password)
+        }
         return result
     }
 
     suspend fun register(request: RegisterRequest): ApiResult<AuthResponse> {
         val result = apiCall { api.register(request) }
-        if (result is ApiResult.Success) tokenStore.save(result.data)
+        if (result is ApiResult.Success) {
+            tokenStore.save(result.data)
+            tokenStore.saveCredentials(request.email, request.password)
+        }
         return result
     }
 

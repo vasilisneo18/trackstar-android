@@ -48,12 +48,16 @@ import com.vasilisneo.trackstar.ui.screens.main.settings.AppearanceScreen
 import com.vasilisneo.trackstar.ui.screens.main.settings.CloseAccountScreen
 import com.vasilisneo.trackstar.ui.screens.main.settings.NotificationsScreen
 import com.vasilisneo.trackstar.ui.screens.subscription.SubscriptionScreen
+import com.vasilisneo.trackstar.data.auth.TokenStore
 import com.vasilisneo.trackstar.ui.theme.TrackstarTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Auto-login: if a session token is already persisted, open straight into the main
+        // app (mirrors MasterCoordinator.start() on iOS), otherwise start at Landing.
+        val startDestination = if (TokenStore(this).isLoggedIn) "main" else "landing"
         setContent {
             TrackstarTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -63,7 +67,7 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
                     NavHost(
                         navController = navController,
-                        startDestination = "landing",
+                        startDestination = startDestination,
                         // NavHost has no slide animation by default — this replicates
                         // iOS/UIKit's push/pop: new screen slides in from the right over
                         // the current one (which parallax-shifts left slightly), and pop
@@ -76,7 +80,12 @@ class MainActivity : ComponentActivity() {
                         composable("landing") {
                             LandingScreen(
                                 onCreateAccount = { navController.navigate("register") },
-                                onLogin = { navController.navigate("login") }
+                                onLogin = { navController.navigate("login") },
+                                onQuickLoginSuccess = {
+                                    navController.navigate("main") {
+                                        popUpTo("landing") { inclusive = true }
+                                    }
+                                }
                             )
                         }
                         composable(
@@ -186,6 +195,9 @@ class MainActivity : ComponentActivity() {
                             CloseAccountScreen(
                                 onDismiss = { navController.popBackStack() },
                                 onClosed = {
+                                    // Account deleted — full wipe including cached credentials
+                                    // so "Continue as" won't offer the dead account.
+                                    TokenStore(this@MainActivity).clearAll()
                                     navController.navigate("landing") {
                                         popUpTo("landing") { inclusive = true }
                                     }

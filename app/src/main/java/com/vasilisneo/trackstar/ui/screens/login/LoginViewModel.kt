@@ -19,7 +19,14 @@ import kotlinx.coroutines.launch
  * loginWithGoogle() is still a stub (no Google Sign-In SDK wired yet).
  */
 class LoginViewModel(app: Application) : AndroidViewModel(app) {
-    private val repository = AuthRepository(TokenStore(app))
+    private val tokenStore = TokenStore(app)
+    private val repository = AuthRepository(tokenStore)
+
+    /** Email of the last signed-in user (if cached), used by Landing's "Continue as".
+     *  Must be actual Compose state (not a plain getter over SharedPreferences) so that
+     *  forgetCachedUser() clearing the cache is reflected without a recomposition trigger. */
+    var cachedEmail by mutableStateOf(if (tokenStore.hasCachedCredentials) tokenStore.lastEmail else null)
+        private set
 
     var email by mutableStateOf("")
         private set
@@ -59,6 +66,7 @@ class LoginViewModel(app: Application) : AndroidViewModel(app) {
             when (val result = repository.login(email, password)) {
                 is ApiResult.Success -> {
                     isLoading = false
+                    cachedEmail = tokenStore.lastEmail
                     onSuccess()
                 }
                 is ApiResult.Error -> {
@@ -67,6 +75,33 @@ class LoginViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
         }
+    }
+
+    /** One-tap re-login using the cached credentials (Landing's "Continue as" card). */
+    fun quickLogin(onSuccess: () -> Unit = {}) {
+        val loginPassword = tokenStore.lastPassword ?: return
+        val loginEmail = tokenStore.lastEmail ?: return
+        if (isLoading) return
+        viewModelScope.launch {
+            isLoading = true
+            errorMessage = null
+            when (val result = repository.login(loginEmail, loginPassword)) {
+                is ApiResult.Success -> {
+                    isLoading = false
+                    onSuccess()
+                }
+                is ApiResult.Error -> {
+                    isLoading = false
+                    errorMessage = result.message
+                }
+            }
+        }
+    }
+
+    /** "Not you?" — forget the cached user so the Continue-as card disappears. */
+    fun forgetCachedUser() {
+        tokenStore.clearAll()
+        cachedEmail = null
     }
 
     fun loginWithGoogle() {
