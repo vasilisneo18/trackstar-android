@@ -157,12 +157,12 @@ fun SubscriptionScreen(
 
             HorizontalPager(
                 state = pagerState,
-                pageSpacing = 12.dp,
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
                 verticalAlignment = Alignment.Top,
                 modifier = Modifier.weight(1f)
             ) { page ->
-                PlanCard(Tiers[page], modifier = Modifier.padding(top = 8.dp))
+                // Full-width page + the card's own horizontal margin, so adjacent cards
+                // don't peek in at the edges (contentPadding would cause that).
+                PlanCard(Tiers[page], modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             }
 
             // Bottom CTA
