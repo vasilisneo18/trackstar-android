@@ -39,7 +39,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.vasilisneo.trackstar.ui.components.AuthScreenScaffold
 import com.vasilisneo.trackstar.ui.components.GlassCircleIconButton
 import com.vasilisneo.trackstar.ui.theme.TrackstarBackground
 
@@ -71,17 +70,17 @@ fun SettingsScreen(
                 Text("Settings", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(top = 4.dp))
 
                 SettingsGroup {
-                    NavRow(Icons.Filled.Notifications, "Notifications") { onOpenDetail("Notifications") }
+                    NavRow(Icons.Filled.Notifications, "Notifications") { onOpenDetail("notifications") }
                     RowDivider()
-                    NavRow(Icons.Filled.Palette, "Appearance") { onOpenDetail("Appearance") }
+                    NavRow(Icons.Filled.Palette, "Appearance") { onOpenDetail("appearance") }
                     RowDivider()
-                    NavRow(Icons.Filled.Tune, "App Settings") { onOpenDetail("App Settings") }
+                    NavRow(Icons.Filled.Tune, "App Settings") { onOpenDetail("app_settings") }
                     RowDivider()
-                    NavRow(Icons.Filled.Info, "About") { onOpenDetail("About") }
+                    NavRow(Icons.Filled.Info, "About") { onOpenDetail("about") }
                 }
 
                 SettingsGroup {
-                    NavRow(Icons.Filled.HeartBroken, "Close Account", tint = Color(0xFFE5484D)) { onOpenDetail("Close Account") }
+                    NavRow(Icons.Filled.HeartBroken, "Close Account", tint = Color(0xFFE5484D)) { onOpenDetail("close_account") }
                 }
             }
         }
@@ -113,22 +112,4 @@ private fun NavRow(icon: ImageVector, label: String, tint: Color = Color.White, 
 @Composable
 private fun RowDivider() {
     HorizontalDivider(color = Color.White.copy(alpha = 0.08f), modifier = Modifier.padding(start = 62.dp))
-}
-
-/** Lightweight stub for a Settings sub-screen not built yet (Notifications, Appearance, etc.). */
-@Composable
-fun SettingsDetailScreen(title: String, onBackClick: () -> Unit = {}) {
-    AuthScreenScaffold(
-        title = title,
-        subtitle = "Coming soon",
-        showBackButton = true,
-        onBackClick = onBackClick,
-    ) {
-        Text(
-            "This settings screen isn't built yet.",
-            fontSize = 14.sp,
-            color = Color.White.copy(alpha = 0.45f),
-            modifier = Modifier.padding(top = 8.dp)
-        )
-    }
 }

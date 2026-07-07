@@ -38,8 +38,12 @@ import com.vasilisneo.trackstar.ui.screens.register.RegisterViewModel
 import com.vasilisneo.trackstar.ui.screens.main.MainAppScreen
 import com.vasilisneo.trackstar.ui.screens.main.PersonalInfoScreen
 import com.vasilisneo.trackstar.ui.screens.main.ProfileScreen
-import com.vasilisneo.trackstar.ui.screens.main.SettingsDetailScreen
 import com.vasilisneo.trackstar.ui.screens.main.SettingsScreen
+import com.vasilisneo.trackstar.ui.screens.main.settings.AboutScreen
+import com.vasilisneo.trackstar.ui.screens.main.settings.AppSettingsScreen
+import com.vasilisneo.trackstar.ui.screens.main.settings.AppearanceScreen
+import com.vasilisneo.trackstar.ui.screens.main.settings.CloseAccountScreen
+import com.vasilisneo.trackstar.ui.screens.main.settings.NotificationsScreen
 import com.vasilisneo.trackstar.ui.theme.TrackstarTheme
 
 class MainActivity : ComponentActivity() {
@@ -125,15 +129,30 @@ class MainActivity : ComponentActivity() {
                         composable("settings") {
                             SettingsScreen(
                                 onBackClick = { navController.popBackStack() },
-                                onOpenDetail = { title -> navController.navigate("settings_detail/${Uri.encode(title)}") }
+                                onOpenDetail = { route -> navController.navigate("settings_$route") }
                             )
                         }
-                        composable(
-                            route = "settings_detail/{title}",
-                            arguments = listOf(navArgument("title") { type = NavType.StringType })
-                        ) { backStackEntry ->
-                            val title = backStackEntry.arguments?.getString("title") ?: "Settings"
-                            SettingsDetailScreen(title = title, onBackClick = { navController.popBackStack() })
+                        composable("settings_notifications") {
+                            NotificationsScreen(onBackClick = { navController.popBackStack() })
+                        }
+                        composable("settings_appearance") {
+                            AppearanceScreen(onBackClick = { navController.popBackStack() })
+                        }
+                        composable("settings_app_settings") {
+                            AppSettingsScreen(onBackClick = { navController.popBackStack() })
+                        }
+                        composable("settings_about") {
+                            AboutScreen(onBackClick = { navController.popBackStack() })
+                        }
+                        composable("settings_close_account") {
+                            CloseAccountScreen(
+                                onDismiss = { navController.popBackStack() },
+                                onClosed = {
+                                    navController.navigate("landing") {
+                                        popUpTo("landing") { inclusive = true }
+                                    }
+                                }
+                            )
                         }
 
                         // Registration flow — nested graph so every step shares one
