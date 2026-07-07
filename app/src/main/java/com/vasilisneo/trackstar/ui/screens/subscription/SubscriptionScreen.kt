@@ -23,9 +23,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -60,6 +58,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vasilisneo.trackstar.ui.components.GlassCircleIconButton
+import com.vasilisneo.trackstar.ui.theme.TrackstarBackground
 import com.vasilisneo.trackstar.ui.theme.TrackstarSurface
 import kotlinx.coroutines.launch
 
@@ -120,11 +119,10 @@ fun SubscriptionScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(Color(0xFF2E80FF).copy(alpha = 0.12f), Color(0xFF0D0D17))
-                )
-            )
+            // Opaque base first — then the blue tint on top. Without the opaque base the
+            // gradient's low-alpha top would let the screen behind show through.
+            .background(TrackstarBackground)
+            .background(Brush.verticalGradient(listOf(Color(0xFF2E80FF).copy(alpha = 0.14f), Color.Transparent)))
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Nav bar
@@ -161,6 +159,7 @@ fun SubscriptionScreen(
                 state = pagerState,
                 pageSpacing = 12.dp,
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+                verticalAlignment = Alignment.Top,
                 modifier = Modifier.weight(1f)
             ) { page ->
                 PlanCard(Tiers[page], modifier = Modifier.padding(top = 8.dp))
@@ -191,7 +190,6 @@ private fun PlanCard(tier: Tier, modifier: Modifier = Modifier) {
             .clip(RoundedCornerShape(24.dp))
             .background(Color.White.copy(alpha = 0.06f))
             .border(1.dp, Color.White.copy(alpha = 0.09f), RoundedCornerShape(24.dp))
-            .verticalScroll(rememberScrollState())
     ) {
         // Header
         Box(modifier = Modifier.fillMaxWidth().height(185.dp)) {
