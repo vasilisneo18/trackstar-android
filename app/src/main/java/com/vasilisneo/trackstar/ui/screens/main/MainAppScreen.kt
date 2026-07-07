@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -104,60 +103,52 @@ private fun FloatingTabBar(
             .fillMaxWidth()
             .navigationBarsPadding()
             .padding(horizontal = 16.dp, vertical = 8.dp) // outer margin from the screen edges
-            .clip(RoundedCornerShape(26.dp))
+            .clip(RoundedCornerShape(percent = 50))
             .background(TabBarSurface)
             .padding(5.dp) // inner inset between the capsule's edge and the tab row itself, equal on every side
     ) {
         MainTabs.forEach { tab ->
             val selected = currentRoute?.hierarchy?.any { it.route == tab.route } == true
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                TabBarItem(
-                    tab = tab,
-                    selected = selected,
-                    onClick = {
-                        tabNavController.navigate(tab.route) {
-                            popUpTo(tabNavController.graph.findStartDestination().id) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+            // weight(1f) gives every tab an equal-width slot; the pill fills that slot
+            // (minus a small gap to its neighbours), so the selected pill is a wide stadium
+            // like iOS rather than a narrow shape floating in the middle of its slot.
+            TabBarItem(
+                tab = tab,
+                selected = selected,
+                onClick = {
+                    tabNavController.navigate(tab.route) {
+                        popUpTo(tabNavController.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
                     }
-                )
-            }
+                },
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }
-
-// Fixed min width so the selected pill is the same size on every tab regardless of label
-// length ("Diet" vs "MyTeam") — sizing the pill to each label's own text width made the
-// capsules visibly different sizes across tabs.
-private val TabPillMinWidth = 72.dp
-
-// A percent-based RoundedCornerShape only reads as a true capsule when width is much
-// larger than height; here the two are close enough that percent=50 rendered as an
-// egg/ellipse instead of a stadium. A fixed dp radius set to roughly half the pill's own
-// height (icon 20dp + 1dp spacing + ~13dp text + 8dp top/bottom padding ≈ 50dp tall) gives
-// a real flat-sided capsule — the same "shape language" as the outer bar's own fixed-radius
-// RoundedCornerShape(26.dp), just scaled to the smaller pill.
-private val TabPillCornerRadius = 24.dp
 
 @Composable
 private fun TabBarItem(
     tab: MainTab,
     selected: Boolean,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val contentColor = if (selected) Color.White else Color.White.copy(alpha = 0.5f)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(1.dp),
-        modifier = Modifier
-            .defaultMinSize(minWidth = TabPillMinWidth)
-            .clip(RoundedCornerShape(TabPillCornerRadius))
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+        modifier = modifier
+            .padding(horizontal = 4.dp) // gap between adjacent pills (outside the pill background)
+            // percent = 50 makes a true stadium here because the pill is now wide: the corner
+            // radius resolves to half the *shorter* (vertical) side, giving fully-rounded ends.
+            .clip(RoundedCornerShape(percent = 50))
             .background(if (selected) Color.White.copy(alpha = 0.15f) else Color.Transparent)
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 3.dp)
+            .padding(vertical = 8.dp)
     ) {
-        Icon(tab.icon, contentDescription = tab.label, tint = contentColor, modifier = Modifier.size(20.dp))
-        Text(tab.label, fontSize = 10.sp, fontWeight = FontWeight.Medium, color = contentColor)
+        Icon(tab.icon, contentDescription = tab.label, tint = contentColor, modifier = Modifier.size(22.dp))
+        Text(tab.label, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = contentColor)
     }
 }
