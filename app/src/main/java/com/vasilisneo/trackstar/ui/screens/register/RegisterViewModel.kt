@@ -1,13 +1,18 @@
 package com.vasilisneo.trackstar.ui.screens.register
 
+import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.delay
+import com.vasilisneo.trackstar.data.api.RegisterRequest
+import com.vasilisneo.trackstar.data.auth.ApiResult
+import com.vasilisneo.trackstar.data.auth.AuthRepository
+import com.vasilisneo.trackstar.data.auth.TokenStore
 import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.Period
 
 enum class EmailCheckStatus { IDLE, CHECKING, AVAILABLE, EXISTS }
 
@@ -40,10 +45,15 @@ enum class UserGoal(val label: String, val subtitle: String, val isCoachGoal: Bo
  * Compose's nested-graph pattern, same shape as iOS's single shared instance passed down
  * the whole NavigationStack.
  *
- * checkEmail() is a local simulation, not a real POST /api/auth/check-email call —
- * networking isn't wired up yet anywhere in this app (nor is the final register() submit).
+ * checkEmail() and register() now hit the real backend (POST /api/auth/check-email and
+ * /api/auth/register); register() persists the returned JWT via TokenStore.
  */
-class RegisterViewModel : ViewModel() {
+class RegisterViewModel(app: Application) : AndroidViewModel(app) {
+    private val repository = AuthRepository(TokenStore(app))
+
+    var isRegistering by mutableStateOf(false)
+        private set
+
     var email by mutableStateOf("")
         private set
     var password by mutableStateOf("")
@@ -151,14 +161,55 @@ class RegisterViewModel : ViewModel() {
         errorMessage = null
     }
 
-    /** Simulates the exists/available check — every email is treated as new/available for now. */
+    /** Real POST /api/auth/check-email — routes to Create Password if new, or the
+     *  "account found" sheet if it already exists. */
     fun checkEmail() {
         if (email.isEmpty()) return
         emailCheckStatus = EmailCheckStatus.CHECKING
         errorMessage = null
         viewModelScope.launch {
-            delay(800)
-            emailCheckStatus = EmailCheckStatus.AVAILABLE
+            when (val result = repository.checkEmail(email)) {
+                is ApiResult.Success ->
+                    emailCheckStatus = if (result.data) EmailCheckStatus.EXISTS else EmailCheckStatus.AVAILABLE
+                is ApiResult.Error -> {
+                    emailCheckStatus = EmailCheckStatus.IDLE
+                    errorMessage = result.message
+                }
+            }
+        }
+    }
+
+    /** Real POST /api/auth/register from everything collected across the flow. Role is
+     *  inferred from goals (monitorAthletes -> coach), matching iOS. targetWeight, goals,
+     *  fitnessLevel, and trainingDaysPerWeek aren't part of the register payload (iOS keeps
+     *  those client-side too). */
+    fun register(onSuccess: () -> Unit) {
+        if (isRegistering) return
+        isRegistering = true
+        errorMessage = null
+        val request = RegisterRequest(
+            email = email.trim().lowercase(),
+            password = password,
+            firstName = firstName.trim(),
+            lastName = lastName.trim(),
+            age = Period.between(dateOfBirth, LocalDate.now()).years.takeIf { it > 0 },
+            role = if (goals.contains(UserGoal.MONITOR_ATHLETES)) "coach" else "athlete",
+            gender = (gender ?: UserGender.MALE).name.lowercase(),
+            height = heightCm.toDoubleOrNull(),
+            weight = weightKg.toDoubleOrNull(),
+            country = country.trim().ifBlank { null },
+        )
+        viewModelScope.launch {
+            when (val result = repository.register(request)) {
+                is ApiResult.Success -> {
+                    isRegistering = false
+                    onSuccess()
+                }
+                is ApiResult.Error -> {
+                    isRegistering = false
+                    errorMessage = result.message
+                }
+            }
         }
     }
 }

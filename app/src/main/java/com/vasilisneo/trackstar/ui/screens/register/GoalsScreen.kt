@@ -116,6 +116,7 @@ fun GoalsScreen(
         AuthCapsuleButton(
             text = "Continue",
             onClick = onContinue,
+            isLoading = viewModel.isRegistering,
             enabled = viewModel.isGoalsValid,
             modifier = Modifier.padding(top = 20.dp)
         )

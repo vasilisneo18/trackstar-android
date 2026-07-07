@@ -55,6 +55,10 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.8.4")
     // QR code generation (the "My QR" tab of the QR connect sheet).
     implementation("com.google.zxing:core:3.5.3")
+    // Networking — talks to the Spring Boot API (fitness-book-api).
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

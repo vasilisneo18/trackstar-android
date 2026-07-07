@@ -62,7 +62,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import com.vasilisneo.trackstar.data.auth.TokenStore
 import com.vasilisneo.trackstar.ui.components.GlassCircleIconButton
+import com.vasilisneo.trackstar.ui.components.initialsFrom
 import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
 import com.vasilisneo.trackstar.ui.theme.TrackstarBackground
 
@@ -78,18 +81,6 @@ private data class ProfileData(
     val targetWeightKg: Double,
 )
 
-private val PlaceholderProfile = ProfileData(
-    fullName = "Vasilis Neophytou",
-    initials = "VN",
-    email = "vasilis@example.com",
-    country = "Cyprus",
-    gender = "Male",
-    age = 25,
-    heightCm = 178,
-    weightKg = 82.0,
-    targetWeightKg = 75.0,
-)
-
 private val CardSurface = Color.White.copy(alpha = 0.06f)
 
 @Composable
@@ -101,7 +92,23 @@ fun ProfileScreen(
     onUpgrade: () -> Unit = {},
     onQrCode: () -> Unit = {},
 ) {
-    val profile = PlaceholderProfile
+    // Real identity (name/email) comes from the signed-in session (TokenStore). Body stats
+    // still use placeholder values until GET /api/profile is wired.
+    val context = LocalContext.current
+    val tokenStore = remember { TokenStore(context) }
+    val fullName = listOfNotNull(tokenStore.firstName?.ifBlank { null }, tokenStore.lastName?.ifBlank { null })
+        .joinToString(" ").ifBlank { "Trackstar User" }
+    val profile = ProfileData(
+        fullName = fullName,
+        initials = initialsFrom(fullName),
+        email = tokenStore.email ?: "—",
+        country = "Cyprus",
+        gender = "Male",
+        age = 25,
+        heightCm = 178,
+        weightKg = 82.0,
+        targetWeightKg = 75.0,
+    )
 
     Box(modifier = Modifier.fillMaxSize().background(TrackstarBackground)) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -132,7 +139,7 @@ fun ProfileScreen(
 
                 AppSection(onPersonalInfo = onPersonalInfo, onSettings = onSettings)
 
-                LogoutSection(onLogout = onLogout)
+                LogoutSection(onLogout = { tokenStore.clear(); onLogout() })
             }
         }
     }

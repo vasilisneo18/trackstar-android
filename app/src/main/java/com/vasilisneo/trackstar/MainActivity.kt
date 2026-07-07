@@ -251,11 +251,11 @@ class MainActivity : ComponentActivity() {
                                 GoalsScreen(
                                     viewModel = registerViewModel,
                                     onBackClick = { navController.popBackStack() },
-                                    // TODO: wire real POST /api/auth/register before navigating —
-                                    // this just proves the destination exists for now.
                                     onContinue = {
-                                        navController.navigate("main") {
-                                            popUpTo("landing") { inclusive = true }
+                                        registerViewModel.register {
+                                            navController.navigate("main") {
+                                                popUpTo("landing") { inclusive = true }
+                                            }
                                         }
                                     }
                                 )
