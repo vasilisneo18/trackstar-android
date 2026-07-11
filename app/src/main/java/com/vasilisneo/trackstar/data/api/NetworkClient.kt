@@ -17,6 +17,9 @@ object NetworkClient {
     // Trailing slash required so relative @POST paths resolve under /api/.
     private const val BASE_URL = "https://api.trackstar.fitness/api/"
 
+    // Exposed so TokenAuthenticator can build its own bare Retrofit for /auth/refresh.
+    val baseUrl: String get() = BASE_URL
+
     val gson: Gson = Gson()
 
     private val okHttp: OkHttpClient = OkHttpClient.Builder()
@@ -35,6 +38,8 @@ object NetworkClient {
             chain.proceed(authed)
         }
         .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
+        // Silently refresh an expired access token on 401 and retry, like iOS's AuthInterceptor.
+        .authenticator(TokenAuthenticator())
         .build()
 
     private val retrofit: Retrofit = Retrofit.Builder()
@@ -43,6 +48,22 @@ object NetworkClient {
         .addConverterFactory(GsonConverterFactory.create(gson))
         .build()
 
+    // AI generation is a real Claude call, not a quick REST round-trip — matches iOS's
+    // APIEndpoint.timeoutInterval = 120 override for these two endpoints. Same auth
+    // interceptor/authenticator as the default client, just a longer timeout.
+    private val aiOkHttp: OkHttpClient = okHttp.newBuilder()
+        .connectTimeout(120, TimeUnit.SECONDS)
+        .readTimeout(120, TimeUnit.SECONDS)
+        .build()
+
+    private val aiRetrofit: Retrofit = retrofit.newBuilder()
+        .client(aiOkHttp)
+        .build()
+
     val authApi: AuthApi = retrofit.create(AuthApi::class.java)
     val profileApi: ProfileApi = retrofit.create(ProfileApi::class.java)
+    val planApi: PlanApi = retrofit.create(PlanApi::class.java)
+    val commentApi: CommentApi = retrofit.create(CommentApi::class.java)
+    val sessionApi: SessionApi = retrofit.create(SessionApi::class.java)
+    val aiApi: AiApi = aiRetrofit.create(AiApi::class.java)
 }

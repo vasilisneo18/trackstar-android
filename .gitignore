@@ -7,3 +7,6 @@ captures/
 .externalNativeBuild
 .cxx
 local.properties
+
+# CodeGraph local index (tool artifact)
+.codegraph/

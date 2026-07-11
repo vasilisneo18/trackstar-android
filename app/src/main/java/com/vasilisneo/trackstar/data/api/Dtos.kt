@@ -35,6 +35,8 @@ data class AuthResponse(
     @SerializedName("newUser") val isNewUser: Boolean = false,
 )
 
+data class RefreshRequest(val refreshToken: String)
+
 data class ForgotPasswordRequest(val email: String)
 
 /** Error bodies come back as {"message": "..."}. */

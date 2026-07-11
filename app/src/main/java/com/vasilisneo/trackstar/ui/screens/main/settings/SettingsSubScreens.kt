@@ -59,7 +59,7 @@ import com.vasilisneo.trackstar.ui.components.SettingsScaffold
 import com.vasilisneo.trackstar.ui.components.SettingsSectionHeader
 import com.vasilisneo.trackstar.ui.components.SettingsToggleRow
 import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
-import com.vasilisneo.trackstar.ui.theme.TrackstarBackground
+import com.vasilisneo.trackstar.ui.theme.trackstarBackground
 import com.vasilisneo.trackstar.ui.util.rememberBooleanPref
 
 @Composable
@@ -170,7 +170,7 @@ private fun AboutLinkRow(icon: androidx.compose.ui.graphics.vector.ImageVector, 
 fun CloseAccountScreen(onDismiss: () -> Unit = {}, onClosed: () -> Unit = {}) {
     var deleting by remember { mutableStateOf(false) }
 
-    Box(modifier = Modifier.fillMaxSize().background(TrackstarBackground)) {
+    Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,

@@ -58,7 +58,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vasilisneo.trackstar.ui.components.GlassCircleIconButton
-import com.vasilisneo.trackstar.ui.theme.TrackstarBackground
+import com.vasilisneo.trackstar.ui.theme.trackstarBackground
 import com.vasilisneo.trackstar.ui.theme.TrackstarSurface
 import kotlinx.coroutines.launch
 
@@ -119,10 +119,9 @@ fun SubscriptionScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            // Opaque base first — then the blue tint on top. Without the opaque base the
-            // gradient's low-alpha top would let the screen behind show through.
-            .background(TrackstarBackground)
-            .background(Brush.verticalGradient(listOf(Color(0xFF2E80FF).copy(alpha = 0.14f), Color.Transparent)))
+            // Theme-aware background (accent glow at the top over the base), consistent with the
+            // rest of the app rather than a fixed blue.
+            .trackstarBackground()
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Nav bar

@@ -40,7 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vasilisneo.trackstar.ui.components.GlassCircleIconButton
-import com.vasilisneo.trackstar.ui.theme.TrackstarBackground
+import com.vasilisneo.trackstar.ui.theme.trackstarBackground
 
 private val GroupSurface = Color.White.copy(alpha = 0.06f)
 
@@ -49,7 +49,7 @@ fun SettingsScreen(
     onBackClick: () -> Unit = {},
     onOpenDetail: (String) -> Unit = {},
 ) {
-    Box(modifier = Modifier.fillMaxSize().background(TrackstarBackground)) {
+    Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,

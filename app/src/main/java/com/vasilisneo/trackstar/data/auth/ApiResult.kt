@@ -10,11 +10,25 @@ sealed interface ApiResult<out T> {
     data class Error(val message: String) : ApiResult<Nothing>
 }
 
-/** In-memory current JWT, read by the OkHttp auth interceptor. Kept in sync by TokenStore
- *  (seeded on app launch, updated on save/clear) so the interceptor never needs a Context. */
+/** In-memory session tokens, read by the OkHttp auth interceptor + Authenticator. Kept in sync
+ *  by TokenStore (seeded on app launch, updated on save/clear) so the networking layer never
+ *  needs a Context. */
 object AuthTokenHolder {
     @Volatile
     var token: String? = null
+
+    @Volatile
+    var refreshToken: String? = null
+
+    /** Set by TokenStore so the Authenticator can persist a silently-refreshed access/refresh
+     *  token pair to disk (it runs off a background thread with no Context of its own). */
+    @Volatile
+    var onTokensRefreshed: ((accessToken: String, refreshToken: String?) -> Unit)? = null
+
+    /** Set by the app so a failed refresh (refresh token also expired/invalid) can route back to
+     *  login. Invoked from a background thread — implementations must hop to the main thread. */
+    @Volatile
+    var onSessionExpired: (() -> Unit)? = null
 }
 
 /** Runs a Retrofit call and maps HTTP/network failures to a user-facing message. Shared by

@@ -13,7 +13,11 @@ package com.vasilisneo.trackstar.ui.screens.main
 // either (see AuthComponents' "glass" buttons), so a solid translucent dark fill
 // approximates .ultraThinMaterial the same way those do.
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +25,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.graphics.Brush
+import com.vasilisneo.trackstar.ui.theme.TrackstarBackground
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -34,6 +41,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,6 +62,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.vasilisneo.trackstar.R
+import com.vasilisneo.trackstar.ui.screens.main.workout.ActiveSessionMiniBar
+import com.vasilisneo.trackstar.ui.screens.main.workout.ActiveSessionScreen
+import com.vasilisneo.trackstar.ui.screens.main.workout.ActiveSessionViewModel
+import com.vasilisneo.trackstar.ui.screens.main.workout.QuickLogSheet
+import com.vasilisneo.trackstar.ui.screens.main.workout.QuickLogViewModel
 import com.vasilisneo.trackstar.ui.screens.main.workout.WorkoutScreen
 
 // Workout uses a custom vector drawable (ic_workout_figure) recreating iOS's overhead-press
@@ -69,11 +85,33 @@ private val MainTabs = listOf(
     MainTab("diet", "Diet", icon = Icons.Filled.Restaurant),
 )
 
-private val TabBarSurface = Color(0xFF17171F).copy(alpha = 0.92f)
+// Lighter, translucent "liquid glass" capsule (was a near-black #17171F that vanished on the dark
+// background) with a faint white rim for the glass edge.
+private val TabBarSurface = Color(0xFF3A3A46).copy(alpha = 0.82f)
+private val TabBarRim = Color.White.copy(alpha = 0.14f)
 
 @Composable
-fun MainAppScreen(onProfileClick: () -> Unit = {}) {
+fun MainAppScreen(
+    onProfileClick: () -> Unit = {},
+    onScheduleWorkout: () -> Unit = {},
+) {
     val tabNavController = rememberNavController()
+
+    // Active session is owned here (not inside the Workout tab or a nav route) so it survives
+    // being minimized: the full-screen UI dismisses to a mini-bar while the session keeps
+    // running, mirroring iOS where ActiveSessionViewModel outlives its fullScreenCover. The
+    // full-screen surfaces render above the floating tab bar, like iOS's fullScreenCover.
+    var activeSession by remember { mutableStateOf<ActiveSessionViewModel?>(null) }
+    var showActiveFull by remember { mutableStateOf(false) }
+    var quickLog by remember { mutableStateOf<QuickLogViewModel?>(null) }
+    // Bumped whenever a session is saved, so the Workout tab re-fetches its completed sessions.
+    var workoutRefreshKey by remember { mutableIntStateOf(0) }
+
+    fun startSession(date: java.time.LocalDate, sessionId: String) {
+        if (activeSession != null) { showActiveFull = true; return }
+        activeSession = ActiveSessionViewModel(date, sessionId)
+        showActiveFull = true
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         NavHost(
@@ -81,16 +119,101 @@ fun MainAppScreen(onProfileClick: () -> Unit = {}) {
             startDestination = "workout",
             modifier = Modifier.fillMaxSize()
         ) {
-            composable("workout") { WorkoutScreen(onProfileClick = onProfileClick) }
+            composable("workout") {
+                WorkoutScreen(
+                    onProfileClick = onProfileClick,
+                    onScheduleWorkout = onScheduleWorkout,
+                    onStartSession = { date, sessionId -> startSession(date, sessionId) },
+                    onQuickLog = { date, sessionId -> quickLog = QuickLogViewModel(date, sessionId) },
+                    activeSession = activeSession,
+                    onResumeSession = { showActiveFull = true },
+                    refreshKey = workoutRefreshKey,
+                )
+            }
             composable("stats") { PlaceholderTabScreen(title = "Stats", onProfileClick = onProfileClick) }
             composable("myteam") { PlaceholderTabScreen(title = "MyTeam", onProfileClick = onProfileClick) }
             composable("diet") { PlaceholderTabScreen(title = "Diet", onProfileClick = onProfileClick) }
         }
 
-        FloatingTabBar(
-            tabNavController = tabNavController,
-            modifier = Modifier.align(Alignment.BottomCenter)
+        // Scroll-edge fade behind the floating tab bar: content scrolling toward the bar softly
+        // dissolves into the background instead of sharply cutting off — approximates the way
+        // iOS's liquid-glass tab bar blurs/hides content passing beneath it.
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(130.dp)
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color.Transparent,
+                        0.55f to TrackstarBackground.copy(alpha = 0.55f),
+                        1f to TrackstarBackground,
+                    )
+                )
         )
+
+        // Mini-bar (when minimized) sits directly above the floating tab bar. When present, the
+        // mini-bar + the whole bottom region (behind/around the floating tab pill, down to the
+        // screen edge) share one continuous translucent surface, matching iOS.
+        val session = activeSession
+        if (session != null && !showActiveFull) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .background(Color(0xFF14141C).copy(alpha = 0.95f))
+            ) {
+                ActiveSessionMiniBar(viewModel = session, onExpand = { showActiveFull = true })
+                FloatingTabBar(tabNavController = tabNavController)
+            }
+        } else {
+            FloatingTabBar(
+                tabNavController = tabNavController,
+                modifier = Modifier.align(Alignment.BottomCenter)
+            )
+        }
+
+        // Full-screen active session — slides up over everything (including the tab bar).
+        AnimatedVisibility(
+            visible = showActiveFull && activeSession != null,
+            enter = slideInVertically(initialOffsetY = { it }),
+            exit = slideOutVertically(targetOffsetY = { it }),
+        ) {
+            activeSession?.let { session ->
+                ActiveSessionScreen(
+                    viewModel = session,
+                    onMinimize = { showActiveFull = false },
+                    onDiscard = {
+                        showActiveFull = false
+                        session.dispose()
+                        activeSession = null
+                    },
+                    onFinish = {
+                        showActiveFull = false
+                        session.dispose()
+                        activeSession = null
+                        workoutRefreshKey++
+                    },
+                )
+            }
+        }
+
+        // Full-screen quick-log — same modal slide-up treatment.
+        AnimatedVisibility(
+            visible = quickLog != null,
+            enter = slideInVertically(initialOffsetY = { it }),
+            exit = slideOutVertically(targetOffsetY = { it }),
+        ) {
+            quickLog?.let { vm ->
+                QuickLogSheet(
+                    viewModel = vm,
+                    onClose = { quickLog = null },
+                    onFinished = {
+                        quickLog = null
+                        workoutRefreshKey++
+                    },
+                )
+            }
+        }
     }
 }
 
@@ -118,7 +241,8 @@ private fun FloatingTabBar(
             // antialiased on Android. No clip is needed since the pills are inset 5dp and
             // stay inside the bar's rounded corners.
             .background(TabBarSurface, RoundedCornerShape(percent = 50))
-            .padding(5.dp) // inner inset between the capsule's edge and the tab row itself, equal on every side
+            .border(1.dp, TabBarRim, RoundedCornerShape(percent = 50))
+            .padding(4.dp) // inner inset between the capsule's edge and the tab row itself, equal on every side
     ) {
         MainTabs.forEach { tab ->
             val selected = currentRoute?.hierarchy?.any { it.route == tab.route } == true
@@ -151,7 +275,7 @@ private fun TabBarItem(
     val contentColor = if (selected) Color.White else Color.White.copy(alpha = 0.5f)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(0.dp),
+        verticalArrangement = Arrangement.spacedBy(1.dp),
         modifier = modifier
             // percent = 50 makes a true stadium here because the pill is now wide: the corner
             // radius resolves to half the *shorter* (vertical) side, giving fully-rounded ends.
@@ -164,7 +288,7 @@ private fun TabBarItem(
             )
             .clip(RoundedCornerShape(percent = 50))
             .clickable(onClick = onClick)
-            .padding(vertical = 5.dp) // smaller so the overall bar is shorter, matching iOS
+            .padding(vertical = 3.dp)
     ) {
         if (tab.iconRes != null) {
             Icon(

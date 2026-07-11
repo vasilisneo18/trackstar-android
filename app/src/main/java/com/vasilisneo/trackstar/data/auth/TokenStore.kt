@@ -12,8 +12,21 @@ class TokenStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("trackstar_auth", Context.MODE_PRIVATE)
 
     init {
-        // Seed the interceptor's in-memory token from persisted prefs (survives relaunch).
+        // Seed the networking layer's in-memory tokens from persisted prefs (survives relaunch).
         AuthTokenHolder.token = prefs.getString(KEY_TOKEN, null)
+        AuthTokenHolder.refreshToken = prefs.getString(KEY_REFRESH, null)
+        // Let the OkHttp Authenticator persist silently-refreshed tokens without a Context.
+        AuthTokenHolder.onTokensRefreshed = { accessToken, refreshToken ->
+            prefs.edit()
+                .putString(KEY_TOKEN, accessToken)
+                .apply { if (refreshToken != null) putString(KEY_REFRESH, refreshToken) }
+                .apply()
+        }
+        // Refresh token also expired/invalid: drop the persisted session so the next launch
+        // routes to Landing (cached credentials are kept for one-tap "Continue as").
+        AuthTokenHolder.onSessionExpired = {
+            prefs.edit().remove(KEY_TOKEN).remove(KEY_REFRESH).apply()
+        }
     }
 
     fun save(auth: AuthResponse) {
@@ -27,6 +40,7 @@ class TokenStore(context: Context) {
             putString(KEY_ROLE, auth.role)
         }.apply()
         AuthTokenHolder.token = auth.token
+        AuthTokenHolder.refreshToken = auth.refreshToken
     }
 
     /** Cache the raw credentials used to sign in, so "Continue as" can re-login with one
@@ -39,6 +53,7 @@ class TokenStore(context: Context) {
     }
 
     val token: String? get() = prefs.getString(KEY_TOKEN, null)
+    val refreshToken: String? get() = prefs.getString(KEY_REFRESH, null)
     val isLoggedIn: Boolean get() = token != null
     val email: String? get() = prefs.getString(KEY_EMAIL, null)
     val firstName: String? get() = prefs.getString(KEY_FIRST_NAME, null)
@@ -57,12 +72,14 @@ class TokenStore(context: Context) {
             .remove(KEY_EMAIL).remove(KEY_FIRST_NAME).remove(KEY_LAST_NAME).remove(KEY_ROLE)
             .apply()
         AuthTokenHolder.token = null
+        AuthTokenHolder.refreshToken = null
     }
 
     /** Full wipe including cached credentials — for Close Account / "Not you?". */
     fun clearAll() {
         prefs.edit().clear().apply()
         AuthTokenHolder.token = null
+        AuthTokenHolder.refreshToken = null
     }
 
     private companion object {

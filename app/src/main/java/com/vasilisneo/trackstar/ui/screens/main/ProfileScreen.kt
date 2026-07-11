@@ -64,7 +64,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vasilisneo.trackstar.ui.components.GlassCircleIconButton
 import com.vasilisneo.trackstar.ui.components.initialsFrom
 import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
-import com.vasilisneo.trackstar.ui.theme.TrackstarBackground
+import com.vasilisneo.trackstar.ui.theme.trackstarBackground
 
 private data class ProfileData(
     val fullName: String,
@@ -107,7 +107,7 @@ fun ProfileScreen(
         targetWeightKg = remote?.targetWeight,
     )
 
-    Box(modifier = Modifier.fillMaxSize().background(TrackstarBackground)) {
+    Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Nav bar
             Row(

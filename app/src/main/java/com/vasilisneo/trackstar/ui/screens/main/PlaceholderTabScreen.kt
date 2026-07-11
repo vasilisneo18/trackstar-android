@@ -23,14 +23,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vasilisneo.trackstar.ui.components.ProfileAvatarButton
 import com.vasilisneo.trackstar.ui.components.initialsFrom
-import com.vasilisneo.trackstar.ui.theme.TrackstarBackground
+import com.vasilisneo.trackstar.ui.theme.trackstarBackground
 
 @Composable
 fun PlaceholderTabScreen(
     title: String,
     onProfileClick: () -> Unit = {},
 ) {
-    Box(modifier = Modifier.fillMaxSize().background(TrackstarBackground)) {
+    Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,

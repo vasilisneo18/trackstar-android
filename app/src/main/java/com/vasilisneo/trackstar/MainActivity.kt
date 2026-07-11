@@ -38,6 +38,8 @@ import com.vasilisneo.trackstar.ui.screens.register.GoalsScreen
 import com.vasilisneo.trackstar.ui.screens.register.PersonalDetailsScreen
 import com.vasilisneo.trackstar.ui.screens.register.RegisterViewModel
 import com.vasilisneo.trackstar.ui.screens.main.MainAppScreen
+import com.vasilisneo.trackstar.ui.screens.main.plan.SessionEditScreen
+import com.vasilisneo.trackstar.ui.screens.main.plan.WeeklyPlanScreen
 import com.vasilisneo.trackstar.ui.screens.main.PersonalInfoScreen
 import com.vasilisneo.trackstar.ui.screens.main.ProfileScreen
 import com.vasilisneo.trackstar.ui.screens.main.QRConnectScreen
@@ -50,11 +52,14 @@ import com.vasilisneo.trackstar.ui.screens.main.settings.NotificationsScreen
 import com.vasilisneo.trackstar.ui.screens.subscription.SubscriptionScreen
 import com.vasilisneo.trackstar.data.auth.TokenStore
 import com.vasilisneo.trackstar.ui.theme.TrackstarTheme
+import com.vasilisneo.trackstar.ui.theme.loadSavedTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Apply the saved Appearance theme before the first frame so there's no midnight→theme flash.
+        loadSavedTheme(this)
         // Auto-login: if a session token is already persisted, open straight into the main
         // app (mirrors MasterCoordinator.start() on iOS), otherwise start at Landing.
         val startDestination = if (TokenStore(this).isLoggedIn) "main" else "landing"
@@ -115,7 +120,54 @@ class MainActivity : ComponentActivity() {
                             exitTransition = { ExitTransition.None },
                             popEnterTransition = { EnterTransition.None },
                         ) {
-                            MainAppScreen(onProfileClick = { navController.navigate("profile") })
+                            MainAppScreen(
+                                onProfileClick = { navController.navigate("profile") },
+                                onScheduleWorkout = { navController.navigate("weekly_plan") },
+                            )
+                        }
+                        composable(
+                            "weekly_plan",
+                            // iOS pushes this via UIKit (WorkoutCoordinator.showWeeklyPlan) —
+                            // a horizontal push, not a modal cover — so this uses the NavHost's
+                            // default push transitions (same as "profile" et al.) rather than
+                            // the vertical slide used for subscription/active_session.
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                        ) {
+                            WeeklyPlanScreen(
+                                onBackClick = { navController.popBackStack() },
+                                onOpenSession = { weekIdentifier, day, sessionId ->
+                                    val sessionSegment = sessionId ?: "new"
+                                    navController.navigate(
+                                        "session_edit/${Uri.encode(weekIdentifier)}/${Uri.encode(day)}/${Uri.encode(sessionSegment)}"
+                                    )
+                                },
+                            )
+                        }
+                        composable(
+                            route = "session_edit/{weekIdentifier}/{day}/{sessionId}",
+                            arguments = listOf(
+                                navArgument("weekIdentifier") { type = NavType.StringType },
+                                navArgument("day") { type = NavType.StringType },
+                                navArgument("sessionId") { type = NavType.StringType },
+                            ),
+                            // Full-screen modal that slides up to present and down to dismiss, like
+                            // iOS's fullScreenCover for SessionEditView (not a horizontal push).
+                            enterTransition = { slideInVertically(initialOffsetY = { it }) },
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                            popExitTransition = { slideOutVertically(targetOffsetY = { it }) },
+                        ) { backStackEntry ->
+                            val weekIdentifier = backStackEntry.arguments?.getString("weekIdentifier") ?: ""
+                            val day = backStackEntry.arguments?.getString("day") ?: ""
+                            val sessionSegment = backStackEntry.arguments?.getString("sessionId") ?: "new"
+                            SessionEditScreen(
+                                weekIdentifier = weekIdentifier,
+                                day = day,
+                                sessionId = sessionSegment.takeUnless { it == "new" },
+                                onClose = { navController.popBackStack() },
+                                onSaved = { navController.popBackStack() },
+                            )
                         }
                         composable(
                             "profile",

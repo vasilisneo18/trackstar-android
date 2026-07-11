@@ -58,6 +58,7 @@ import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import com.vasilisneo.trackstar.ui.components.GlassCircleIconButton
 import com.vasilisneo.trackstar.ui.theme.TrackstarBackground
+import com.vasilisneo.trackstar.ui.theme.trackstarBackground
 
 private enum class QRTab { MY_QR, SCAN }
 
@@ -70,7 +71,7 @@ fun QRConnectScreen(
 ) {
     var tab by remember { mutableStateOf(QRTab.MY_QR) }
 
-    Box(modifier = Modifier.fillMaxSize().background(TrackstarBackground)) {
+    Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Nav bar
             Row(
