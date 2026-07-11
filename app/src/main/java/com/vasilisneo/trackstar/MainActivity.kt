@@ -44,6 +44,8 @@ import com.vasilisneo.trackstar.ui.screens.main.PersonalInfoScreen
 import com.vasilisneo.trackstar.ui.screens.main.ProfileScreen
 import com.vasilisneo.trackstar.ui.screens.main.QRConnectScreen
 import com.vasilisneo.trackstar.ui.screens.main.SettingsScreen
+import com.vasilisneo.trackstar.ui.screens.main.stats.ExerciseProgressScreen
+import com.vasilisneo.trackstar.ui.screens.main.stats.HistoryScreen
 import com.vasilisneo.trackstar.ui.screens.main.settings.AboutScreen
 import com.vasilisneo.trackstar.ui.screens.main.settings.AppSettingsScreen
 import com.vasilisneo.trackstar.ui.screens.main.settings.AppearanceScreen
@@ -123,6 +125,8 @@ class MainActivity : ComponentActivity() {
                             MainAppScreen(
                                 onProfileClick = { navController.navigate("profile") },
                                 onScheduleWorkout = { navController.navigate("weekly_plan") },
+                                onOpenHistory = { navController.navigate("history") },
+                                onOpenProgress = { navController.navigate("progress") },
                             )
                         }
                         composable(
@@ -213,6 +217,21 @@ class MainActivity : ComponentActivity() {
                             popExitTransition = { slideOutVertically(targetOffsetY = { it }) },
                         ) {
                             SubscriptionScreen(onDismiss = { navController.popBackStack() })
+                        }
+                        composable(
+                            // iOS pushes History (horizontal) and hides the tab bar; full-screen route here.
+                            "history",
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                        ) {
+                            HistoryScreen(onBack = { navController.popBackStack() })
+                        }
+                        composable(
+                            "progress",
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                        ) {
+                            ExerciseProgressScreen(onBack = { navController.popBackStack() })
                         }
                         composable("personal_info") {
                             PersonalInfoScreen(onBackClick = { navController.popBackStack() })

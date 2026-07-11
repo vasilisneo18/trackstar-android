@@ -94,6 +94,8 @@ private val TabBarRim = Color.White.copy(alpha = 0.14f)
 fun MainAppScreen(
     onProfileClick: () -> Unit = {},
     onScheduleWorkout: () -> Unit = {},
+    onOpenHistory: () -> Unit = {},
+    onOpenProgress: () -> Unit = {},
 ) {
     val tabNavController = rememberNavController()
 
@@ -130,7 +132,13 @@ fun MainAppScreen(
                     refreshKey = workoutRefreshKey,
                 )
             }
-            composable("stats") { PlaceholderTabScreen(title = "Stats", onProfileClick = onProfileClick) }
+            composable("stats") {
+                com.vasilisneo.trackstar.ui.screens.main.stats.StatsScreen(
+                    onProfileClick = onProfileClick,
+                    onHistoryClick = onOpenHistory,
+                    onOpenProgress = onOpenProgress,
+                )
+            }
             composable("myteam") { PlaceholderTabScreen(title = "MyTeam", onProfileClick = onProfileClick) }
             composable("diet") { PlaceholderTabScreen(title = "Diet", onProfileClick = onProfileClick) }
         }
