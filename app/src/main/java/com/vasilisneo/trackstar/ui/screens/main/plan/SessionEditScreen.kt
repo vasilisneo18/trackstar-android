@@ -375,12 +375,13 @@ internal fun SessionExerciseRow(
     onDelete: () -> Unit,
     comments: List<ExerciseComment> = emptyList(),
     onCommentsTap: () -> Unit = {},
+    showNotes: Boolean = true,
     dragHandleModifier: Modifier = Modifier,
 ) {
     if (!exercise.isConfigured()) {
         UnconfiguredExerciseCard(exercise, onSetUp = onClick, onDelete = onDelete, dragHandleModifier = dragHandleModifier)
     } else {
-        ConfiguredExerciseCard(exercise, onClick = onClick, onDelete = onDelete, comments = comments, onCommentsTap = onCommentsTap, dragHandleModifier = dragHandleModifier)
+        ConfiguredExerciseCard(exercise, onClick = onClick, onDelete = onDelete, comments = comments, onCommentsTap = onCommentsTap, showNotes = showNotes, dragHandleModifier = dragHandleModifier)
     }
 }
 
@@ -435,6 +436,7 @@ private fun ConfiguredExerciseCard(
     onDelete: () -> Unit,
     comments: List<ExerciseComment> = emptyList(),
     onCommentsTap: () -> Unit = {},
+    showNotes: Boolean = true,
     dragHandleModifier: Modifier = Modifier,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
@@ -494,7 +496,7 @@ private fun ConfiguredExerciseCard(
                     }
                 }
             }
-            ExerciseNoteButton(comments = comments, onTap = onCommentsTap)
+            if (showNotes) ExerciseNoteButton(comments = comments, onTap = onCommentsTap)
         }
     }
     ExerciseContextMenu(expanded = menuOpen, onDismiss = { menuOpen = false }, editLabel = "Edit", onEdit = onClick, onDelete = onDelete)
@@ -607,6 +609,7 @@ internal fun SessionSupersetRow(
     commentsB: List<ExerciseComment> = emptyList(),
     onCommentsTapA: () -> Unit = {},
     onCommentsTapB: () -> Unit = {},
+    showNotes: Boolean = true,
     dragHandleModifier: Modifier = Modifier,
 ) {
     val rounds = a.sets.orEmpty().size
@@ -656,7 +659,7 @@ internal fun SessionSupersetRow(
             }
         }
 
-        SupersetExerciseRow(a, commentsA, onCommentsTapA)
+        SupersetExerciseRow(a, commentsA, onCommentsTapA, showNotes)
 
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
             Box(modifier = Modifier.weight(1f).height(1.dp).background(Color.White.copy(alpha = 0.1f)))
@@ -664,7 +667,7 @@ internal fun SessionSupersetRow(
             Box(modifier = Modifier.weight(1f).height(1.dp).background(Color.White.copy(alpha = 0.1f)))
         }
 
-        SupersetExerciseRow(b, commentsB, onCommentsTapB)
+        SupersetExerciseRow(b, commentsB, onCommentsTapB, showNotes)
 
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.1f)))
 
@@ -679,7 +682,7 @@ internal fun SessionSupersetRow(
 }
 
 @Composable
-private fun SupersetExerciseRow(exercise: ExerciseData, comments: List<ExerciseComment> = emptyList(), onCommentsTap: () -> Unit = {}) {
+private fun SupersetExerciseRow(exercise: ExerciseData, comments: List<ExerciseComment> = emptyList(), onCommentsTap: () -> Unit = {}, showNotes: Boolean = true) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(exercise.name ?: "Exercise", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
@@ -689,7 +692,7 @@ private fun SupersetExerciseRow(exercise: ExerciseData, comments: List<ExerciseC
                 Text(label, fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f))
             }
         }
-        ExerciseNoteButton(comments = comments, onTap = onCommentsTap, showDivider = false, compact = true)
+        if (showNotes) ExerciseNoteButton(comments = comments, onTap = onCommentsTap, showDivider = false, compact = true)
     }
 }
 

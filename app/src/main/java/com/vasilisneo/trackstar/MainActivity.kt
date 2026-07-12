@@ -45,6 +45,8 @@ import com.vasilisneo.trackstar.ui.screens.main.ProfileScreen
 import com.vasilisneo.trackstar.ui.screens.main.QRConnectScreen
 import com.vasilisneo.trackstar.ui.screens.main.coach.AddAthleteScreen
 import com.vasilisneo.trackstar.ui.screens.main.coach.AthleteDetailScreen
+import com.vasilisneo.trackstar.ui.screens.main.coach.TemplateEditorScreen
+import com.vasilisneo.trackstar.ui.screens.main.coach.TemplatesScreen
 import com.vasilisneo.trackstar.ui.screens.main.SettingsScreen
 import com.vasilisneo.trackstar.ui.screens.main.stats.ExerciseProgressScreen
 import com.vasilisneo.trackstar.ui.screens.main.stats.HistoryScreen
@@ -131,6 +133,37 @@ class MainActivity : ComponentActivity() {
                                 onOpenProgress = { navController.navigate("progress") },
                                 onOpenAthlete = { athleteId -> navController.navigate("athlete/${Uri.encode(athleteId)}") },
                                 onOpenAddAthlete = { navController.navigate("add_athlete") },
+                                onOpenTemplates = { navController.navigate("templates") },
+                            )
+                        }
+                        composable(
+                            "templates",
+                            enterTransition = { slideInVertically(initialOffsetY = { it }) },
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                            popExitTransition = { slideOutVertically(targetOffsetY = { it }) },
+                        ) {
+                            TemplatesScreen(
+                                onClose = { navController.popBackStack() },
+                                onOpenTemplate = { id, name ->
+                                    navController.navigate("template_editor/${Uri.encode(id)}/${Uri.encode(name)}")
+                                },
+                            )
+                        }
+                        composable(
+                            route = "template_editor/{templateId}/{templateName}",
+                            arguments = listOf(
+                                navArgument("templateId") { type = NavType.StringType },
+                                navArgument("templateName") { type = NavType.StringType },
+                            ),
+                            // Horizontal push over the Templates modal, like the athlete detail.
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                        ) { backStackEntry ->
+                            TemplateEditorScreen(
+                                templateId = backStackEntry.arguments?.getString("templateId") ?: "",
+                                templateName = backStackEntry.arguments?.getString("templateName") ?: "",
+                                onBack = { navController.popBackStack() },
                             )
                         }
                         composable(

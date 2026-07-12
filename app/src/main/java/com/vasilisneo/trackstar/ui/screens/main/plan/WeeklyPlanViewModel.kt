@@ -30,9 +30,17 @@ import java.util.Locale
 // reorderSessions), since there's no editor screen to defer a save to. When a day holds two or
 // more sessions each is a tappable card that pushes SessionEditScreen + SessionEditViewModel,
 // which defers its save to a single upsert on the checkmark (see that file's header comment).
+// The slice of a plan VM that SingleSessionInline (the inline session editor) actually needs, so it
+// can be reused by both the weekly plan and the template editor (which has a different data source).
+interface SessionExerciseEditor {
+    val exerciseComments: Map<String, List<ExerciseComment>>
+    fun reorderExercisesIn(session: PlannedSessionResponse, newOrder: List<ExerciseData>)
+    fun updateSessionTitle(session: PlannedSessionResponse, title: String)
+}
+
 // `athleteId` non-null = coach mode: reads/writes the athlete's plan via /coach/athletes/{id}/plan.
 // @JvmOverloads keeps the no-arg AndroidViewModel factory working for the signed-in user's own plan.
-class WeeklyPlanViewModel @JvmOverloads constructor(app: Application, private val athleteId: String? = null) : AndroidViewModel(app) {
+class WeeklyPlanViewModel @JvmOverloads constructor(app: Application, private val athleteId: String? = null) : AndroidViewModel(app), SessionExerciseEditor {
 
     private val planRepository = PlanRepository()
     private val commentRepository = CommentRepository()
@@ -40,7 +48,7 @@ class WeeklyPlanViewModel @JvmOverloads constructor(app: Application, private va
 
     // Comments/notes are a separate collection server-side — fetched per week and merged onto
     // exercises by id here (mirrors iOS's fetchWeekComments/applyComments).
-    var exerciseComments by mutableStateOf<Map<String, List<ExerciseComment>>>(emptyMap())
+    override var exerciseComments by mutableStateOf<Map<String, List<ExerciseComment>>>(emptyMap())
         private set
 
     // Author identity for posting comments on your own exercises.
@@ -198,7 +206,7 @@ class WeeklyPlanViewModel @JvmOverloads constructor(app: Application, private va
         }
     }
 
-    fun updateSessionTitle(session: PlannedSessionResponse, title: String) =
+    override fun updateSessionTitle(session: PlannedSessionResponse, title: String) =
         persist(session.copy(title = title))
 
     fun addExercisesTo(session: PlannedSessionResponse, newOnes: List<ExerciseData>) =
@@ -222,7 +230,7 @@ class WeeklyPlanViewModel @JvmOverloads constructor(app: Application, private va
     fun deletePairFrom(session: PlannedSessionResponse, aId: String, bId: String) =
         persist(session.copy(exercises = session.exercises.orEmpty().filterNot { it.id == aId || it.id == bId }))
 
-    fun reorderExercisesIn(session: PlannedSessionResponse, newOrder: List<ExerciseData>) =
+    override fun reorderExercisesIn(session: PlannedSessionResponse, newOrder: List<ExerciseData>) =
         persist(session.copy(exercises = newOrder))
 }
 

@@ -364,7 +364,7 @@ fun WeeklyPlanScreen(
 @Composable
 internal fun SingleSessionInline(
     session: PlannedSessionResponse,
-    viewModel: WeeklyPlanViewModel,
+    viewModel: SessionExerciseEditor,
     onAddExercise: () -> Unit,
     onAddSuperset: () -> Unit,
     onAddSession: () -> Unit,
@@ -373,6 +373,7 @@ internal fun SingleSessionInline(
     onDeleteExercise: (String) -> Unit,
     onDeletePair: (String, String) -> Unit,
     onCommentsTap: (ExerciseData) -> Unit,
+    showNotes: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     val exercises = session.exercises.orEmpty()
@@ -425,6 +426,7 @@ internal fun SingleSessionInline(
                             onDelete = { onDeleteExercise(unit.exercise.id ?: "") },
                             comments = viewModel.exerciseComments[unit.exercise.id] ?: emptyList(),
                             onCommentsTap = { onCommentsTap(unit.exercise) },
+                            showNotes = showNotes,
                             dragHandleModifier = Modifier.dragHandle(dragState, unit.id, listState, ::commitReorder),
                         )
                         is ExerciseDisplayUnit.Pair -> SessionSupersetRow(
@@ -435,6 +437,7 @@ internal fun SingleSessionInline(
                             commentsB = viewModel.exerciseComments[unit.b.id] ?: emptyList(),
                             onCommentsTapA = { onCommentsTap(unit.a) },
                             onCommentsTapB = { onCommentsTap(unit.b) },
+                            showNotes = showNotes,
                             dragHandleModifier = Modifier.dragHandle(dragState, unit.id, listState, ::commitReorder),
                         )
                     }

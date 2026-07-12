@@ -98,6 +98,7 @@ fun MainAppScreen(
     onOpenProgress: () -> Unit = {},
     onOpenAthlete: (String) -> Unit = {},
     onOpenAddAthlete: () -> Unit = {},
+    onOpenTemplates: () -> Unit = {},
 ) {
     val tabNavController = rememberNavController()
 
@@ -151,6 +152,7 @@ fun MainAppScreen(
                         onProfileClick = onProfileClick,
                         onAthleteClick = { athlete -> athlete.id?.let(onOpenAthlete) },
                         onAddAthlete = onOpenAddAthlete,
+                        onShowTemplates = onOpenTemplates,
                     )
                 } else {
                     PlaceholderTabScreen(title = "My Coach", onProfileClick = onProfileClick)
