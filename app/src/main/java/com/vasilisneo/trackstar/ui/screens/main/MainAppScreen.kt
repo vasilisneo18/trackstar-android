@@ -96,6 +96,8 @@ fun MainAppScreen(
     onScheduleWorkout: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
     onOpenProgress: () -> Unit = {},
+    onOpenAthlete: (String) -> Unit = {},
+    onOpenAddAthlete: () -> Unit = {},
 ) {
     val tabNavController = rememberNavController()
 
@@ -139,8 +141,24 @@ fun MainAppScreen(
                     onOpenProgress = onOpenProgress,
                 )
             }
-            composable("myteam") { PlaceholderTabScreen(title = "MyTeam", onProfileClick = onProfileClick) }
-            composable("diet") { PlaceholderTabScreen(title = "Diet", onProfileClick = onProfileClick) }
+            composable("myteam") {
+                // Coach-only roster (matches iOS, where MyTeam is gated by the coach subscription).
+                // Athletes get a "My Coach" screen instead (Phase 4). Role comes from the JWT login.
+                val ctx = androidx.compose.ui.platform.LocalContext.current
+                val role = remember { com.vasilisneo.trackstar.data.auth.TokenStore(ctx).role }
+                if (role == "coach") {
+                    com.vasilisneo.trackstar.ui.screens.main.coach.AthletesScreen(
+                        onProfileClick = onProfileClick,
+                        onAthleteClick = { athlete -> athlete.id?.let(onOpenAthlete) },
+                        onAddAthlete = onOpenAddAthlete,
+                    )
+                } else {
+                    PlaceholderTabScreen(title = "My Coach", onProfileClick = onProfileClick)
+                }
+            }
+            composable("diet") {
+                com.vasilisneo.trackstar.ui.screens.main.diet.DietScreen(onProfileClick = onProfileClick)
+            }
         }
 
         // Scroll-edge fade behind the floating tab bar: content scrolling toward the bar softly

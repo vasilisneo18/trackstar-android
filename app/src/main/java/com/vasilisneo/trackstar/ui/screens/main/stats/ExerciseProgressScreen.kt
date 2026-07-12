@@ -155,7 +155,7 @@ fun ExerciseProgressScreen(onBack: () -> Unit = {}, viewModel: StatsViewModel = 
 // MARK: - Exercise picker
 
 @Composable
-private fun ExercisePicker(names: List<String>, selected: String, onSelect: (String) -> Unit) {
+internal fun ExercisePicker(names: List<String>, selected: String, onSelect: (String) -> Unit) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 2.dp)
@@ -176,7 +176,7 @@ private fun ExercisePicker(names: List<String>, selected: String, onSelect: (Str
 // MARK: - Chart page
 
 @Composable
-private fun ChartPage(exercise: String, sessions: List<WorkoutSessionResponse>) {
+internal fun ChartPage(exercise: String, sessions: List<WorkoutSessionResponse>) {
     val accent = TrackstarAccent
     val available = remember(exercise, sessions) { availableMetrics(exercise, sessions) }
     var range by remember(exercise) { mutableStateOf(Range.M3) }
@@ -359,7 +359,7 @@ private fun InsufficientData(exercise: String, modifier: Modifier = Modifier) {
 // MARK: - List page
 
 @Composable
-private fun ListPage(exercise: String, sessions: List<WorkoutSessionResponse>) {
+internal fun ListPage(exercise: String, sessions: List<WorkoutSessionResponse>) {
     var range by remember(exercise) { mutableStateOf(Range.M3) }
     val entries = remember(exercise, range, sessions) { listEntries(exercise, range, sessions) }
     Column(
@@ -427,7 +427,7 @@ private fun SetRowDetail(row: SetRow) {
 }
 
 @Composable
-private fun NoSessionsCard() {
+internal fun NoSessionsCard() {
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize().padding(40.dp), ) {
         Spacer(modifier = Modifier.weight(1f))
         Icon(Icons.Filled.ShowChart, contentDescription = null, tint = Color.White.copy(alpha = 0.15f), modifier = Modifier.size(52.dp))
@@ -442,7 +442,7 @@ private fun NoSessionsCard() {
 private val dateFmt = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.ENGLISH)
 private val shortDateFmt = DateTimeFormatter.ofPattern("MMM d", Locale.ENGLISH)
 
-private fun exerciseNames(sessions: List<WorkoutSessionResponse>): List<String> =
+internal fun exerciseNames(sessions: List<WorkoutSessionResponse>): List<String> =
     sessions.flatMap { it.sessionData?.exercises.orEmpty().map { e -> e.name } }.distinct().sorted()
 
 private fun WorkoutSessionResponse.exerciseNamed(name: String): ExerciseSummary? =

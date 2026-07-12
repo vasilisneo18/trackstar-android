@@ -1,6 +1,7 @@
 package com.vasilisneo.trackstar.data.api
 
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.vasilisneo.trackstar.data.auth.AuthTokenHolder
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -20,7 +21,12 @@ object NetworkClient {
     // Exposed so TokenAuthenticator can build its own bare Retrofit for /auth/refresh.
     val baseUrl: String get() = BASE_URL
 
-    val gson: Gson = Gson()
+    // Custom adapter for the diet plan: iOS encodes its [DayTabModel: [DietMeal]] dictionary as a
+    // flat JSON array (Swift enum-keyed dict quirk), which a plain Map can't parse — see
+    // WeeklyDietPlanAdapter. Scoped to WeeklyDietPlanDto; all other types use default Gson.
+    val gson: Gson = GsonBuilder()
+        .registerTypeAdapter(WeeklyDietPlanDto::class.java, WeeklyDietPlanAdapter())
+        .create()
 
     private val okHttp: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
@@ -65,5 +71,7 @@ object NetworkClient {
     val planApi: PlanApi = retrofit.create(PlanApi::class.java)
     val commentApi: CommentApi = retrofit.create(CommentApi::class.java)
     val sessionApi: SessionApi = retrofit.create(SessionApi::class.java)
+    val dietApi: DietApi = retrofit.create(DietApi::class.java)
+    val athleteApi: AthleteApi = retrofit.create(AthleteApi::class.java)
     val aiApi: AiApi = aiRetrofit.create(AiApi::class.java)
 }

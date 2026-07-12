@@ -362,7 +362,7 @@ fun WeeklyPlanScreen(
 // then Add Exercise / Add Superset / Add Session. Reuses SessionEditScreen's row composables so a
 // session reads the same inline as it does in the full-screen editor.
 @Composable
-private fun SingleSessionInline(
+internal fun SingleSessionInline(
     session: PlannedSessionResponse,
     viewModel: WeeklyPlanViewModel,
     onAddExercise: () -> Unit,
@@ -509,7 +509,7 @@ private fun SingleSessionActions(onAddExercise: () -> Unit, onAddSuperset: () ->
 // Mirrors WeeklyPlanView.weekNavigationBar: a full-width glassRect pill (translucent fill,
 // rounded 20) with prev/next chevrons and the centered week range, pinned to the bottom.
 @Composable
-private fun WeekNavigationBar(weekRange: String, onPrevious: () -> Unit, onNext: () -> Unit) {
+internal fun WeekNavigationBar(weekRange: String, onPrevious: () -> Unit, onNext: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -535,7 +535,7 @@ private fun WeekNavigationBar(weekRange: String, onPrevious: () -> Unit, onNext:
 
 // Mirrors DayTabModel.color on iOS — one distinct accent per day (iOS system-color dark-mode
 // values, matching the exact hex shades already used elsewhere in this app for iOS system colors).
-private fun dayColor(day: java.time.DayOfWeek): Color = when (day) {
+internal fun dayColor(day: java.time.DayOfWeek): Color = when (day) {
     java.time.DayOfWeek.MONDAY -> Color(0xFF0A84FF)     // blue
     java.time.DayOfWeek.TUESDAY -> Color(0xFFFF9F0A)    // orange
     java.time.DayOfWeek.WEDNESDAY -> Color(0xFFFFD60A)  // yellow
@@ -547,7 +547,7 @@ private fun dayColor(day: java.time.DayOfWeek): Color = when (day) {
 
 // Mirrors DayTabModel.shortLabel exactly (M/T/W/T/F/S/S — Tuesday/Thursday and Saturday/Sunday
 // deliberately collide on one letter, disambiguated by only ever showing the full name when active).
-private fun dayShortLabel(day: java.time.DayOfWeek): String = when (day) {
+internal fun dayShortLabel(day: java.time.DayOfWeek): String = when (day) {
     java.time.DayOfWeek.MONDAY -> "M"
     java.time.DayOfWeek.TUESDAY -> "T"
     java.time.DayOfWeek.WEDNESDAY -> "W"
@@ -558,7 +558,7 @@ private fun dayShortLabel(day: java.time.DayOfWeek): String = when (day) {
 }
 
 @Composable
-private fun DayTabPill(
+internal fun DayTabPill(
     day: java.time.DayOfWeek,
     isActive: Boolean,
     hasExercises: Boolean,
@@ -616,7 +616,7 @@ private fun CircleIconButton(icon: androidx.compose.ui.graphics.vector.ImageVect
 }
 
 @Composable
-private fun PlanSessionCard(session: PlannedSessionResponse, onClick: () -> Unit, onDelete: () -> Unit, dragHandleModifier: Modifier = Modifier) {
+internal fun PlanSessionCard(session: PlannedSessionResponse, onClick: () -> Unit, onDelete: () -> Unit, dragHandleModifier: Modifier = Modifier) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
@@ -648,7 +648,7 @@ private fun PlanSessionCard(session: PlannedSessionResponse, onClick: () -> Unit
 }
 
 @Composable
-private fun AddSessionButton(onClick: () -> Unit) {
+internal fun AddSessionButton(onClick: () -> Unit) {
     // Mirrors WeeklyPlanView.bottomActionButton: 8% fill + 1px white-15% border, corner 18,
     // content at 70% white.
     Row(
@@ -668,7 +668,7 @@ private fun AddSessionButton(onClick: () -> Unit) {
     }
 }
 
-private fun formattedWeekRange(weekStart: LocalDate): String {
+internal fun formattedWeekRange(weekStart: LocalDate): String {
     val end = weekStart.plusDays(6)
     val monthFmt = java.time.format.DateTimeFormatter.ofPattern("MMM", Locale.getDefault())
     // Includes the year to match iOS ("6-12 Jul 2026").

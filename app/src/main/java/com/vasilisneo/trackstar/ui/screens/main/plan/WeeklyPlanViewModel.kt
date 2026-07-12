@@ -30,7 +30,9 @@ import java.util.Locale
 // reorderSessions), since there's no editor screen to defer a save to. When a day holds two or
 // more sessions each is a tappable card that pushes SessionEditScreen + SessionEditViewModel,
 // which defers its save to a single upsert on the checkmark (see that file's header comment).
-class WeeklyPlanViewModel(app: Application) : AndroidViewModel(app) {
+// `athleteId` non-null = coach mode: reads/writes the athlete's plan via /coach/athletes/{id}/plan.
+// @JvmOverloads keeps the no-arg AndroidViewModel factory working for the signed-in user's own plan.
+class WeeklyPlanViewModel @JvmOverloads constructor(app: Application, private val athleteId: String? = null) : AndroidViewModel(app) {
 
     private val planRepository = PlanRepository()
     private val commentRepository = CommentRepository()
@@ -107,7 +109,7 @@ class WeeklyPlanViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             isLoading = true
             loadError = false
-            when (val result = planRepository.getPlan(week)) {
+            when (val result = planRepository.getPlan(week, athleteId)) {
                 is ApiResult.Success -> weekSessions = result.data
                 is ApiResult.Error -> loadError = true
             }
@@ -115,10 +117,13 @@ class WeeklyPlanViewModel(app: Application) : AndroidViewModel(app) {
         }
         // Comments load in a SEPARATE coroutine so a slow/failed comment request can never block
         // the plan out of its loading state or affect loadError — comment previews are best-effort.
-        viewModelScope.launch {
-            when (val c = commentRepository.getWeekComments(week)) {
-                is ApiResult.Success -> exerciseComments = c.data.groupBy { it.exerciseId ?: "" }
-                is ApiResult.Error -> Unit
+        // Only for the signed-in user's own plan (the coach-comment endpoint isn't wired here yet).
+        if (athleteId == null) {
+            viewModelScope.launch {
+                when (val c = commentRepository.getWeekComments(week)) {
+                    is ApiResult.Success -> exerciseComments = c.data.groupBy { it.exerciseId ?: "" }
+                    is ApiResult.Error -> Unit
+                }
             }
         }
     }
@@ -131,7 +136,7 @@ class WeeklyPlanViewModel(app: Application) : AndroidViewModel(app) {
     fun deleteSession(sessionId: String, onDone: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             isSaving = true
-            when (planRepository.deleteSession(sessionId)) {
+            when (planRepository.deleteSession(sessionId, athleteId)) {
                 is ApiResult.Success -> {
                     weekSessions = weekSessions.filterNot { it.id == sessionId }
                     onDone(true)
@@ -153,8 +158,27 @@ class WeeklyPlanViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             isSaving = true
             reindexed.forEach { session ->
-                planRepository.upsertSession(session.toRequest())
+                planRepository.upsertSession(session.toRequest(), athleteId)
             }
+            isSaving = false
+        }
+    }
+
+    // Creates an empty session on the selected day and upserts it, so a 0-session day flips into the
+    // single-session inline editor. Used by the coach's athlete Plan tab (no SessionEditScreen push).
+    fun createSession() {
+        val newSession = PlannedSessionResponse(
+            id = UUID.randomUUID().toString(),
+            weekIdentifier = weekIdentifier,
+            day = selectedDayName,
+            orderIndex = sessionsForSelectedDay.size,
+            title = "",
+            exercises = emptyList(),
+        )
+        weekSessions = weekSessions + newSession
+        viewModelScope.launch {
+            isSaving = true
+            planRepository.upsertSession(newSession.toRequest(), athleteId)
             isSaving = false
         }
     }
@@ -169,7 +193,7 @@ class WeeklyPlanViewModel(app: Application) : AndroidViewModel(app) {
         weekSessions = weekSessions.map { if (it.id == session.id) session else it }
         viewModelScope.launch {
             isSaving = true
-            planRepository.upsertSession(session.toRequest())
+            planRepository.upsertSession(session.toRequest(), athleteId)
             isSaving = false
         }
     }

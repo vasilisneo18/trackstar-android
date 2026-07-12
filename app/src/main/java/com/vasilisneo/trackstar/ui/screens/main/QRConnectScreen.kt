@@ -68,6 +68,10 @@ fun QRConnectScreen(
     displayName: String = "Vasilis Neophytou",
     subtitle: String = "Coach scans this to add you to their team",
     onBackClick: () -> Unit = {},
+    // Standalone (from Profile) closes with an X; when pushed inside the add-athlete flow it's a back chevron.
+    backIcon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Filled.Close,
+    // The add-athlete flow already has a separate "Share Link" menu option, so it hides the in-card one.
+    showShareLink: Boolean = true,
 ) {
     var tab by remember { mutableStateOf(QRTab.MY_QR) }
 
@@ -78,7 +82,7 @@ fun QRConnectScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
-                GlassCircleIconButton(onClick = onBackClick, icon = Icons.Filled.Close, contentDescription = "Close")
+                GlassCircleIconButton(onClick = onBackClick, icon = backIcon, contentDescription = "Back")
                 Text("QR Code", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                 Spacer(modifier = Modifier.width(44.dp))
             }
@@ -89,7 +93,7 @@ fun QRConnectScreen(
             }
 
             when (tab) {
-                QRTab.MY_QR -> MyQRContent(qrString, displayName, subtitle)
+                QRTab.MY_QR -> MyQRContent(qrString, displayName, subtitle, showShareLink)
                 QRTab.SCAN -> ScanContent()
             }
         }
@@ -97,11 +101,13 @@ fun QRConnectScreen(
 }
 
 @Composable
-private fun MyQRContent(qrString: String, displayName: String, subtitle: String) {
+private fun MyQRContent(qrString: String, displayName: String, subtitle: String, showShareLink: Boolean) {
     val context = LocalContext.current
     val qrBitmap = remember(qrString) { generateQrBitmap(qrString, 480) }
 
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.Center) {
+    // Card sits in the upper third (iOS: one top spacer, two bottom spacers).
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        Spacer(modifier = Modifier.weight(1f))
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(24.dp),
@@ -110,7 +116,7 @@ private fun MyQRContent(qrString: String, displayName: String, subtitle: String)
                 .clip(RoundedCornerShape(28.dp))
                 .background(Color.White.copy(alpha = 0.06f))
                 .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(28.dp))
-                .padding(horizontal = 32.dp, vertical = 44.dp)
+                .padding(horizontal = 32.dp).padding(top = 48.dp, bottom = 40.dp)
         ) {
             Box(contentAlignment = Alignment.Center) {
                 qrBitmap?.let {
@@ -128,33 +134,41 @@ private fun MyQRContent(qrString: String, displayName: String, subtitle: String)
             Text(displayName, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Text(subtitle, fontSize = 13.sp, color = Color.White.copy(alpha = 0.45f), textAlign = TextAlign.Center)
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(7.dp),
-                modifier = Modifier
-                    .height(40.dp)
-                    .clip(CircleShape)
-                    .background(Color.White)
-                    .clickable {
-                        val share = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, qrString)
+            if (showShareLink) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                    modifier = Modifier
+                        .height(40.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .clickable {
+                            val share = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, qrString)
+                            }
+                            runCatching { context.startActivity(Intent.createChooser(share, "Share")) }
                         }
-                        runCatching { context.startActivity(Intent.createChooser(share, "Share")) }
-                    }
-                    .padding(horizontal = 28.dp)
-            ) {
-                Icon(Icons.Filled.IosShare, contentDescription = null, tint = Color.Black, modifier = Modifier.size(15.dp))
-                Text("Share link", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
+                        .padding(horizontal = 28.dp)
+                ) {
+                    Icon(Icons.Filled.IosShare, contentDescription = null, tint = Color.Black, modifier = Modifier.size(15.dp))
+                    Text("Share link", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
+                }
             }
         }
+        Spacer(modifier = Modifier.weight(2f))
     }
 }
 
 @Composable
 private fun ScanContent() {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Box(modifier = Modifier.size(230.dp).border(2.5.dp, Color.White, RoundedCornerShape(20.dp)))
+    Box(modifier = Modifier.fillMaxSize()) {
+        // Scan frame in the upper third (iOS: one top spacer, two bottom spacers).
+        Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+            Spacer(modifier = Modifier.weight(1f))
+            Box(modifier = Modifier.size(230.dp).border(2.5.dp, Color.White, RoundedCornerShape(20.dp)))
+            Spacer(modifier = Modifier.weight(2f))
+        }
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(6.dp),

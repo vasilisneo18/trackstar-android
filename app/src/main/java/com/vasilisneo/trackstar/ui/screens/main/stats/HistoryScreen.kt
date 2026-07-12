@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -93,7 +94,7 @@ fun HistoryScreen(
             }
 
             if (showingList) {
-                SessionsWeekList(viewModel) { reportSession = it }
+                SessionsWeekList(viewModel.sessions) { reportSession = it }
             } else {
                 CalendarPane(sessionsByDate) { reportSession = it }
             }
@@ -282,14 +283,17 @@ private fun StatPill(icon: ImageVector, value: String) {
 
 // MARK: - Week list (iOS AthleteHistoryTabView)
 
+// Shared by the Stats history tab and the coach's athlete-detail Sessions tab: a Mon–Sun week list
+// of completed sessions with prev/next week navigation. Takes the sessions directly so it works for
+// either the signed-in user or an athlete.
 @Composable
-private fun SessionsWeekList(viewModel: StatsViewModel, onOpenSession: (WorkoutSessionResponse) -> Unit) {
+internal fun SessionsWeekList(sessions: List<WorkoutSessionResponse>, onOpenSession: (WorkoutSessionResponse) -> Unit) {
     val today = LocalDate.now()
     val thisWeekStart = today.minusDays((today.dayOfWeek.value - 1).toLong())
     var weekStart by remember { mutableStateOf(thisWeekStart) }
     val isCurrentWeek = weekStart == thisWeekStart
     val fmt = remember { DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH) }
-    val byDate = remember(viewModel.sessions) { viewModel.sessions.mapNotNull { s -> s.localDate?.let { it to s } }.toMap() }
+    val byDate = remember(sessions) { sessions.mapNotNull { s -> s.localDate?.let { it to s } }.toMap() }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -306,7 +310,7 @@ private fun SessionsWeekList(viewModel: StatsViewModel, onOpenSession: (WorkoutS
         // Week nav bar
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 16.dp).height(56.dp)
+            modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 15.dp).padding(bottom = 16.dp).height(56.dp)
                 .clip(RoundedCornerShape(20.dp)).background(Color.White.copy(alpha = 0.08f))
         ) {
             Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous week", tint = Color.White,

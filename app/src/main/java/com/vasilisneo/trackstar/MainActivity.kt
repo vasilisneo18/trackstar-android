@@ -43,6 +43,8 @@ import com.vasilisneo.trackstar.ui.screens.main.plan.WeeklyPlanScreen
 import com.vasilisneo.trackstar.ui.screens.main.PersonalInfoScreen
 import com.vasilisneo.trackstar.ui.screens.main.ProfileScreen
 import com.vasilisneo.trackstar.ui.screens.main.QRConnectScreen
+import com.vasilisneo.trackstar.ui.screens.main.coach.AddAthleteScreen
+import com.vasilisneo.trackstar.ui.screens.main.coach.AthleteDetailScreen
 import com.vasilisneo.trackstar.ui.screens.main.SettingsScreen
 import com.vasilisneo.trackstar.ui.screens.main.stats.ExerciseProgressScreen
 import com.vasilisneo.trackstar.ui.screens.main.stats.HistoryScreen
@@ -127,6 +129,33 @@ class MainActivity : ComponentActivity() {
                                 onScheduleWorkout = { navController.navigate("weekly_plan") },
                                 onOpenHistory = { navController.navigate("history") },
                                 onOpenProgress = { navController.navigate("progress") },
+                                onOpenAthlete = { athleteId -> navController.navigate("athlete/${Uri.encode(athleteId)}") },
+                                onOpenAddAthlete = { navController.navigate("add_athlete") },
+                            )
+                        }
+                        composable(
+                            "add_athlete",
+                            // Slide-up modal like iOS's AddAthleteSheet.
+                            enterTransition = { slideInVertically(initialOffsetY = { it }) },
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                            popExitTransition = { slideOutVertically(targetOffsetY = { it }) },
+                        ) {
+                            AddAthleteScreen(
+                                onClose = { navController.popBackStack() },
+                                onAthleteAdded = { navController.popBackStack() },
+                            )
+                        }
+                        composable(
+                            route = "athlete/{athleteId}",
+                            arguments = listOf(navArgument("athleteId") { type = NavType.StringType }),
+                            // Horizontal push like weekly_plan (iOS pushes AthleteDetailView), not a modal.
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                        ) { backStackEntry ->
+                            AthleteDetailScreen(
+                                athleteId = backStackEntry.arguments?.getString("athleteId") ?: "",
+                                onBack = { navController.popBackStack() },
                             )
                         }
                         composable(
