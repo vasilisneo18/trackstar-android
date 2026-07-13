@@ -100,6 +100,7 @@ fun MainAppScreen(
     onOpenAddAthlete: () -> Unit = {},
     onOpenTemplates: () -> Unit = {},
     onOpenQr: () -> Unit = {},
+    onOpenAiDietPlanner: () -> Unit = {},
 ) {
     val tabNavController = rememberNavController()
 
@@ -163,7 +164,10 @@ fun MainAppScreen(
                 }
             }
             composable("diet") {
-                com.vasilisneo.trackstar.ui.screens.main.diet.DietScreen(onProfileClick = onProfileClick)
+                com.vasilisneo.trackstar.ui.screens.main.diet.DietScreen(
+                    onProfileClick = onProfileClick,
+                    onOpenAiPlanner = onOpenAiDietPlanner,
+                )
             }
         }
 

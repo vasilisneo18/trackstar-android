@@ -140,6 +140,13 @@ fun DietScreen(
     var editingMeal by remember { mutableStateOf<DietMeal?>(null) }
     var showPlanSheet by remember { mutableStateOf(false) }
 
+    // Re-fetch when the AI planner (a separate route) applies a new plan and bumps the signal, so
+    // it shows immediately on return. Keyed on the version, so it only fires on an actual change.
+    val refreshVersion = DietRefreshSignal.version
+    androidx.compose.runtime.LaunchedEffect(refreshVersion) {
+        if (refreshVersion > 0) viewModel.fetch()
+    }
+
     Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
         Text(
             "Trackstar", fontSize = 30.sp, fontWeight = FontWeight.Black, color = Color.White.copy(alpha = 0.08f),

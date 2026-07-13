@@ -47,6 +47,7 @@ import com.vasilisneo.trackstar.ui.screens.main.coach.AddAthleteScreen
 import com.vasilisneo.trackstar.ui.screens.main.coach.AthleteDetailScreen
 import com.vasilisneo.trackstar.ui.screens.main.coach.TemplateEditorScreen
 import com.vasilisneo.trackstar.ui.screens.main.coach.TemplatesScreen
+import com.vasilisneo.trackstar.ui.screens.main.diet.AIDietPlannerScreen
 import com.vasilisneo.trackstar.ui.screens.main.SettingsScreen
 import com.vasilisneo.trackstar.ui.screens.main.stats.ExerciseProgressScreen
 import com.vasilisneo.trackstar.ui.screens.main.stats.HistoryScreen
@@ -144,6 +145,7 @@ class MainActivity : ComponentActivity() {
                                 onOpenAddAthlete = { navController.navigate("add_athlete") },
                                 onOpenTemplates = { navController.navigate("templates") },
                                 onOpenQr = { navController.navigate("qr") },
+                                onOpenAiDietPlanner = { navController.navigate("ai_diet_planner") },
                             )
                         }
                         composable(
@@ -308,6 +310,26 @@ class MainActivity : ComponentActivity() {
                             popExitTransition = { slideOutVertically(targetOffsetY = { it }) },
                         ) {
                             SubscriptionScreen(onDismiss = { navController.popBackStack() })
+                        }
+                        composable(
+                            // Full-screen modal like the AI workout planner (which lives inside the
+                            // weekly-plan flow). Its ViewModel is owned here and disposed on exit.
+                            "ai_diet_planner",
+                            enterTransition = { slideInVertically(initialOffsetY = { it }) },
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                            popExitTransition = { slideOutVertically(targetOffsetY = { it }) },
+                        ) {
+                            val vm = remember { com.vasilisneo.trackstar.ui.screens.main.diet.AIDietPlannerViewModel() }
+                            AIDietPlannerScreen(
+                                viewModel = vm,
+                                onClose = { vm.dispose(); navController.popBackStack() },
+                                onApplied = {
+                                    vm.dispose()
+                                    com.vasilisneo.trackstar.ui.screens.main.diet.DietRefreshSignal.bump()
+                                    navController.popBackStack()
+                                },
+                            )
                         }
                         composable(
                             // iOS pushes History (horizontal) and hides the tab bar; full-screen route here.

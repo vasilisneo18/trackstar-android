@@ -11,9 +11,57 @@ interface AiApi {
     @POST("ai/workout-plan")
     suspend fun generateWorkoutPlan(@Body body: WorkoutPlanInput): Response<WorkoutPlanResponse>
 
+    @POST("ai/diet-plan")
+    suspend fun generateDietPlan(@Body body: DietPlanInput): Response<DietPlanResponse>
+
     @GET("ai/usage")
     suspend fun getUsage(): Response<AiUsageResponse>
 }
+
+// Matches com.fitnessbook.service.AiService.DietPlanInput. `workoutPlanSummary` is optional (the
+// backend calibrates macros around it when present) — omitted here, mirroring the workout planner
+// which likewise sends only what affects generation. All list/string fields are null-safe server-side.
+data class DietPlanInput(
+    val currentWeightKg: Int,
+    val targetWeightKg: Int,
+    val timelineWeeks: Int,
+    val trainingDaysPerWeek: Int,
+    val trainingType: String,
+    val mealsPerDay: Int,
+    val breakfastFoods: List<String>,
+    val lunchFoods: List<String>,
+    val dinnerFoods: List<String>,
+    val snackFoods: List<String>,
+    val selectedRestrictions: List<String>,
+    val cuisinePreference: String,
+    val additionalNotes: String,
+)
+
+// Raw Claude JSON, same shape the diet prompt asks for and iOS decodes. `days` keys are lowercase
+// weekday names ("monday".."sunday"); each meal's `type` is breakfast/lunch/dinner/snack.
+data class DietPlanResponse(
+    val days: Map<String, DietPlanDay>?,
+)
+
+data class DietPlanDay(
+    val meals: List<DietPlanMeal>?,
+)
+
+data class DietPlanMeal(
+    val type: String?,
+    val name: String?,
+    val notes: String?,
+    val foods: List<DietPlanFood>?,
+)
+
+data class DietPlanFood(
+    val name: String?,
+    val amount: String?,
+    val calories: Int?,
+    val protein: Int?,
+    val carbs: Int?,
+    val fat: Int?,
+)
 
 // Matches com.fitnessbook.service.AiService.WorkoutPlanInput exactly. iOS also sends
 // `workoutSplit` and `equipment` fields the backend Java DTO doesn't declare (Jackson silently
