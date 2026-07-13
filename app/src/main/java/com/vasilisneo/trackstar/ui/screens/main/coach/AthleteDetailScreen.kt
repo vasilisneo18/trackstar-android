@@ -26,12 +26,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -72,10 +75,17 @@ fun AthleteDetailScreen(athleteId: String, onBack: () -> Unit) {
 
     var tab by remember { mutableStateOf(AthleteTab.PLAN) }
     var reportSession by remember { mutableStateOf<WorkoutSessionResponse?>(null) }
+    var showTemplatePicker by remember { mutableStateOf(false) }
+    var pendingTemplate by remember { mutableStateOf<TemplateSummary?>(null) }
+
+    // Hoisted so the nav-bar template button can drive it (applyTemplate) — not just the Plan tab.
+    val planVm: WeeklyPlanViewModel = viewModel(key = "plan-$athleteId") {
+        WeeklyPlanViewModel(this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY]!!, athleteId)
+    }
 
     Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
         Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
-            // Nav bar: back + athlete name/email.
+            // Nav bar: back + athlete name/email, plus (on the Plan tab) apply-template.
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp)) {
                 GlassCircleIconButton(onClick = onBack, contentDescription = "Back", icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft)
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -84,7 +94,11 @@ fun AthleteDetailScreen(athleteId: String, onBack: () -> Unit) {
                         Text(it, fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f), maxLines = 1)
                     }
                 }
-                Spacer(modifier = Modifier.size(44.dp))
+                if (tab == AthleteTab.PLAN) {
+                    GlassCircleIconButton(onClick = { showTemplatePicker = true }, contentDescription = "Apply template", icon = Icons.Filled.ContentCopy)
+                } else {
+                    Spacer(modifier = Modifier.size(44.dp))
+                }
             }
 
             TabPicker(selected = tab, onSelect = { tab = it }, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
@@ -92,12 +106,7 @@ fun AthleteDetailScreen(athleteId: String, onBack: () -> Unit) {
             Box(modifier = Modifier.fillMaxSize()) {
                 when (tab) {
                     AthleteTab.SESSIONS -> SessionsWeekList(vm.sessions) { reportSession = it }
-                    AthleteTab.PLAN -> {
-                        val planVm: WeeklyPlanViewModel = viewModel(key = "plan-$athleteId") {
-                            WeeklyPlanViewModel(this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY]!!, athleteId)
-                        }
-                        AthletePlanTab(viewModel = planVm)
-                    }
+                    AthleteTab.PLAN -> AthletePlanTab(viewModel = planVm)
                     AthleteTab.PROGRESS -> AthleteProgressTab(sessions = vm.sessions)
                     AthleteTab.DIET -> {
                         val dietVm: DietViewModel = viewModel(key = "diet-$athleteId") {
@@ -118,6 +127,31 @@ fun AthleteDetailScreen(athleteId: String, onBack: () -> Unit) {
         ) {
             reportSession?.let { SessionReportScreen(session = it, onClose = { reportSession = null }) }
         }
+    }
+
+    if (showTemplatePicker) {
+        TemplatePickerSheet(
+            onPick = { template -> pendingTemplate = template },
+            onDismiss = { showTemplatePicker = false },
+        )
+    }
+
+    pendingTemplate?.let { template ->
+        val firstName = name.trim().substringBefore(' ').ifBlank { "this athlete" }
+        AlertDialog(
+            onDismissRequest = { pendingTemplate = null; showTemplatePicker = false },
+            containerColor = Color(0xFF1A1A26),
+            title = { Text("Apply Template?", color = Color.White) },
+            text = { Text("\"${template.name}\" will replace this week's plan for $firstName. This cannot be undone.", color = Color.White.copy(alpha = 0.7f)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    planVm.applyTemplate(template.id)
+                    pendingTemplate = null
+                    showTemplatePicker = false
+                }) { Text("Apply", color = Color(0xFFFF453A)) }
+            },
+            dismissButton = { TextButton(onClick = { pendingTemplate = null; showTemplatePicker = false }) { Text("Cancel", color = Color.White) } },
+        )
     }
 }
 

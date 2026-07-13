@@ -115,6 +115,7 @@ fun TemplateEditorScreen(templateId: String, templateName: String, onBack: () ->
                     onDeletePair = { a, b -> deletingPairIds = a to b },
                     onCommentsTap = { },
                     showNotes = false,
+                    swipeActions = true,
                     modifier = Modifier.weight(1f),
                 )
                 else -> {

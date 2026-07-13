@@ -14,6 +14,7 @@ import com.vasilisneo.trackstar.data.auth.ApiResult
 import com.vasilisneo.trackstar.data.auth.TokenStore
 import com.vasilisneo.trackstar.data.workout.CommentRepository
 import com.vasilisneo.trackstar.data.workout.PlanRepository
+import com.vasilisneo.trackstar.data.workout.TemplateRepository
 import com.vasilisneo.trackstar.ui.screens.main.workout.weekIdentifierFor
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -44,6 +45,7 @@ class WeeklyPlanViewModel @JvmOverloads constructor(app: Application, private va
 
     private val planRepository = PlanRepository()
     private val commentRepository = CommentRepository()
+    private val templateRepository = TemplateRepository()
     private val tokenStore = TokenStore(app)
 
     // Comments/notes are a separate collection server-side — fetched per week and merged onto
@@ -188,6 +190,45 @@ class WeeklyPlanViewModel @JvmOverloads constructor(app: Application, private va
             isSaving = true
             planRepository.upsertSession(newSession.toRequest(), athleteId)
             isSaving = false
+        }
+    }
+
+    // Replaces the visible week's plan with a template's sessions (coach applying a template to an
+    // athlete — mirrors iOS's AthleteDetailViewModel.applyTemplate). Each template session/exercise
+    // gets fresh IDs (so it's a copy, not a shared reference); superset pairing is preserved by
+    // remapping each compoundGroupId consistently within a session. Upserts the copied sessions,
+    // then deletes whatever was previously in the week, then refetches. No-op-safe: an empty
+    // template clears the week, matching "this will replace the current week's plan".
+    fun applyTemplate(templateId: String, onDone: (Boolean) -> Unit = {}) {
+        val week = weekIdentifier
+        viewModelScope.launch {
+            isSaving = true
+            val templateSessions = when (val r = templateRepository.getTemplateSessions(templateId)) {
+                is ApiResult.Success -> r.data
+                is ApiResult.Error -> { isSaving = false; onDone(false); return@launch }
+            }
+            val newRequests = templateSessions.map { t ->
+                val groupIdMap = mutableMapOf<String, String>()
+                val exercises = t.exercises.map { ex ->
+                    val newGroup = ex.compoundGroupId?.let { g -> groupIdMap.getOrPut(g) { UUID.randomUUID().toString() } }
+                    ex.copy(id = UUID.randomUUID().toString(), compoundGroupId = newGroup)
+                }
+                PlannedSessionRequest(
+                    id = UUID.randomUUID().toString(),
+                    weekIdentifier = week,
+                    day = t.day,
+                    orderIndex = t.orderIndex,
+                    title = t.title,
+                    exercises = exercises,
+                )
+            }
+            // Only clear the old week once the copy landed, so a failed upsert can't wipe the plan.
+            val upsertOk = newRequests.isEmpty() || planRepository.upsertBatch(newRequests, athleteId) is ApiResult.Success
+            if (!upsertOk) { isSaving = false; onDone(false); return@launch }
+            weekSessions.mapNotNull { it.id }.forEach { planRepository.deleteSession(it, athleteId) }
+            isSaving = false
+            fetch()
+            onDone(true)
         }
     }
 

@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.LibraryAdd
@@ -74,6 +75,10 @@ import com.vasilisneo.trackstar.data.api.PlannedSessionResponse
 import com.vasilisneo.trackstar.data.workout.ExerciseDisplayUnit
 import com.vasilisneo.trackstar.data.workout.groupedForDisplay
 import com.vasilisneo.trackstar.ui.components.DragReorderState
+import com.vasilisneo.trackstar.ui.components.SwipeActionSpec
+import com.vasilisneo.trackstar.ui.components.SwipeActionsRow
+import com.vasilisneo.trackstar.ui.components.SwipeDeleteTint
+import com.vasilisneo.trackstar.ui.components.SwipeEditTint
 import com.vasilisneo.trackstar.ui.components.dragHandle
 import com.vasilisneo.trackstar.ui.components.dragReorderItem
 import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
@@ -374,6 +379,7 @@ internal fun SingleSessionInline(
     onDeletePair: (String, String) -> Unit,
     onCommentsTap: (ExerciseData) -> Unit,
     showNotes: Boolean = true,
+    swipeActions: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val exercises = session.exercises.orEmpty()
@@ -419,27 +425,44 @@ internal fun SingleSessionInline(
         } else {
             items(dragState.order, key = { it.id }) { unit ->
                 Box(modifier = Modifier.dragReorderItem(dragState, unit.id).then(if (dragState.draggingKey == unit.id) Modifier else Modifier.animateItem())) {
-                    when (unit) {
-                        is ExerciseDisplayUnit.Single -> SessionExerciseRow(
-                            exercise = unit.exercise,
-                            onClick = { onEditExercise(unit.exercise) },
-                            onDelete = { onDeleteExercise(unit.exercise.id ?: "") },
-                            comments = viewModel.exerciseComments[unit.exercise.id] ?: emptyList(),
-                            onCommentsTap = { onCommentsTap(unit.exercise) },
-                            showNotes = showNotes,
-                            dragHandleModifier = Modifier.dragHandle(dragState, unit.id, listState, ::commitReorder),
-                        )
-                        is ExerciseDisplayUnit.Pair -> SessionSupersetRow(
-                            a = unit.a, b = unit.b,
-                            onClick = { onEditPair(unit.a, unit.b) },
-                            onDelete = { onDeletePair(unit.a.id ?: "", unit.b.id ?: "") },
-                            commentsA = viewModel.exerciseComments[unit.a.id] ?: emptyList(),
-                            commentsB = viewModel.exerciseComments[unit.b.id] ?: emptyList(),
-                            onCommentsTapA = { onCommentsTap(unit.a) },
-                            onCommentsTapB = { onCommentsTap(unit.b) },
-                            showNotes = showNotes,
-                            dragHandleModifier = Modifier.dragHandle(dragState, unit.id, listState, ::commitReorder),
-                        )
+                    val row: @Composable () -> Unit = {
+                        when (unit) {
+                            is ExerciseDisplayUnit.Single -> SessionExerciseRow(
+                                exercise = unit.exercise,
+                                onClick = { onEditExercise(unit.exercise) },
+                                onDelete = { onDeleteExercise(unit.exercise.id ?: "") },
+                                comments = viewModel.exerciseComments[unit.exercise.id] ?: emptyList(),
+                                onCommentsTap = { onCommentsTap(unit.exercise) },
+                                showNotes = showNotes,
+                                dragHandleModifier = Modifier.dragHandle(dragState, unit.id, listState, ::commitReorder),
+                            )
+                            is ExerciseDisplayUnit.Pair -> SessionSupersetRow(
+                                a = unit.a, b = unit.b,
+                                onClick = { onEditPair(unit.a, unit.b) },
+                                onDelete = { onDeletePair(unit.a.id ?: "", unit.b.id ?: "") },
+                                commentsA = viewModel.exerciseComments[unit.a.id] ?: emptyList(),
+                                commentsB = viewModel.exerciseComments[unit.b.id] ?: emptyList(),
+                                onCommentsTapA = { onCommentsTap(unit.a) },
+                                onCommentsTapB = { onCommentsTap(unit.b) },
+                                showNotes = showNotes,
+                                dragHandleModifier = Modifier.dragHandle(dragState, unit.id, listState, ::commitReorder),
+                            )
+                        }
+                    }
+                    if (swipeActions) {
+                        val specs = when (unit) {
+                            is ExerciseDisplayUnit.Single -> listOf(
+                                SwipeActionSpec(Icons.Filled.Edit, "Edit", SwipeEditTint) { onEditExercise(unit.exercise) },
+                                SwipeActionSpec(Icons.Filled.Delete, "Delete", SwipeDeleteTint) { onDeleteExercise(unit.exercise.id ?: "") },
+                            )
+                            is ExerciseDisplayUnit.Pair -> listOf(
+                                SwipeActionSpec(Icons.Filled.Edit, "Edit", SwipeEditTint) { onEditPair(unit.a, unit.b) },
+                                SwipeActionSpec(Icons.Filled.Delete, "Delete", SwipeDeleteTint) { onDeletePair(unit.a.id ?: "", unit.b.id ?: "") },
+                            )
+                        }
+                        SwipeActionsRow(actions = specs) { row() }
+                    } else {
+                        row()
                     }
                 }
             }
