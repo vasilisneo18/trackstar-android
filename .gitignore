@@ -8,5 +8,10 @@ captures/
 .cxx
 local.properties
 
+# Release signing — never commit the upload key or its passwords
+keystore.properties
+*.jks
+*.keystore
+
 # CodeGraph local index (tool artifact)
 .codegraph/
