@@ -64,6 +64,16 @@ interface AthleteApi {
     // Athlete side
     @GET("coach/my-coach")
     suspend fun getMyCoach(): Response<ProfileResponse>
+
+    // Athlete checks an invite token before accepting (does not consume it). Always returns 200
+    // with valid/reason — the backend never errors here.
+    @GET("coach/invite/validate/{token}")
+    suspend fun validateInvite(@Path("token") token: String): Response<InviteValidationResponse>
+
+    // Athlete accepts an invite and links to the coach. 200 on success; 400 with a message if the
+    // token is invalid/expired/already-used or the athlete already has a coach.
+    @POST("coach/invite/accept/{token}")
+    suspend fun acceptInvite(@Path("token") token: String): Response<MessageResponse>
 }
 
 data class AddAthleteRequest(val email: String, val useBronzeGrant: Boolean = false)
@@ -82,3 +92,7 @@ data class AthleteNotesDto(
 
 // iOS CoachInviteResponse — a deep link the athlete opens (or a QR encodes) to accept the invite.
 data class CoachInviteResponse(val deepLink: String? = null, val token: String? = null)
+
+// iOS InviteValidationResponse. `reason` is one of not_found/used/expired/own_invite/already_linked
+// when invalid, empty when valid. AcceptInviteSheet maps each reason to a friendly title/message.
+data class InviteValidationResponse(val valid: Boolean = false, val reason: String = "")

@@ -3,6 +3,7 @@ package com.vasilisneo.trackstar.data.workout
 import com.vasilisneo.trackstar.data.api.AddAthleteRequest
 import com.vasilisneo.trackstar.data.api.AthleteNotesDto
 import com.vasilisneo.trackstar.data.api.CoachInviteResponse
+import com.vasilisneo.trackstar.data.api.InviteValidationResponse
 import com.vasilisneo.trackstar.data.api.MessageResponse
 import com.vasilisneo.trackstar.data.api.NetworkClient
 import com.vasilisneo.trackstar.data.api.PlannedSessionResponse
@@ -40,4 +41,14 @@ class AthleteRepository {
 
     suspend fun createInvite(): ApiResult<CoachInviteResponse> =
         apiCall { api.createInvite() }
+
+    // Athlete side: the linked coach's profile. Errors (400 "No coach linked") when unlinked —
+    // callers treat that as the empty state rather than a failure.
+    suspend fun getMyCoach(): ApiResult<ProfileResponse> = apiCall { api.getMyCoach() }
+
+    suspend fun validateInvite(token: String): ApiResult<InviteValidationResponse> =
+        apiCall { api.validateInvite(token) }
+
+    suspend fun acceptInvite(token: String): ApiResult<MessageResponse> =
+        apiCall { api.acceptInvite(token) }
 }

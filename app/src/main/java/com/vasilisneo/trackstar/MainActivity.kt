@@ -60,10 +60,19 @@ import com.vasilisneo.trackstar.data.auth.TokenStore
 import com.vasilisneo.trackstar.ui.theme.TrackstarTheme
 import com.vasilisneo.trackstar.ui.theme.loadSavedTheme
 
+// A trackstar://invite/{token} deep link, parsed from the launching (or new) intent. `coachName`
+// is an optional query param the coach's share link carries, used to personalize the sheet.
+data class PendingInvite(val token: String, val coachName: String?)
+
 class MainActivity : ComponentActivity() {
+    // Held at Activity scope so onNewIntent (link tapped while already running) can push into the
+    // same Compose state the initial intent seeds. AcceptInviteSheet renders when this is set.
+    private val pendingInvite = androidx.compose.runtime.mutableStateOf<PendingInvite?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        handleInviteIntent(intent)
         // Apply the saved Appearance theme before the first frame so there's no midnight→theme flash.
         loadSavedTheme(this)
         // Auto-login: if a session token is already persisted, open straight into the main
@@ -134,6 +143,7 @@ class MainActivity : ComponentActivity() {
                                 onOpenAthlete = { athleteId -> navController.navigate("athlete/${Uri.encode(athleteId)}") },
                                 onOpenAddAthlete = { navController.navigate("add_athlete") },
                                 onOpenTemplates = { navController.navigate("templates") },
+                                onOpenQr = { navController.navigate("qr") },
                             )
                         }
                         composable(
@@ -407,8 +417,37 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
+
+                    // Invite deep link (trackstar://invite/{token}) — renders as a modal sheet
+                    // over whatever screen is showing. Only ever set when the athlete is logged in
+                    // (gated in handleInviteIntent).
+                    pendingInvite.value?.let { invite ->
+                        com.vasilisneo.trackstar.ui.screens.main.coach.AcceptInviteSheet(
+                            token = invite.token,
+                            coachName = invite.coachName,
+                            onDismiss = { pendingInvite.value = null },
+                        )
+                    }
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleInviteIntent(intent)
+    }
+
+    // Parses trackstar://invite/{token}[?coachName=...] from an intent and stages it for the
+    // AcceptInviteSheet. Ignored unless the athlete is logged in — an unauthenticated deep link
+    // has no session to link a coach to, so we drop it rather than routing through auth.
+    private fun handleInviteIntent(intent: android.content.Intent?) {
+        val data = intent?.data ?: return
+        if (!data.scheme.equals("trackstar", ignoreCase = true)) return
+        if (!data.host.equals("invite", ignoreCase = true)) return
+        val token = data.lastPathSegment?.takeIf { it.isNotBlank() } ?: return
+        if (!TokenStore(this).isLoggedIn) return
+        pendingInvite.value = PendingInvite(token, data.getQueryParameter("coachName"))
     }
 }

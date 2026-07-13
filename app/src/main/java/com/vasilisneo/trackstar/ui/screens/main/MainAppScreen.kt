@@ -99,6 +99,7 @@ fun MainAppScreen(
     onOpenAthlete: (String) -> Unit = {},
     onOpenAddAthlete: () -> Unit = {},
     onOpenTemplates: () -> Unit = {},
+    onOpenQr: () -> Unit = {},
 ) {
     val tabNavController = rememberNavController()
 
@@ -155,7 +156,10 @@ fun MainAppScreen(
                         onShowTemplates = onOpenTemplates,
                     )
                 } else {
-                    PlaceholderTabScreen(title = "My Coach", onProfileClick = onProfileClick)
+                    com.vasilisneo.trackstar.ui.screens.main.coach.MyCoachScreen(
+                        onProfileClick = onProfileClick,
+                        onShowQr = onOpenQr,
+                    )
                 }
             }
             composable("diet") {
