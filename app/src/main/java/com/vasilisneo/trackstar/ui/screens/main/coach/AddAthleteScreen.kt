@@ -107,6 +107,12 @@ fun AddAthleteScreen(onClose: () -> Unit, onAthleteAdded: () -> Unit) {
                 onBackClick = { mode = AddMode.MENU },
                 backIcon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                 showShareLink = false,
+                // Coach scans an athlete's QR, which encodes their email — add them by it (mirrors
+                // iOS's handleScan). vm.addAthlete guards against double-adds while in flight.
+                onScan = { code ->
+                    val email = code.removePrefix("mailto:").trim()
+                    if (email.contains("@")) vm.addAthlete(email) { onAthleteAdded() }
+                },
             )
         }
     }

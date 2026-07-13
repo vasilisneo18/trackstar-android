@@ -277,7 +277,26 @@ class MainActivity : ComponentActivity() {
                             popEnterTransition = { EnterTransition.None },
                             popExitTransition = { slideOutVertically(targetOffsetY = { it }) },
                         ) {
-                            QRConnectScreen(onBackClick = { navController.popBackStack() })
+                            // Encode the signed-in user's real email (persisted at login) so a
+                            // coach scanning this "My QR" resolves a real athlete, not a placeholder.
+                            val store = remember { TokenStore(this@MainActivity) }
+                            val myName = listOfNotNull(
+                                store.firstName?.ifBlank { null }, store.lastName?.ifBlank { null }
+                            ).joinToString(" ")
+                            QRConnectScreen(
+                                qrString = store.email ?: "",
+                                displayName = myName,
+                                onBackClick = { navController.popBackStack() },
+                                // Athlete scans a coach's invite QR (a trackstar://invite link) —
+                                // stage it and pop back so AcceptInviteSheet shows over the tabs.
+                                onScan = { code ->
+                                    val invite = runCatching { parseInviteUri(Uri.parse(code)) }.getOrNull()
+                                    if (invite != null) {
+                                        pendingInvite.value = invite
+                                        navController.popBackStack()
+                                    }
+                                },
+                            )
                         }
                         composable(
                             "subscription",
@@ -443,11 +462,17 @@ class MainActivity : ComponentActivity() {
     // AcceptInviteSheet. Ignored unless the athlete is logged in — an unauthenticated deep link
     // has no session to link a coach to, so we drop it rather than routing through auth.
     private fun handleInviteIntent(intent: android.content.Intent?) {
-        val data = intent?.data ?: return
-        if (!data.scheme.equals("trackstar", ignoreCase = true)) return
-        if (!data.host.equals("invite", ignoreCase = true)) return
-        val token = data.lastPathSegment?.takeIf { it.isNotBlank() } ?: return
+        val invite = intent?.data?.let(::parseInviteUri) ?: return
         if (!TokenStore(this).isLoggedIn) return
-        pendingInvite.value = PendingInvite(token, data.getQueryParameter("coachName"))
+        pendingInvite.value = invite
     }
+}
+
+// Parses a trackstar://invite/{token}[?coachName=...] URI into a PendingInvite, or null if it isn't
+// a valid invite link. Shared by the deep-link intent handler and the in-app QR scanner.
+fun parseInviteUri(data: Uri): PendingInvite? {
+    if (!data.scheme.equals("trackstar", ignoreCase = true)) return null
+    if (!data.host.equals("invite", ignoreCase = true)) return null
+    val token = data.lastPathSegment?.takeIf { it.isNotBlank() } ?: return null
+    return PendingInvite(token, data.getQueryParameter("coachName"))
 }

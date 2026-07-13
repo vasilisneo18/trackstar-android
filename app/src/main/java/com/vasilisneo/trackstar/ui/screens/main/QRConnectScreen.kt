@@ -72,6 +72,9 @@ fun QRConnectScreen(
     backIcon: androidx.compose.ui.graphics.vector.ImageVector = Icons.Filled.Close,
     // The add-athlete flow already has a separate "Share Link" menu option, so it hides the in-card one.
     showShareLink: Boolean = true,
+    // When provided, the Scan tab shows a live camera scanner and reports decoded QR strings here.
+    // Null keeps the "coming soon" placeholder (e.g. a context where scanning has no meaning).
+    onScan: ((String) -> Unit)? = null,
 ) {
     var tab by remember { mutableStateOf(QRTab.MY_QR) }
 
@@ -94,7 +97,7 @@ fun QRConnectScreen(
 
             when (tab) {
                 QRTab.MY_QR -> MyQRContent(qrString, displayName, subtitle, showShareLink)
-                QRTab.SCAN -> ScanContent()
+                QRTab.SCAN -> ScanContent(onScan)
             }
         }
     }
@@ -161,8 +164,16 @@ private fun MyQRContent(qrString: String, displayName: String, subtitle: String,
 }
 
 @Composable
-private fun ScanContent() {
+private fun ScanContent(onScan: ((String) -> Unit)?) {
     Box(modifier = Modifier.fillMaxSize()) {
+        // Live camera fills behind the frame overlay when a scan handler is wired; otherwise the
+        // tab keeps its static placeholder.
+        if (onScan != null) {
+            com.vasilisneo.trackstar.ui.components.QrCameraScanner(
+                onCode = onScan,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
         // Scan frame in the upper third (iOS: one top spacer, two bottom spacers).
         Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
             Spacer(modifier = Modifier.weight(1f))
@@ -175,7 +186,11 @@ private fun ScanContent() {
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 48.dp)
         ) {
             Text("Scan to Connect", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-            Text("Camera scanning coming soon", fontSize = 13.sp, color = Color.White.copy(alpha = 0.45f))
+            Text(
+                if (onScan != null) "Point at a Trackstar QR code" else "Camera scanning coming soon",
+                fontSize = 13.sp,
+                color = Color.White.copy(alpha = 0.45f),
+            )
         }
     }
 }

@@ -57,8 +57,14 @@ dependencies {
     // iOS-style frosted-glass backdrop blur (the collapsing workout header). Uses RenderEffect
     // on API 31+, degrades to a translucent scrim on older devices.
     implementation("dev.chrisbanes.haze:haze:1.2.2")
-    // QR code generation (the "My QR" tab of the QR connect sheet).
+    // QR code generation (the "My QR" tab) + decoding (the Scan tab reuses zxing's
+    // MultiFormatReader on CameraX frames, so no separate ML Kit dependency is needed).
     implementation("com.google.zxing:core:3.5.3")
+    // CameraX — live camera preview + frame analysis for the QR scanner.
+    implementation("androidx.camera:camera-core:1.4.1")
+    implementation("androidx.camera:camera-camera2:1.4.1")
+    implementation("androidx.camera:camera-lifecycle:1.4.1")
+    implementation("androidx.camera:camera-view:1.4.1")
     // Networking — talks to the Spring Boot API (fitness-book-api).
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")
