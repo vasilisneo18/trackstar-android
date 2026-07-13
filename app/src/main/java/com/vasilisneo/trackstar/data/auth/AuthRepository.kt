@@ -26,6 +26,7 @@ class AuthRepository(private val tokenStore: TokenStore) {
         if (result is ApiResult.Success) {
             tokenStore.save(result.data)
             tokenStore.saveCredentials(cleanEmail, password)
+            com.vasilisneo.trackstar.data.billing.BillingManager.logIn(result.data.userId)
         }
         return result
     }
@@ -35,6 +36,7 @@ class AuthRepository(private val tokenStore: TokenStore) {
         if (result is ApiResult.Success) {
             tokenStore.save(result.data)
             tokenStore.saveCredentials(request.email, request.password)
+            com.vasilisneo.trackstar.data.billing.BillingManager.logIn(result.data.userId)
         }
         return result
     }

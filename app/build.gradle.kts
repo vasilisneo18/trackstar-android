@@ -1,7 +1,21 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+}
+
+// RevenueCat Android SDK (public) API key — kept out of git in local.properties as
+// `revenuecat.apiKey=goog_...`, falling back to the REVENUECAT_API_KEY env var for CI. Blank is
+// fine: BillingManager treats an unconfigured key as "free tier, no purchases" (see its comment),
+// so the app builds and runs before RevenueCat/Play are set up.
+val revenueCatApiKey: String = run {
+    val props = Properties().apply {
+        val f = rootProject.file("local.properties")
+        if (f.exists()) f.inputStream().use { load(it) }
+    }
+    props.getProperty("revenuecat.apiKey") ?: System.getenv("REVENUECAT_API_KEY") ?: ""
 }
 
 android {
@@ -14,6 +28,8 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
+
+        buildConfigField("String", "REVENUECAT_API_KEY", "\"$revenueCatApiKey\"")
     }
 
     buildTypes {
@@ -34,6 +50,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -65,6 +82,9 @@ dependencies {
     implementation("androidx.camera:camera-camera2:1.4.1")
     implementation("androidx.camera:camera-lifecycle:1.4.1")
     implementation("androidx.camera:camera-view:1.4.1")
+    // In-app subscriptions via RevenueCat (wraps Google Play Billing). iOS uses the RC SDK too,
+    // and the backend already syncs plans from RC's webhook.
+    implementation("com.revenuecat.purchases:purchases:8.10.1")
     // Networking — talks to the Spring Boot API (fitness-book-api).
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")

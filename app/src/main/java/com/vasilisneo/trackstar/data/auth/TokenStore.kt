@@ -54,6 +54,7 @@ class TokenStore(context: Context) {
 
     val token: String? get() = prefs.getString(KEY_TOKEN, null)
     val refreshToken: String? get() = prefs.getString(KEY_REFRESH, null)
+    val userId: String? get() = prefs.getString(KEY_USER_ID, null)
     val isLoggedIn: Boolean get() = token != null
     val email: String? get() = prefs.getString(KEY_EMAIL, null)
     val firstName: String? get() = prefs.getString(KEY_FIRST_NAME, null)
@@ -73,6 +74,8 @@ class TokenStore(context: Context) {
             .apply()
         AuthTokenHolder.token = null
         AuthTokenHolder.refreshToken = null
+        // Detach the RevenueCat customer so the next sign-in starts clean (mirrors iOS logout).
+        com.vasilisneo.trackstar.data.billing.BillingManager.logOut()
     }
 
     /** Full wipe including cached credentials — for Close Account / "Not you?". */

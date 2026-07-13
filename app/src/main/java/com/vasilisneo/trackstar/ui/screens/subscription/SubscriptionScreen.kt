@@ -2,9 +2,10 @@ package com.vasilisneo.trackstar.ui.screens.subscription
 
 // Visual replica of SubscriptionView (Trackstar/UI/View/Subscription/SubscriptionView.swift)
 // on iOS: a swipeable pager of Bronze/Silver/Gold plan cards with a tier segmented control,
-// and a billing bottom sheet (Annual/Monthly). Prices are the hardcoded EUR fallbacks from
-// iOS's AppPlan — there's no RevenueCat on Android, so "Start Free Trial" is a no-op that
-// just dismisses. Skipped vs iOS: real purchases, restore, "current plan" states.
+// and a billing bottom sheet (Annual/Monthly). Wired to RevenueCat via BillingManager: prices come
+// live from the store offering (falling back to the hardcoded EUR strings until RevenueCat/Play are
+// configured), "Start Free Trial" runs a real purchase, and Restore Purchases / current-plan states
+// work. The hardcoded EUR values below are the fallbacks shown before live pricing loads.
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -41,14 +42,17 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -57,6 +61,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.vasilisneo.trackstar.data.billing.AppPlan
+import com.vasilisneo.trackstar.data.billing.BillingManager
+import com.vasilisneo.trackstar.data.billing.BillingPeriod
 import com.vasilisneo.trackstar.ui.components.GlassCircleIconButton
 import com.vasilisneo.trackstar.ui.theme.trackstarBackground
 import com.vasilisneo.trackstar.ui.theme.TrackstarSurface
@@ -64,6 +71,7 @@ import kotlinx.coroutines.launch
 
 private data class Tier(
     val name: String,
+    val plan: AppPlan,
     val accent: Color,
     val monthly: String,
     val annual: String,
@@ -74,21 +82,32 @@ private data class Tier(
 
 private val Tiers = listOf(
     Tier(
-        name = "Bronze", accent = Color(0xFFCC8033),
+        name = "Bronze", plan = AppPlan.BRONZE, accent = Color(0xFFCC8033),
         monthly = "€2.99", annual = "€19.99", annualMonthly = "€1.67", savings = "Save 44%",
         features = listOf("Create & edit workout plans", "Unlimited session logging", "Session history & stats", "No ads"),
     ),
     Tier(
-        name = "Silver", accent = Color(0xFFB8BFD1),
+        name = "Silver", plan = AppPlan.SILVER, accent = Color(0xFFB8BFD1),
         monthly = "€5.99", annual = "€39.99", annualMonthly = "€3.33", savings = "Save 44%",
         features = listOf("Create & edit workout plans", "Unlimited session logging", "Session history & stats", "No ads", "AI diet plans", "AI workout plans"),
     ),
     Tier(
-        name = "Gold", accent = Color(0xFFFFC61A),
+        name = "Gold", plan = AppPlan.GOLD, accent = Color(0xFFFFC61A),
         monthly = "€9.99", annual = "€69.99", annualMonthly = "€5.83", savings = "Save 42%",
         features = listOf("Create & edit workout plans", "Unlimited session logging", "Session history & stats", "No ads", "AI diet & workout plans", "Coach athletes", "Assign & view athlete plans", "Up to 20 plan templates", "AI template generation"),
     ),
 )
+
+// Finds the hosting Activity from a Compose context — RevenueCat's purchase flow needs one to
+// launch Google's billing sheet.
+private fun android.content.Context.findActivity(): android.app.Activity? {
+    var ctx = this
+    while (ctx is android.content.ContextWrapper) {
+        if (ctx is android.app.Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
+}
 
 private fun featureIcon(feature: String): ImageVector {
     val f = feature.lowercase()
@@ -113,8 +132,13 @@ fun SubscriptionScreen(
 ) {
     val pagerState = rememberPagerState(initialPage = initialTier.coerceIn(0, 2), pageCount = { Tiers.size })
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var showBilling by remember { mutableStateOf(false) }
     val selectedTier = Tiers[pagerState.currentPage]
+
+    val currentPlan by BillingManager.currentPlan.collectAsState()
+    val pricing by BillingManager.pricing.collectAsState()
+    val isCurrentPlan = currentPlan == selectedTier.plan
 
     Box(
         modifier = Modifier
@@ -167,9 +191,10 @@ fun SubscriptionScreen(
             // Bottom CTA
             Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 24.dp)) {
                 PillButton(
-                    text = "Join ${selectedTier.name}",
-                    foreground = Color.Black,
-                    background = Color.White,
+                    text = if (isCurrentPlan) "Current Plan" else "Join ${selectedTier.name}",
+                    foreground = if (isCurrentPlan) Color.White else Color.Black,
+                    background = if (isCurrentPlan) Color.White.copy(alpha = 0.12f) else Color.White,
+                    enabled = !isCurrentPlan,
                     onClick = { showBilling = true }
                 )
             }
@@ -177,7 +202,44 @@ fun SubscriptionScreen(
     }
 
     if (showBilling) {
-        BillingSheet(tier = selectedTier, onDismiss = { showBilling = false }, onSubscribe = { showBilling = false; onDismiss() })
+        // Merge live store prices over the hardcoded fallbacks for the selected tier.
+        val livePrice = pricing[selectedTier.plan]
+        BillingSheet(
+            tier = selectedTier,
+            monthly = livePrice?.monthlyPrice ?: selectedTier.monthly,
+            annual = livePrice?.annualPrice ?: selectedTier.annual,
+            onDismiss = { showBilling = false },
+            onSubscribe = { billing ->
+                val activity = context.findActivity()
+                if (activity == null) {
+                    showBilling = false
+                } else {
+                    scope.launch {
+                        val result = BillingManager.purchase(activity, selectedTier.plan, billing)
+                        result.onSuccess { purchased ->
+                            showBilling = false
+                            if (purchased) onDismiss()
+                        }.onFailure { e ->
+                            showBilling = false
+                            android.widget.Toast.makeText(
+                                context, e.message ?: "Purchase failed. Please try again.", android.widget.Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
+                }
+            },
+            onRestore = {
+                scope.launch {
+                    val result = BillingManager.restore()
+                    val msg = result.fold(
+                        onSuccess = { plan -> if (plan == AppPlan.FREE) "No purchases to restore." else "Restored your ${plan.name.lowercase()} plan." },
+                        onFailure = { it.message ?: "Couldn't restore purchases." },
+                    )
+                    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                    if (result.getOrNull()?.let { it != AppPlan.FREE } == true) { showBilling = false; onDismiss() }
+                }
+            },
+        )
     }
 }
 
@@ -225,43 +287,54 @@ private fun PlanCard(tier: Tier, modifier: Modifier = Modifier) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun BillingSheet(tier: Tier, onDismiss: () -> Unit, onSubscribe: () -> Unit) {
-    var annual by remember { mutableStateOf(true) }
+private fun BillingSheet(
+    tier: Tier,
+    monthly: String,
+    annual: String,
+    onDismiss: () -> Unit,
+    onSubscribe: (BillingPeriod) -> Unit,
+    onRestore: () -> Unit,
+) {
+    var isAnnual by remember { mutableStateOf(true) }
     val sheetState = rememberModalBottomSheetState()
+    val isPurchasing by BillingManager.isPurchasing.collectAsState()
+    val priceLabel = if (isAnnual) "$annual/yr" else "$monthly/mo"
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = TrackstarSurface) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             BillingRow(
                 title = "Annual",
-                subtitle = "${tier.annual}/year  ·  ${tier.annualMonthly}/month",
+                subtitle = "$annual/year  ·  ${tier.annualMonthly}/month",
                 badge = tier.savings,
-                selected = annual,
-                onClick = { annual = true }
+                selected = isAnnual,
+                onClick = { isAnnual = true }
             )
             BillingRow(
                 title = "Monthly",
-                subtitle = "${tier.monthly}/month",
+                subtitle = "$monthly/month",
                 badge = null,
-                selected = !annual,
-                onClick = { annual = false }
+                selected = !isAnnual,
+                onClick = { isAnnual = false }
             )
 
             Spacer(modifier = Modifier.height(12.dp))
             PillButton(
-                text = "Start Free Trial · ${if (annual) tier.annual + "/yr" else tier.monthly + "/mo"}",
+                text = "Start Free Trial · $priceLabel",
                 foreground = Color.Black,
                 background = Color.White,
-                onClick = onSubscribe
+                enabled = !isPurchasing,
+                loading = isPurchasing,
+                onClick = { onSubscribe(if (isAnnual) BillingPeriod.ANNUAL else BillingPeriod.MONTHLY) }
             )
             Text(
-                "7-day free trial, then ${if (annual) tier.annual + "/yr" else tier.monthly + "/mo"}",
+                "7-day free trial, then $priceLabel",
                 fontSize = 11.sp, color = Color.White.copy(alpha = 0.3f), textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
             )
             Text(
                 "Restore Purchases",
                 fontSize = 13.sp, color = Color.White.copy(alpha = 0.3f), textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 10.dp)
+                modifier = Modifier.fillMaxWidth().padding(top = 10.dp).clickable(enabled = !isPurchasing, onClick = onRestore)
             )
             Text(
                 "Cancel anytime · Billed in EUR · By subscribing you agree to our Terms of Service.",
@@ -299,16 +372,27 @@ private fun BillingRow(title: String, subtitle: String, badge: String?, selected
 }
 
 @Composable
-private fun PillButton(text: String, foreground: Color, background: Color, onClick: () -> Unit) {
+private fun PillButton(
+    text: String,
+    foreground: Color,
+    background: Color,
+    enabled: Boolean = true,
+    loading: Boolean = false,
+    onClick: () -> Unit,
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(56.dp)
             .clip(RoundedCornerShape(28.dp))
             .background(background)
-            .clickable(onClick = onClick),
+            .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Text(text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = foreground)
+        if (loading) {
+            CircularProgressIndicator(color = foreground, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+        } else {
+            Text(text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = foreground)
+        }
     }
 }
