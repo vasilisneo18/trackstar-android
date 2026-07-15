@@ -5,6 +5,7 @@ import android.content.Context
 import com.revenuecat.purchases.CustomerInfo
 import com.revenuecat.purchases.LogLevel
 import com.revenuecat.purchases.Offering
+import com.revenuecat.purchases.Offerings
 import com.revenuecat.purchases.Purchases
 import com.revenuecat.purchases.PurchasesConfiguration
 import com.revenuecat.purchases.PurchasesErrorCode
@@ -30,9 +31,10 @@ import kotlinx.coroutines.launch
 // right account and the backend's RC webhook updates the correct user's plan), and queried for the
 // current plan + live prices.
 //
-// Convention (see the setup checklist): each paid tier is a RevenueCat *offering* whose identifier
-// equals the entitlement id — "bronze" / "silver" / "gold" — containing a monthly and an annual
-// package. currentPlan is derived from active *entitlements*, matching the backend.
+// Offering layout (shared with iOS): a single offering (the "current" one) whose packages are named
+// "{tier}_{monthly|annual}" — bronze_monthly, bronze_annual, silver_monthly, … gold_annual. Each
+// package carries both the iOS and the Google Play product; RevenueCat serves the right one here.
+// currentPlan is derived from active *entitlements* (bronze/silver/gold), matching the backend.
 //
 // Until a RevenueCat Android key is set (BuildConfig.REVENUECAT_API_KEY blank), isConfigured stays
 // false and every method is a graceful no-op: currentPlan = FREE, no prices, purchases fail
@@ -93,13 +95,14 @@ object BillingManager {
     private suspend fun fetchOfferings() {
         if (!isConfigured) return
         val offerings = runCatching { Purchases.sharedInstance.awaitOfferings() }.getOrNull() ?: return
+        val offering = currentOffering(offerings) ?: return
         val map = mutableMapOf<AppPlan, PlanPricing>()
         for (plan in listOf(AppPlan.BRONZE, AppPlan.SILVER, AppPlan.GOLD)) {
-            val offering = offerings.all[plan.entitlementId] ?: continue
-            map[plan] = PlanPricing(
-                monthlyPrice = offering.monthly?.product?.price?.formatted,
-                annualPrice = offering.annual?.product?.price?.formatted,
-            )
+            val monthly = packageFor(offering, plan, BillingPeriod.MONTHLY)?.product?.price?.formatted
+            val annual = packageFor(offering, plan, BillingPeriod.ANNUAL)?.product?.price?.formatted
+            if (monthly != null || annual != null) {
+                map[plan] = PlanPricing(monthlyPrice = monthly, annualPrice = annual)
+            }
         }
         _pricing.value = map
     }
@@ -110,8 +113,10 @@ object BillingManager {
     //   Result.failure(...)   — not configured, package missing, or a store error.
     suspend fun purchase(activity: Activity, plan: AppPlan, billing: BillingPeriod): Result<Boolean> {
         if (!isConfigured) return Result.failure(IllegalStateException("Subscriptions aren't available yet."))
-        val offering = offeringFor(plan) ?: return Result.failure(IllegalStateException("This plan isn't available right now."))
-        val pkg: Package = (if (billing == BillingPeriod.ANNUAL) offering.annual else offering.monthly)
+        val offerings = runCatching { Purchases.sharedInstance.awaitOfferings() }.getOrNull()
+        val offering = offerings?.let(::currentOffering)
+            ?: return Result.failure(IllegalStateException("This plan isn't available right now."))
+        val pkg: Package = packageFor(offering, plan, billing)
             ?: return Result.failure(IllegalStateException("This plan isn't available right now."))
 
         _isPurchasing.value = true
@@ -143,9 +148,15 @@ object BillingManager {
         }
     }
 
-    private suspend fun offeringFor(plan: AppPlan): Offering? {
-        val offerings = runCatching { Purchases.sharedInstance.awaitOfferings() }.getOrNull() ?: return null
-        return offerings.all[plan.entitlementId]
+    // The single shared offering — the "current" one, else the only one in the project.
+    private fun currentOffering(offerings: Offerings): Offering? =
+        offerings.current ?: offerings.all.values.firstOrNull()
+
+    // Packages are named "{tier}_{monthly|annual}" (bronze_monthly … gold_annual), shared with iOS.
+    private fun packageFor(offering: Offering, plan: AppPlan, billing: BillingPeriod): Package? {
+        val period = if (billing == BillingPeriod.ANNUAL) "annual" else "monthly"
+        val id = "${plan.name.lowercase()}_$period"
+        return offering.availablePackages.firstOrNull { it.identifier == id }
     }
 
     private fun planFrom(info: CustomerInfo): AppPlan = AppPlan.fromEntitlements(info.entitlements.active.keys)
