@@ -46,6 +46,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -195,11 +196,17 @@ private fun ProfileHeader(profile: ProfileData) {
 
 @Composable
 private fun PersonalSection(profile: ProfileData, onUpgrade: () -> Unit) {
+    val plan by com.vasilisneo.trackstar.data.billing.BillingManager.currentPlan.collectAsState()
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
     ) {
-        LevelUpCard(onClick = onUpgrade)
+        // Free members see the "Level Up" upsell; subscribers see their tier (matches iOS).
+        if (plan == com.vasilisneo.trackstar.data.billing.AppPlan.FREE) {
+            LevelUpCard(onClick = onUpgrade)
+        } else {
+            MembershipCard(plan = plan, onClick = onUpgrade)
+        }
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatCard(icon = Icons.Filled.Person, title = "Gender", value = profile.gender, unit = "", modifier = Modifier.weight(1f))
@@ -237,6 +244,40 @@ private fun LevelUpCard(onClick: () -> Unit) {
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text("Level Up", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Text("Start your 7-day free trial", fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f))
+        }
+        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(16.dp))
+    }
+}
+
+// Subscriber's tier card (iOS's paid plan-card state): tinted icon + tier name + Manage/Upgrade.
+@Composable
+private fun MembershipCard(plan: com.vasilisneo.trackstar.data.billing.AppPlan, onClick: () -> Unit) {
+    val accent = com.vasilisneo.trackstar.ui.components.tierAccentColor(plan)
+    val name = plan.name.lowercase().replaceFirstChar { it.uppercase() }
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(60.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(accent.copy(alpha = 0.08f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp)
+    ) {
+        Icon(Icons.Filled.MilitaryTech, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
+        Text(name, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        Spacer(modifier = Modifier.weight(1f))
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(50))
+                .background(accent.copy(alpha = 0.2f))
+                .padding(horizontal = 10.dp, vertical = 5.dp)
+        ) {
+            Text(
+                if (plan == com.vasilisneo.trackstar.data.billing.AppPlan.GOLD) "Manage" else "Upgrade",
+                fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = accent,
+            )
         }
         Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(16.dp))
     }
