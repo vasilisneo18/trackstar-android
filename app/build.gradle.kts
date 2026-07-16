@@ -33,8 +33,11 @@ android {
         applicationId = "com.vasilisneo.trackstar"
         minSdk = 26
         targetSdk = 36
+        // versionCode is Play's internal build counter — it MUST increase on every upload and is
+        // not user-facing. versionName is the public "1.0.0" shown on the store; bump it only for
+        // real marketing releases, not per test build.
         versionCode = 4
-        versionName = "1.0.3"
+        versionName = "1.0.0"
 
         buildConfigField("String", "REVENUECAT_API_KEY", "\"$revenueCatApiKey\"")
     }
