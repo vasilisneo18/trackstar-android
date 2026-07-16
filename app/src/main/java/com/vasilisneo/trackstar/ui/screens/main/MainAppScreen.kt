@@ -271,7 +271,7 @@ private fun FloatingTabBar(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 6.dp) // outer margin from the screen edges
+            .padding(horizontal = 16.dp, vertical = 5.dp) // outer margin from the screen edges
             // background(color, shape) draws an antialiased rounded fill; using clip() here
             // instead would give hard, jagged corners because hardware clipPath isn't
             // antialiased on Android. No clip is needed since the pills are inset 5dp and
@@ -324,17 +324,17 @@ private fun TabBarItem(
             )
             .clip(RoundedCornerShape(percent = 50))
             .clickable(onClick = onClick)
-            .padding(vertical = 3.dp)
+            .padding(vertical = 2.dp)
     ) {
         if (tab.iconRes != null) {
             Icon(
                 painter = painterResource(tab.iconRes),
                 contentDescription = tab.label,
                 tint = contentColor,
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier.size(24.dp)
             )
         } else {
-            Icon(tab.icon!!, contentDescription = tab.label, tint = contentColor, modifier = Modifier.size(26.dp))
+            Icon(tab.icon!!, contentDescription = tab.label, tint = contentColor, modifier = Modifier.size(24.dp))
         }
         Text(tab.label, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = contentColor)
     }

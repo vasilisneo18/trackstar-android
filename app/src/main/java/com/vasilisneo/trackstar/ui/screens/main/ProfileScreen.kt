@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -127,6 +128,7 @@ fun ProfileScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
+                    .navigationBarsPadding()
                     .padding(bottom = 40.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -185,10 +187,13 @@ private fun ProfileHeader(profile: ProfileData) {
         Text(profile.fullName, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
         Text(profile.email, fontSize = 14.sp, color = Color.White.copy(alpha = 0.45f))
 
-        if (profile.country.isNotEmpty()) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(13.dp))
-                Text(profile.country, fontSize = 13.sp, color = Color.White.copy(alpha = 0.3f))
+        // Fixed-height slot so the async country fetch doesn't reflow the page when it fills in.
+        Box(modifier = Modifier.height(18.dp), contentAlignment = Alignment.Center) {
+            if (profile.country.isNotEmpty()) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Icon(Icons.Filled.LocationOn, contentDescription = null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(13.dp))
+                    Text(profile.country, fontSize = 13.sp, color = Color.White.copy(alpha = 0.3f))
+                }
             }
         }
     }

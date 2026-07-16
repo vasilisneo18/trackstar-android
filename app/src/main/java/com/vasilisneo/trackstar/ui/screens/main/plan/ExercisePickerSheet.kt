@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -327,12 +328,17 @@ fun ExercisePickerSheet(onAdd: (List<ExerciseData>) -> Unit, onDismiss: () -> Un
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
+                    // contentWindowInsets is zeroed above, so pad the nav bar here or the button
+                    // sits behind the system nav bar on 3-button-nav devices.
+                    .navigationBarsPadding()
                     .padding(horizontal = 20.dp)
                     .padding(top = 8.dp, bottom = 16.dp)
                     .height(54.dp)
                     .clip(RoundedCornerShape(50))
                     .background(TrackstarAccent)
-                    .clickable { close { onAdd(stubExercisesFromNames(selected.toList())) } }
+                    // Also dismiss the sheet (set showPicker=false) — hiding alone leaves it mounted
+                    // and trapping input, which froze the screen after adding.
+                    .clickable { close { onAdd(stubExercisesFromNames(selected.toList())); onDismiss() } }
             ) {
                 Text(
                     "Add ${selected.size} Exercise${if (selected.size == 1) "" else "s"}",
