@@ -8,6 +8,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -17,10 +20,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vasilisneo.trackstar.data.billing.AppPlan
 import com.vasilisneo.trackstar.data.billing.BillingManager
+
+/**
+ * Bottom content padding so a tab screen's scrolling list clears BOTH the floating tab bar and the
+ * system navigation bar. The nav-bar inset varies by device (~0 for gesture nav, ~48dp for 3-button
+ * nav), so it must be added dynamically — a fixed value hides the last rows on 3-button devices.
+ */
+@Composable
+fun tabBarContentBottomPadding(): Dp =
+    120.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
 // Subscription-tier accent, matching iOS's ProfileNavButton / AppPlan.accentColor. Free = white.
 fun tierAccentColor(plan: AppPlan): Color = when (plan) {

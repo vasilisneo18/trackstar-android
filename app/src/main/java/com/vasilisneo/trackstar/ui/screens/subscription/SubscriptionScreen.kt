@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
@@ -188,8 +189,8 @@ fun SubscriptionScreen(
                 PlanCard(Tiers[page], modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             }
 
-            // Bottom CTA
-            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 24.dp)) {
+            // Bottom CTA — navigationBarsPadding so it clears the system nav bar on 3-button devices.
+            Box(modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 24.dp)) {
                 PillButton(
                     text = if (isCurrentPlan) "Current Plan" else "Join ${selectedTier.name}",
                     foreground = if (isCurrentPlan) Color.White else Color.Black,

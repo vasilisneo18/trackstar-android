@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -183,7 +184,7 @@ private fun ScanContent(onScan: ((String) -> Unit)?) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 48.dp)
+            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 48.dp)
         ) {
             Text("Scan to Connect", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
             Text(

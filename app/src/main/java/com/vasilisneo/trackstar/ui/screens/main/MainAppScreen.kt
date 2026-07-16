@@ -87,7 +87,7 @@ private val MainTabs = listOf(
 
 // Lighter, translucent "liquid glass" capsule (was a near-black #17171F that vanished on the dark
 // background) with a faint white rim for the glass edge.
-private val TabBarSurface = Color(0xFF3A3A46).copy(alpha = 0.82f)
+private val TabBarSurface = Color(0xFF2A2A32).copy(alpha = 0.94f)
 private val TabBarRim = Color.White.copy(alpha = 0.14f)
 
 @Composable
@@ -271,7 +271,7 @@ private fun FloatingTabBar(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 8.dp) // outer margin from the screen edges
+            .padding(horizontal = 16.dp, vertical = 6.dp) // outer margin from the screen edges
             // background(color, shape) draws an antialiased rounded fill; using clip() here
             // instead would give hard, jagged corners because hardware clipPath isn't
             // antialiased on Android. No clip is needed since the pills are inset 5dp and
@@ -331,10 +331,10 @@ private fun TabBarItem(
                 painter = painterResource(tab.iconRes),
                 contentDescription = tab.label,
                 tint = contentColor,
-                modifier = Modifier.size(30.dp)
+                modifier = Modifier.size(26.dp)
             )
         } else {
-            Icon(tab.icon!!, contentDescription = tab.label, tint = contentColor, modifier = Modifier.size(30.dp))
+            Icon(tab.icon!!, contentDescription = tab.label, tint = contentColor, modifier = Modifier.size(26.dp))
         }
         Text(tab.label, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = contentColor)
     }

@@ -143,7 +143,7 @@ fun AthletesScreen(
             CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
                 LazyColumn(
                     state = listState,
-                    contentPadding = PaddingValues(bottom = 120.dp),
+                    contentPadding = PaddingValues(bottom = com.vasilisneo.trackstar.ui.components.tabBarContentBottomPadding()),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxWidth().weight(1f),
                 ) {

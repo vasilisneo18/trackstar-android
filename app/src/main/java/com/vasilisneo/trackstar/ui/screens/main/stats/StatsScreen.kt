@@ -98,7 +98,7 @@ fun StatsScreen(
 
         LazyColumn(
             state = listState,
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 68.dp, bottom = 120.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 68.dp, bottom = com.vasilisneo.trackstar.ui.components.tabBarContentBottomPadding()),
             verticalArrangement = Arrangement.spacedBy(14.dp),
             modifier = Modifier.fillMaxSize().statusBarsPadding().haze(hazeState),
         ) {

@@ -175,7 +175,7 @@ fun DietScreen(
             CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
             LazyColumn(
                 state = listState,
-                contentPadding = PaddingValues(bottom = 120.dp),
+                contentPadding = PaddingValues(bottom = com.vasilisneo.trackstar.ui.components.tabBarContentBottomPadding()),
                 modifier = Modifier.fillMaxWidth().weight(1f),
             ) {
                 item {

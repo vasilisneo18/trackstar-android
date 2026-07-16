@@ -150,7 +150,7 @@ fun WorkoutScreen(
                     top = (if (headerHeightDp > 0.dp) headerHeightDp else 150.dp) + 4.dp,
                     // Clear the floating tab bar with a comfortable gap above it (matches the
                     // space iOS leaves below the last card).
-                    bottom = 120.dp,
+                    bottom = com.vasilisneo.trackstar.ui.components.tabBarContentBottomPadding(),
                 ),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxSize().haze(hazeState)
