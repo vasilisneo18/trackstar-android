@@ -33,8 +33,8 @@ android {
         applicationId = "com.vasilisneo.trackstar"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.0.2"
+        versionCode = 4
+        versionName = "1.0.3"
 
         buildConfigField("String", "REVENUECAT_API_KEY", "\"$revenueCatApiKey\"")
     }
