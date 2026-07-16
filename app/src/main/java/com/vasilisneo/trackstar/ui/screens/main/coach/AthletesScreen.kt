@@ -122,8 +122,8 @@ fun AthletesScreen(
 
     Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
         Text(
-            "Trackstar", fontSize = 30.sp, fontWeight = FontWeight.Black, color = Color.White.copy(alpha = 0.08f),
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp)
+            "Trackstar", fontSize = 30.sp, fontWeight = FontWeight.Black, color = Color.White.copy(alpha = 0.05f),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = com.vasilisneo.trackstar.ui.components.tabWatermarkBottomPadding())
         )
 
         Column(modifier = Modifier.fillMaxSize()) {

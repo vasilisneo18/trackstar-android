@@ -35,6 +35,12 @@ import com.vasilisneo.trackstar.data.billing.BillingManager
 fun tabBarContentBottomPadding(): Dp =
     120.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
 
+/** Bottom padding for the faint "Trackstar" brand watermark on tab screens, so it sits just above
+ *  the floating tab bar on every device (adds the nav-bar inset instead of a fixed value). */
+@Composable
+fun tabWatermarkBottomPadding(): Dp =
+    100.dp + WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+
 // Subscription-tier accent, matching iOS's ProfileNavButton / AppPlan.accentColor. Free = white.
 fun tierAccentColor(plan: AppPlan): Color = when (plan) {
     AppPlan.GOLD -> Color(0xFFFFC61A)

@@ -92,8 +92,8 @@ fun StatsScreen(
         // Faint brand wordmark pinned to the bottom (iOS's Trackstar background text).
         Text(
             "Trackstar",
-            fontSize = 30.sp, fontWeight = FontWeight.Black, color = Color.White.copy(alpha = 0.08f),
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp)
+            fontSize = 30.sp, fontWeight = FontWeight.Black, color = Color.White.copy(alpha = 0.05f),
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = com.vasilisneo.trackstar.ui.components.tabWatermarkBottomPadding())
         )
 
         LazyColumn(
