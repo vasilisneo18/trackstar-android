@@ -542,7 +542,7 @@ private fun ExercisePlanCard(
             .clip(RoundedCornerShape(20.dp))
             .background(CardFill)
             .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Text(exercise.name ?: "Exercise", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
 
@@ -595,7 +595,7 @@ private fun ExercisePlanPairCard(
             .clip(RoundedCornerShape(20.dp))
             .background(CardFill)
             .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.Link, contentDescription = null, tint = Color(0xFF64D2FF), modifier = Modifier.size(11.dp))
