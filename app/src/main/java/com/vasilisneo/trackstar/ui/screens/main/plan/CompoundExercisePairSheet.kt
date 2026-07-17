@@ -160,7 +160,7 @@ fun CompoundExercisePairSheet(
 
             LazyColumn(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth().weight(1f),
             ) {
                 item {
@@ -191,7 +191,7 @@ fun CompoundExercisePairSheet(
                 item {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color.White.copy(alpha = 0.06f)).padding(horizontal = 16.dp, vertical = 12.dp)
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color.White.copy(alpha = 0.06f)).padding(horizontal = 16.dp, vertical = 10.dp)
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text("Rounds", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f))
@@ -218,11 +218,14 @@ fun CompoundExercisePairSheet(
                                 WheelColumn((0..10).map { it.toString() }, restMinutes.coerceIn(0, 10), { restMinutes = it }, unit = "min"),
                                 WheelColumn((0..59).map { it.toString() }, restSeconds.coerceIn(0, 59), { restSeconds = it }, unit = "sec"),
                             ),
+                            // 3 visible rows (selected + one faded each side), matching iOS — 5 rows
+                            // made the sheet overflow and forced scrolling.
+                            visibleCount = 3,
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
                         )
                     }
                 }
-                item { Spacer(modifier = Modifier.height(24.dp)) }
+                item { Spacer(modifier = Modifier.height(8.dp)) }
             }
         }
     }
@@ -259,7 +262,7 @@ private fun ExerciseHalfCard(
 
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)))
 
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
             Text(
                 if (repsMax != null) "Range ⇄" else "Reps ⇄",
                 fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.75f),
@@ -285,7 +288,7 @@ private fun ExerciseHalfCard(
 
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)))
 
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
             Text("Weight", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f))
             Spacer(modifier = Modifier.weight(1f))
             // Plain right-aligned field (iOS uses a bare TextField width 60), so 60.dp isn't eaten
