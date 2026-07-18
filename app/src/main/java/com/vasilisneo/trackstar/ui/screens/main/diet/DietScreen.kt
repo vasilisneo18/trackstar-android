@@ -55,6 +55,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -108,8 +109,13 @@ private val dayNames = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Fri
 fun DietScreen(
     onProfileClick: () -> Unit = {},
     onOpenAiPlanner: () -> Unit = {},
+    onUpgrade: () -> Unit = {},
     viewModel: DietViewModel = viewModel(),
 ) {
+    // AI diet planner is Silver+ (FeatureGate.canUseAI). Tapping ✨ on a lower tier opens the
+    // paywall instead of the planner.
+    val plan by com.vasilisneo.trackstar.data.billing.BillingManager.currentPlan.collectAsState()
+    val canUseAI = com.vasilisneo.trackstar.data.billing.FeatureGate.canUseAI(plan)
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     // collapse = how far the large title (item 0) has scrolled off, as a 0..1 fraction of its own
     // height (measured from layoutInfo, so it's exact and works no matter how short the day's content
@@ -163,7 +169,7 @@ fun DietScreen(
                     Spacer(modifier = Modifier.size(12.dp))
                     Text("Diet Plan", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White, modifier = Modifier.alpha(frostProgress))
                     Spacer(modifier = Modifier.weight(1f))
-                    GlassCircleIconButton(onClick = onOpenAiPlanner, contentDescription = "AI planner", icon = Icons.Filled.AutoAwesome)
+                    GlassCircleIconButton(onClick = { if (canUseAI) onOpenAiPlanner() else onUpgrade() }, contentDescription = "AI planner", icon = Icons.Filled.AutoAwesome)
                     Spacer(modifier = Modifier.size(10.dp))
                     GlassCircleIconButton(onClick = { showPlanSheet = true }, contentDescription = "Edit plan", icon = Icons.Filled.Edit)
                 }

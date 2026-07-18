@@ -14,12 +14,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -34,18 +34,29 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FastForward
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vasilisneo.trackstar.data.api.ExerciseData
@@ -55,23 +66,65 @@ import com.vasilisneo.trackstar.data.workout.groupedForDisplay
 import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
 import com.vasilisneo.trackstar.ui.theme.TrackstarBackground
 import com.vasilisneo.trackstar.ui.theme.trackstarBackground
+import kotlinx.coroutines.launch
 
 private val CompletedGreen = Color(0xFF34C759)
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuickLogSheet(viewModel: QuickLogViewModel, onClose: () -> Unit, onFinished: () -> Unit) {
     var loggingSet by remember { mutableStateOf<Pair<ExerciseData, ExerciseSet>?>(null) }
     var loggingRound by remember { mutableStateOf<Triple<ExerciseData, ExerciseData, Int>?>(null) }
 
-    Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
-        Column(modifier = Modifier.fillMaxSize()) {
+    // Locked bottom sheet (same idiom as MissedSessionSheet / ExercisePickerSheet): reject swipe &
+    // scrim dismissal so the long list scrolls without the sheet moving; only the X / Finish close
+    // it, animating the sheet down first.
+    val scope = rememberCoroutineScope()
+    var allowHide by remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { it != SheetValue.Hidden || allowHide },
+    )
+    fun close(after: () -> Unit) {
+        allowHide = true
+        scope.launch {
+            sheetState.hide()
+            after()
+        }
+    }
+
+    // Keep the (locked) sheet from being dragged by the list's overscroll: swallow any leftover
+    // downward drag/fling the list doesn't use, so instead of the whole sheet sliding down and
+    // springing back, the list itself rubber-bands at its edges (iOS-style bounce).
+    val keepSheetStill = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset =
+                if (available.y > 0f) Offset(0f, available.y) else Offset.Zero
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity =
+                if (available.y > 0f) Velocity(0f, available.y) else Velocity.Zero
+        }
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = {},
+        sheetState = sheetState,
+        containerColor = Color.Transparent,
+        dragHandle = null,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxHeight(0.9f)
+                .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
+                .trackstarBackground()
+        ) {
+            Spacer(modifier = Modifier.height(8.dp))
             // Header
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 20.dp, vertical = 12.dp)
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp)
             ) {
                 Box(
-                    modifier = Modifier.size(44.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)).clickable(onClick = onClose),
+                    modifier = Modifier.size(44.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)).clickable { close(onClose) },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.White, modifier = Modifier.size(18.dp))
@@ -110,7 +163,7 @@ fun QuickLogSheet(viewModel: QuickLogViewModel, onClose: () -> Unit, onFinished:
                     LazyColumn(
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(24.dp),
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).nestedScroll(keepSheetStill)
                     ) {
                         items(units, key = { it.id }) { unit ->
                             when (unit) {
@@ -140,7 +193,7 @@ fun QuickLogSheet(viewModel: QuickLogViewModel, onClose: () -> Unit, onFinished:
                                 .height(54.dp)
                                 .clip(RoundedCornerShape(50))
                                 .background(CompletedGreen.copy(alpha = 0.85f))
-                                .clickable(enabled = !viewModel.isSaving) { viewModel.finish(onSaved = onFinished) }
+                                .clickable(enabled = !viewModel.isSaving) { viewModel.finish(onSaved = { close(onFinished) }) }
                         ) {
                             if (viewModel.isSaving) {
                                 CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
@@ -324,6 +377,10 @@ private fun QuickLogExerciseSection(
         }
 
         Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color.White.copy(alpha = 0.06f))) {
+            // Column header — SET / WEIGHT / REPS(or DURATION), matching iOS QuickLogSheet.setRow's
+            // header. Widths align with the set rows below so each label sits over its column.
+            val isDurationExercise = exercise.sets.orEmpty().firstOrNull()?.frequencyValue?.duration != null
+            QuickLogSetHeader(repsOrDuration = if (isDurationExercise) "DURATION" else "REPS")
             exercise.sets.orEmpty().forEachIndexed { index, set ->
                 QuickLogSetRow(viewModel = viewModel, index = index + 1, set = set, onLog = { onLogSet(set) })
             }
@@ -361,37 +418,58 @@ private fun QuickLogSetRow(viewModel: QuickLogViewModel, index: Int, set: Exerci
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 13.dp)
     ) {
-        // Indicator
-        Box(
-            modifier = Modifier.size(28.dp).clip(CircleShape).background(
+        // SET column — indicator centered in a fixed 52dp slot (matches the header's "SET").
+        Box(modifier = Modifier.width(52.dp), contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier.size(28.dp).clip(CircleShape).background(
+                    when {
+                        isLogged -> CompletedGreen
+                        isSkipped -> Color.White.copy(alpha = 0.08f)
+                        else -> Color.White.copy(alpha = 0.1f)
+                    }
+                ),
+                contentAlignment = Alignment.Center
+            ) {
                 when {
-                    isLogged -> CompletedGreen
-                    isSkipped -> Color.White.copy(alpha = 0.08f)
-                    else -> Color.White.copy(alpha = 0.1f)
+                    isLogged -> Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
+                    isSkipped -> Icon(Icons.Filled.FastForward, contentDescription = null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(12.dp))
+                    else -> Text("$index", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.45f))
                 }
-            ),
-            contentAlignment = Alignment.Center
-        ) {
-            when {
-                isLogged -> Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
-                isSkipped -> Icon(Icons.Filled.FastForward, contentDescription = null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(12.dp))
-                else -> Text("$index", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.45f))
             }
         }
-        Spacer(modifier = Modifier.padding(start = 12.dp))
 
         val handled = isLogged || isSkipped
+        val alpha = if (handled) 0.3f else 1f
         val repsText = logged?.let { loggedRepsText(it) } ?: set.repsOrDurationText()
         val weightText = logged?.let { loggedWeightText(it) } ?: set.weightText()
-        Text(repsText, fontSize = 17.sp, color = Color.White.copy(alpha = if (handled) 0.3f else 1f), modifier = Modifier.weight(1f))
-        Text(weightText, fontSize = 15.sp, color = Color.White.copy(alpha = if (handled) 0.3f else 0.7f), modifier = Modifier.padding(end = 12.dp))
+        // WEIGHT column fills the middle; REPS column is a fixed 60dp — column order and widths
+        // mirror iOS so both sit under their header labels.
+        Text(weightText, fontSize = 17.sp, color = Color.White.copy(alpha = alpha), modifier = Modifier.weight(1f))
+        Text(repsText, fontSize = 17.sp, color = Color.White.copy(alpha = alpha), modifier = Modifier.width(60.dp))
 
-        // Action
-        when {
-            isSkipped -> ActionChip(text = "Undo", filled = false) { viewModel.undoSet(set) }
-            !isLogged -> ActionChip(text = "Log", filled = true, onClick = onLog)
-            else -> ActionChip(text = "Undo", filled = false) { viewModel.undoSet(set) }
+        // Action — fixed slot on the right so the reps column stays aligned across logged/unlogged rows.
+        Box(modifier = Modifier.width(96.dp), contentAlignment = Alignment.CenterEnd) {
+            when {
+                isSkipped -> ActionChip(text = "Undo", filled = false) { viewModel.undoSet(set) }
+                !isLogged -> ActionChip(text = "Log", filled = true, onClick = onLog)
+                else -> ActionChip(text = "Undo", filled = false) { viewModel.undoSet(set) }
+            }
         }
+    }
+}
+
+// Column header for the single-exercise set list (SET / WEIGHT / REPS|DURATION). Widths match
+// QuickLogSetRow so each label sits above its column — ports iOS QuickLogSheet's header HStack.
+@Composable
+private fun QuickLogSetHeader(repsOrDuration: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)
+    ) {
+        Text("SET", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp, color = Color.White.copy(alpha = 0.3f), textAlign = TextAlign.Center, modifier = Modifier.width(52.dp))
+        Text("WEIGHT", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp, color = Color.White.copy(alpha = 0.3f), modifier = Modifier.weight(1f))
+        Text(repsOrDuration, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp, color = Color.White.copy(alpha = 0.3f), modifier = Modifier.width(60.dp))
+        Spacer(modifier = Modifier.width(96.dp))
     }
 }
 

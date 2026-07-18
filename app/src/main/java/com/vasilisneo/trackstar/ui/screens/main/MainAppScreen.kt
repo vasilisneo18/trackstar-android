@@ -1,8 +1,9 @@
 package com.vasilisneo.trackstar.ui.screens.main
 
 // Replica of the bottom tab bar built in MainAppCoordinator.buildTabs() on iOS: Workout,
-// Stats, MyTeam (coach-only on iOS — shown unconditionally here since there's no
-// role/subscription system on Android yet to gate it), Diet.
+// Stats, MyTeam, Diet. The MyTeam tab always shows, but its coach roster is gated: it appears
+// only for a Gold-plan coach (FeatureGate.canCoach), matching iOS — everyone else gets the
+// athlete "My Coach" screen instead.
 //
 // iOS's tab bar is a floating rounded pill inset from the screen edges with a blurred
 // (.ultraThinMaterial) background and a pill-shaped highlight behind the selected item —
@@ -31,6 +32,7 @@ import com.vasilisneo.trackstar.ui.theme.TrackstarBackground
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.annotation.DrawableRes
 import androidx.compose.material.icons.Icons
@@ -40,6 +42,7 @@ import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -99,10 +102,19 @@ fun MainAppScreen(
     onOpenAthlete: (String) -> Unit = {},
     onOpenAddAthlete: () -> Unit = {},
     onOpenTemplates: () -> Unit = {},
-    onOpenQr: () -> Unit = {},
     onOpenAiDietPlanner: () -> Unit = {},
+    onOpenSubscription: () -> Unit = {},
 ) {
     val tabNavController = rememberNavController()
+
+    // MyTeam tab is shown only for a Gold coach, matching iOS (MainAppCoordinator.buildTabs adds
+    // the athletes tab only when FeatureGate.canCoach). Athletes/free/non-Gold users get the other
+    // three tabs; their coach relationship lives in Profile → My Coach instead.
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val role = remember { com.vasilisneo.trackstar.data.auth.TokenStore(ctx).role }
+    val plan by com.vasilisneo.trackstar.data.billing.BillingManager.currentPlan.collectAsState()
+    val isCoach = role == "coach" && com.vasilisneo.trackstar.data.billing.FeatureGate.canCoach(plan)
+    val visibleTabs = remember(isCoach) { MainTabs.filter { it.route != "myteam" || isCoach } }
 
     // Active session is owned here (not inside the Workout tab or a nav route) so it survives
     // being minimized: the full-screen UI dismisses to a mini-bar while the session keeps
@@ -135,6 +147,7 @@ fun MainAppScreen(
                     activeSession = activeSession,
                     onResumeSession = { showActiveFull = true },
                     refreshKey = workoutRefreshKey,
+                    onUpgrade = onOpenSubscription,
                 )
             }
             composable("stats") {
@@ -142,31 +155,25 @@ fun MainAppScreen(
                     onProfileClick = onProfileClick,
                     onHistoryClick = onOpenHistory,
                     onOpenProgress = onOpenProgress,
+                    onUpgrade = onOpenSubscription,
                 )
             }
             composable("myteam") {
-                // Coach-only roster (matches iOS, where MyTeam is gated by the coach subscription).
-                // Athletes get a "My Coach" screen instead (Phase 4). Role comes from the JWT login.
-                val ctx = androidx.compose.ui.platform.LocalContext.current
-                val role = remember { com.vasilisneo.trackstar.data.auth.TokenStore(ctx).role }
-                if (role == "coach") {
-                    com.vasilisneo.trackstar.ui.screens.main.coach.AthletesScreen(
-                        onProfileClick = onProfileClick,
-                        onAthleteClick = { athlete -> athlete.id?.let(onOpenAthlete) },
-                        onAddAthlete = onOpenAddAthlete,
-                        onShowTemplates = onOpenTemplates,
-                    )
-                } else {
-                    com.vasilisneo.trackstar.ui.screens.main.coach.MyCoachScreen(
-                        onProfileClick = onProfileClick,
-                        onShowQr = onOpenQr,
-                    )
-                }
+                // Only reachable when the MyTeam tab is shown, i.e. for a Gold coach (see
+                // visibleTabs above) — so this renders the roster directly. Athletes have no
+                // MyTeam tab; their "My Coach" view lives in Profile.
+                com.vasilisneo.trackstar.ui.screens.main.coach.AthletesScreen(
+                    onProfileClick = onProfileClick,
+                    onAthleteClick = { athlete -> athlete.id?.let(onOpenAthlete) },
+                    onAddAthlete = onOpenAddAthlete,
+                    onShowTemplates = onOpenTemplates,
+                )
             }
             composable("diet") {
                 com.vasilisneo.trackstar.ui.screens.main.diet.DietScreen(
                     onProfileClick = onProfileClick,
                     onOpenAiPlanner = onOpenAiDietPlanner,
+                    onUpgrade = onOpenSubscription,
                 )
             }
         }
@@ -199,11 +206,12 @@ fun MainAppScreen(
                     .background(Color(0xFF14141C).copy(alpha = 0.95f))
             ) {
                 ActiveSessionMiniBar(viewModel = session, onExpand = { showActiveFull = true })
-                FloatingTabBar(tabNavController = tabNavController)
+                FloatingTabBar(tabNavController = tabNavController, tabs = visibleTabs)
             }
         } else {
             FloatingTabBar(
                 tabNavController = tabNavController,
+                tabs = visibleTabs,
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
         }
@@ -233,22 +241,16 @@ fun MainAppScreen(
             }
         }
 
-        // Full-screen quick-log — same modal slide-up treatment.
-        AnimatedVisibility(
-            visible = quickLog != null,
-            enter = slideInVertically(initialOffsetY = { it }),
-            exit = slideOutVertically(targetOffsetY = { it }),
-        ) {
-            quickLog?.let { vm ->
-                QuickLogSheet(
-                    viewModel = vm,
-                    onClose = { quickLog = null },
-                    onFinished = {
-                        quickLog = null
-                        workoutRefreshKey++
-                    },
-                )
-            }
+        // Quick-log as a locked bottom sheet — it owns its own slide-up/scrim animation.
+        quickLog?.let { vm ->
+            QuickLogSheet(
+                viewModel = vm,
+                onClose = { quickLog = null },
+                onFinished = {
+                    quickLog = null
+                    workoutRefreshKey++
+                },
+            )
         }
     }
 }
@@ -256,47 +258,47 @@ fun MainAppScreen(
 @Composable
 private fun FloatingTabBar(
     tabNavController: NavHostController,
+    tabs: List<MainTab>,
     modifier: Modifier = Modifier,
 ) {
     val backStackEntry by tabNavController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        // Inter-pill gaps come from spacedBy (not per-item side padding) so the first/last
-        // pill sits an equal 5dp from the bar's edge on every side — per-item side padding
-        // would have added on top of the row inset, making the outer horizontal gap larger
-        // than the top/bottom gap.
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    // The pill hugs its tabs and centers, so it narrows with fewer tabs (3 for athletes, 4 for a
+    // Gold coach), matching iOS's content-sized floating tab bar rather than stretching edge to
+    // edge. The full-width Box just provides the centering + bottom inset.
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 5.dp) // outer margin from the screen edges
-            // background(color, shape) draws an antialiased rounded fill; using clip() here
-            // instead would give hard, jagged corners because hardware clipPath isn't
-            // antialiased on Android. No clip is needed since the pills are inset 5dp and
-            // stay inside the bar's rounded corners.
-            .background(TabBarSurface, RoundedCornerShape(percent = 50))
-            .border(1.dp, TabBarRim, RoundedCornerShape(percent = 50))
-            .padding(4.dp) // inner inset between the capsule's edge and the tab row itself, equal on every side
+            .padding(vertical = 5.dp), // gap above the system nav bar / screen edge
+        contentAlignment = Alignment.Center,
     ) {
-        MainTabs.forEach { tab ->
-            val selected = currentRoute?.hierarchy?.any { it.route == tab.route } == true
-            // weight(1f) gives every tab an equal-width slot; the pill fills that slot
-            // (minus a small gap to its neighbours), so the selected pill is a wide stadium
-            // like iOS rather than a narrow shape floating in the middle of its slot.
-            TabBarItem(
-                tab = tab,
-                selected = selected,
-                onClick = {
-                    tabNavController.navigate(tab.route) {
-                        popUpTo(tabNavController.graph.findStartDestination().id) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
-                    }
-                },
-                modifier = Modifier.weight(1f)
-            )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier
+                // background(color, shape) draws an antialiased rounded fill; using clip() here
+                // instead would give hard, jagged corners because hardware clipPath isn't
+                // antialiased on Android.
+                .background(TabBarSurface, RoundedCornerShape(percent = 50))
+                .border(1.dp, TabBarRim, RoundedCornerShape(percent = 50))
+                .padding(4.dp) // inner inset between the capsule's edge and the tab row
+        ) {
+            tabs.forEach { tab ->
+                val selected = currentRoute?.hierarchy?.any { it.route == tab.route } == true
+                TabBarItem(
+                    tab = tab,
+                    selected = selected,
+                    onClick = {
+                        tabNavController.navigate(tab.route) {
+                            popUpTo(tabNavController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                )
+            }
         }
     }
 }
@@ -313,18 +315,19 @@ private fun TabBarItem(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(1.dp),
         modifier = modifier
-            // percent = 50 makes a true stadium here because the pill is now wide: the corner
-            // radius resolves to half the *shorter* (vertical) side, giving fully-rounded ends.
-            // background(color, shape) draws the antialiased fill; clip() is applied only
-            // afterward to bound the tap ripple (hardware clip is not antialiased, so it must
-            // NOT be what shapes the visible fill or the corners come out jagged).
+            // Every tab is the same fixed width, so the bar sizes to (tab count × width) and all
+            // slots (and the selected stadium filling one) match — narrower for 3 tabs, wider for
+            // 4, always centered (see FloatingTabBar). background(color, shape) draws the
+            // antialiased fill; clip() is applied only afterward to bound the tap ripple (hardware
+            // clip is not antialiased, so it must NOT be what shapes the visible fill).
+            .width(96.dp)
             .background(
                 if (selected) Color.White.copy(alpha = 0.15f) else Color.Transparent,
                 RoundedCornerShape(percent = 50)
             )
             .clip(RoundedCornerShape(percent = 50))
             .clickable(onClick = onClick)
-            .padding(vertical = 2.dp)
+            .padding(vertical = 6.dp)
     ) {
         if (tab.iconRes != null) {
             Icon(

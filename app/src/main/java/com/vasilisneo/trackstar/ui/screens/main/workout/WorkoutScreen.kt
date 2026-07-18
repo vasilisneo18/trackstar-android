@@ -38,6 +38,9 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.ui.res.painterResource
 import com.vasilisneo.trackstar.R
 import androidx.compose.material3.Icon
@@ -91,6 +94,7 @@ fun WorkoutScreen(
     activeSession: ActiveSessionViewModel? = null,
     onResumeSession: () -> Unit = {},
     refreshKey: Int = 0,
+    onUpgrade: () -> Unit = {},
 ) {
     val viewModel: WorkoutViewModel = viewModel()
     // Re-fetch completed sessions when a session finishes elsewhere (active session / quick log
@@ -121,6 +125,9 @@ fun WorkoutScreen(
     // Backdrop-blur source (the list) + child (the header) — real frosted glass like iOS.
     val hazeState = androidx.compose.runtime.remember { HazeState() }
     var commentingExercise by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<ExerciseData?>(null) }
+    // The missed session whose detail sheet is open (null = closed), mirroring MyWorkoutView's
+    // `missedSession` @State on iOS.
+    var missedSession by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<PlannedSessionResponse?>(null) }
 
     val monthFmt = java.time.format.DateTimeFormatter.ofPattern("MMM", Locale.getDefault())
     val dayLabel = if (selectedDate == today) "Today" else selectedDate.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())
@@ -169,8 +176,16 @@ fun WorkoutScreen(
                                     item {
                                         StartSessionButton(
                                             session = display.planned,
-                                            onStart = { onStartSession(selectedDate, display.planned.id ?: return@StartSessionButton) },
-                                            onQuickLog = { onQuickLog(selectedDate, display.planned.id ?: return@StartSessionButton) },
+                                            // Free tier: 3 logged sessions/week (FeatureGate). At the
+                                            // cap, starting/quick-logging opens the paywall instead.
+                                            onStart = {
+                                                if (!viewModel.canStartSession) onUpgrade()
+                                                else onStartSession(selectedDate, display.planned.id ?: return@StartSessionButton)
+                                            },
+                                            onQuickLog = {
+                                                if (!viewModel.canStartSession) onUpgrade()
+                                                else onQuickLog(selectedDate, display.planned.id ?: return@StartSessionButton)
+                                            },
                                         )
                                     }
                                     items(display.planned.exercises.orEmpty().groupedForDisplay(), key = { it.id }) { unit ->
@@ -193,6 +208,16 @@ fun WorkoutScreen(
                             }
                             is SessionDisplay.Completed -> item {
                                 CompletedSessionCard(session = display.planned, completed = display.completed)
+                            }
+                            is SessionDisplay.Missed -> item {
+                                // If a session is already running for this planned day (e.g. started
+                                // late from the missed sheet), show the in-progress card instead —
+                                // matching the Upcoming branch and iOS's MyWorkoutView.
+                                if (activeSession != null && activeSession.planSessionId == display.planned.id) {
+                                    InProgressCard(session = activeSession, onResume = onResumeSession)
+                                } else {
+                                    MissedSessionCard(session = display.planned, onClick = { missedSession = display.planned })
+                                }
                             }
                         }
                     }
@@ -257,6 +282,30 @@ fun WorkoutScreen(
                 onSelect = { viewModel.goToDate(it) },
             )
         }
+    }
+
+    missedSession?.let { planned ->
+        val exercises = planned.exercises.orEmpty()
+        val sessionId = planned.id
+        MissedSessionSheet(
+            workoutTitle = planned.title?.takeIf { it.isNotBlank() } ?: "Workout",
+            exercises = exercises,
+            // Only offer the actions when the session can actually be started/logged. Both paths
+            // enforce the free-tier weekly cap (paywall on overflow) like the Upcoming card.
+            onStart = if (sessionId != null) {
+                {
+                    missedSession = null
+                    if (!viewModel.canStartSession) onUpgrade() else onStartSession(selectedDate, sessionId)
+                }
+            } else null,
+            onQuickLog = if (sessionId != null) {
+                {
+                    missedSession = null
+                    if (!viewModel.canStartSession) onUpgrade() else onQuickLog(selectedDate, sessionId)
+                }
+            } else null,
+            onDismiss = { missedSession = null },
+        )
     }
 
     commentingExercise?.let { exercise ->
@@ -388,6 +437,56 @@ private fun StartSessionButton(session: PlannedSessionResponse, onStart: () -> U
                 Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = "Quick log", tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(20.dp))
             }
         }
+    }
+}
+
+private val MissedOrange = Color(0xFFFF9500)
+
+// Ports iOS's missedSessionCard (MyWorkoutView+Cards.swift): an orange-outlined card for a
+// planned session whose day has passed unlogged. Tapping it opens MissedSessionSheet.
+@Composable
+private fun MissedSessionCard(session: PlannedSessionResponse, onClick: () -> Unit) {
+    val exercises = session.exercises.orEmpty()
+    val setCount = exercises.sumOf { it.sets.orEmpty().size }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(CardFill)
+            .border(1.dp, MissedOrange.copy(alpha = 0.35f), RoundedCornerShape(20.dp))
+            .clickable(onClick = onClick)
+            .padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Filled.WarningAmber, contentDescription = null, tint = MissedOrange, modifier = Modifier.size(28.dp))
+            Spacer(modifier = Modifier.padding(start = 14.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
+                Text("Missed Session", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text(
+                    session.title?.takeIf { it.isNotBlank() } ?: "Workout",
+                    fontSize = 14.sp,
+                    color = Color.White.copy(alpha = 0.6f)
+                )
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Color.White.copy(alpha = 0.35f), modifier = Modifier.size(18.dp))
+        }
+
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Filled.FitnessCenter, contentDescription = null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(13.dp))
+            Spacer(modifier = Modifier.padding(start = 6.dp))
+            Text("${exercises.size} exercises", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.5f))
+            Spacer(modifier = Modifier.weight(1f))
+            Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(13.dp))
+            Spacer(modifier = Modifier.padding(start = 6.dp))
+            Text("$setCount sets", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.5f))
+        }
+
+        Text(
+            "Tap to view or start it now",
+            fontSize = 12.sp,
+            color = MissedOrange.copy(alpha = 0.8f)
+        )
     }
 }
 

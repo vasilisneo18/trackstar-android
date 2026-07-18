@@ -2,9 +2,10 @@ package com.vasilisneo.trackstar.ui.screens.main.stats
 
 // Ports iOS's WorkoutStatsView: a collapsing-header stats dashboard computed entirely from the
 // completed-session list — summary counts, a completion-rate ring, week streak, a weekly-volume
-// bar chart, personal records, and a link into the progress chart. Subscription gating (iOS's
-// locked "Silver" cards) is omitted: there's no subscription system on Android yet, so every
-// section is shown unlocked.
+// bar chart, personal records, and a link into the progress chart. Free accounts see the summary,
+// completion ring and streak, but the Weekly Volume, Personal Records and Progress cards are
+// swapped for locked upgrade cards (iOS's WorkoutStatsView isFree gating; any paid tier unlocks
+// them — FeatureGate.hasFullHistory).
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -27,13 +28,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -75,8 +80,13 @@ fun StatsScreen(
     onProfileClick: () -> Unit = {},
     onHistoryClick: () -> Unit = {},
     onOpenProgress: () -> Unit = {},
+    onUpgrade: () -> Unit = {},
     viewModel: StatsViewModel = viewModel(),
 ) {
+    // Full history/analytics is any paid tier (FeatureGate.hasFullHistory). Free accounts get the
+    // Volume/PRs/Progress cards replaced with locked upgrade cards.
+    val plan by com.vasilisneo.trackstar.data.billing.BillingManager.currentPlan.collectAsState()
+    val isFree = !com.vasilisneo.trackstar.data.billing.FeatureGate.hasUnlimitedLogging(plan)
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val thresholdPx = with(LocalDensity.current) { 60.dp.toPx() }
     val collapse by remember {
@@ -113,9 +123,39 @@ fun StatsScreen(
             item { SummaryRow(viewModel.allTimeCount, viewModel.thisMonthCount, viewModel.thisWeekCount) }
             item { CompletionCard(viewModel.completionRate) }
             if (viewModel.streak > 0) item { StreakCard(viewModel.streak) }
-            item { VolumeCard(viewModel.weeklyVolumes) }
-            if (viewModel.personalRecords.isNotEmpty()) item { PrsCard(viewModel) }
-            item { ProgressButton(onClick = onOpenProgress) }
+            if (isFree) {
+                item {
+                    LockedFeatureCard(
+                        icon = Icons.Filled.BarChart, iconColor = TrackstarAccent, title = "Weekly Volume",
+                        description = "See how many tonnes you lift each week and track your training load over time.",
+                        onUpgrade = onUpgrade,
+                    )
+                }
+            } else {
+                item { VolumeCard(viewModel.weeklyVolumes) }
+            }
+            if (isFree) {
+                item {
+                    LockedFeatureCard(
+                        icon = Icons.Filled.EmojiEvents, iconColor = Color(0xFFF2B90D), title = "Personal Records",
+                        description = "Your best lifts for every exercise — weight, reps, and duration.",
+                        onUpgrade = onUpgrade,
+                    )
+                }
+            } else if (viewModel.personalRecords.isNotEmpty()) {
+                item { PrsCard(viewModel) }
+            }
+            if (isFree) {
+                item {
+                    LockedFeatureCard(
+                        icon = Icons.Filled.ShowChart, iconColor = TrackstarAccent, title = "Progress Charts",
+                        description = "Visualise strength gains on any exercise over weeks and months.",
+                        onUpgrade = onUpgrade,
+                    )
+                }
+            } else {
+                item { ProgressButton(onClick = onOpenProgress) }
+            }
         }
 
         // Collapsing nav bar overlay (profile · "Stats" fades in · history clock). Frosted-glass
@@ -392,6 +432,49 @@ private fun ProgressButton(onClick: () -> Unit) {
         Text("View Progress Chart", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
         Spacer(modifier = Modifier.weight(1f))
         Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(18.dp))
+    }
+}
+
+// MARK: - Locked feature card
+
+// Free-tier placeholder for a gated stats card (mirrors iOS's lockedFeatureCard): icon + title
+// with a tier badge + teaser, and a full-width "Unlock" row that opens the paywall.
+@Composable
+private fun LockedFeatureCard(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconColor: Color,
+    title: String,
+    description: String,
+    onUpgrade: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardFill)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp), modifier = Modifier.padding(16.dp)) {
+            Box(
+                modifier = Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)).background(iconColor.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(22.dp))
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Box(modifier = Modifier.clip(RoundedCornerShape(percent = 50)).background(Color.White.copy(alpha = 0.1f)).padding(horizontal = 5.dp, vertical = 2.dp)) {
+                        Text("SILVER", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.55f))
+                    }
+                }
+                Text(description, fontSize = 13.sp, color = Color.White.copy(alpha = 0.45f), maxLines = 2)
+            }
+        }
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.07f)))
+        Row(
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onUpgrade).padding(vertical = 13.dp),
+        ) {
+            Spacer(modifier = Modifier.weight(1f))
+            Icon(Icons.Filled.LockOpen, contentDescription = null, tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(12.dp))
+            Text("Unlock with Athlete Silver", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.6f))
+            Spacer(modifier = Modifier.weight(1f))
+        }
     }
 }
 

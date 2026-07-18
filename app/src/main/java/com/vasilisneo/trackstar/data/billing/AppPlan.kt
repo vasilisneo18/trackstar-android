@@ -9,6 +9,10 @@ enum class AppPlan(val entitlementId: String?) {
     SILVER("silver"),
     GOLD("gold");
 
+    // Tiers are declared in ascending order, so `ordinal` is the tier rank — a plan "is at least"
+    // another when its rank is >=. Used for tier-threshold gates (e.g. premium theme unlocks).
+    fun atLeast(other: AppPlan): Boolean = ordinal >= other.ordinal
+
     companion object {
         // Highest active entitlement wins, matching the backend webhook (gold > silver > bronze).
         fun fromEntitlements(active: Set<String>): AppPlan = when {

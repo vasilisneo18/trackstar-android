@@ -28,6 +28,13 @@ class TemplatesViewModel : ViewModel() {
     var isLoading by mutableStateOf(false)
         private set
 
+    // Gold coaches may keep up to FeatureGate.GOLD_TEMPLATE_LIMIT templates (iOS TemplatesViewModel).
+    val templateLimit: Int
+        get() = com.vasilisneo.trackstar.data.billing.FeatureGate.templateLimit(
+            com.vasilisneo.trackstar.data.billing.BillingManager.currentPlan.value
+        )
+    val canCreate: Boolean get() = templates.size < templateLimit
+
     init { fetch() }
 
     fun fetch() {
@@ -52,6 +59,7 @@ class TemplatesViewModel : ViewModel() {
     }
 
     fun create(name: String, onCreated: (String) -> Unit = {}) {
+        if (!canCreate) return
         val id = UUID.randomUUID().toString()
         templates = listOf(TemplateSummary(id, name.trim(), emptyList(), 0)) + templates
         viewModelScope.launch {

@@ -144,8 +144,8 @@ class MainActivity : ComponentActivity() {
                                 onOpenAthlete = { athleteId -> navController.navigate("athlete/${Uri.encode(athleteId)}") },
                                 onOpenAddAthlete = { navController.navigate("add_athlete") },
                                 onOpenTemplates = { navController.navigate("templates") },
-                                onOpenQr = { navController.navigate("qr") },
                                 onOpenAiDietPlanner = { navController.navigate("ai_diet_planner") },
+                                onOpenSubscription = { navController.navigate("subscription") },
                             )
                         }
                         composable(
@@ -214,6 +214,7 @@ class MainActivity : ComponentActivity() {
                         ) {
                             WeeklyPlanScreen(
                                 onBackClick = { navController.popBackStack() },
+                                onUpgrade = { navController.navigate("subscription") },
                                 onOpenSession = { weekIdentifier, day, sessionId ->
                                     val sessionSegment = sessionId ?: "new"
                                     navController.navigate(
@@ -269,7 +270,20 @@ class MainActivity : ComponentActivity() {
                                 onPersonalInfo = { navController.navigate("personal_info") },
                                 onSettings = { navController.navigate("settings") },
                                 onUpgrade = { navController.navigate("subscription") },
-                                onQrCode = { navController.navigate("qr") }
+                                onQrCode = { navController.navigate("qr") },
+                                onMyCoach = { navController.navigate("my_coach") },
+                            )
+                        }
+                        composable(
+                            "my_coach",
+                            // Pushed from Profile like the other detail screens (Settings, Personal
+                            // Info) — horizontal push, holds still under further pushes.
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                        ) {
+                            com.vasilisneo.trackstar.ui.screens.main.coach.MyCoachScreen(
+                                onBack = { navController.popBackStack() },
+                                onShowQr = { navController.navigate("qr") },
                             )
                         }
                         composable(

@@ -19,10 +19,13 @@ import java.time.format.TextStyle
 import java.time.temporal.WeekFields
 import java.util.Locale
 
-// Mirrors MyWorkoutViewModel.SessionDisplay on iOS, minus the `.missed` case — an upcoming
-// session on a past day just renders as upcoming for this pass (out of scope per the plan).
+// Mirrors MyWorkoutViewModel.SessionDisplay on iOS: a planned session shows as Completed (a logged
+// session matches it), Missed (its day is already past and nothing was logged), or Upcoming (today
+// or a future day). Missed and Upcoming carry the same planned data — they differ only in how the
+// card presents (an orange "you missed this" prompt vs. the Start/plan cards).
 sealed interface SessionDisplay {
     data class Completed(val planned: PlannedSessionResponse, val completed: WorkoutSessionResponse) : SessionDisplay
+    data class Missed(val planned: PlannedSessionResponse) : SessionDisplay
     data class Upcoming(val planned: PlannedSessionResponse) : SessionDisplay
 }
 
@@ -67,13 +70,39 @@ class WorkoutViewModel(app: Application) : AndroidViewModel(app) {
     private val selectedDayName: String
         get() = selectedDate.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
 
+    // Free accounts may log FeatureGate.WEEKLY_SESSION_LIMIT sessions per calendar week. Count the
+    // current week's already-logged sessions (server data, so it survives reinstall unlike iOS's
+    // local store) and expose whether another may be started under the caller's plan.
+    private val sessionsThisWeek: Int
+        get() {
+            val currentWeek = weekIdentifierFor(LocalDate.now())
+            return completedSessions.count { s ->
+                val d = s.date?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+                d != null && weekIdentifierFor(d) == currentWeek
+            }
+        }
+
+    val canStartSession: Boolean
+        get() = com.vasilisneo.trackstar.data.billing.FeatureGate.canStartSession(
+            com.vasilisneo.trackstar.data.billing.BillingManager.currentPlan.value, sessionsThisWeek
+        )
+
+    // True when the selected day is strictly before today, so an unlogged session on it counts as
+    // missed rather than upcoming (mirrors iOS's MyWorkoutViewModel.isPastDay).
+    private val isPastDay: Boolean
+        get() = selectedDate.isBefore(LocalDate.now())
+
     val displaySessions: List<SessionDisplay>
         get() = weekSessions
             .filter { it.day == selectedDayName }
             .sortedBy { it.orderIndex ?: 0 }
             .map { planned ->
                 val match = completedSessions.firstOrNull { it.sessionData?.planSessionId == planned.id }
-                if (match != null) SessionDisplay.Completed(planned, match) else SessionDisplay.Upcoming(planned)
+                when {
+                    match != null -> SessionDisplay.Completed(planned, match)
+                    isPastDay -> SessionDisplay.Missed(planned)
+                    else -> SessionDisplay.Upcoming(planned)
+                }
             }
 
     init { fetch() }

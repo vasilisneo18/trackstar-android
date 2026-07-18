@@ -55,6 +55,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -91,9 +92,14 @@ import java.util.Locale
 @Composable
 fun WeeklyPlanScreen(
     onBackClick: () -> Unit,
+    onUpgrade: () -> Unit = {},
     onOpenSession: (weekIdentifier: String, day: String, sessionId: String?) -> Unit,
 ) {
     val viewModel: WeeklyPlanViewModel = viewModel()
+    // AI workout planner is Silver+ (FeatureGate.canUseAI). The ✨ button opens the paywall on a
+    // lower tier instead of the planner.
+    val plan by com.vasilisneo.trackstar.data.billing.BillingManager.currentPlan.collectAsState()
+    val canUseAI = com.vasilisneo.trackstar.data.billing.FeatureGate.canUseAI(plan)
     var deletingSession by remember { mutableStateOf<PlannedSessionResponse?>(null) }
     var aiPlannerViewModel by remember { mutableStateOf<AIWorkoutPlannerViewModel?>(null) }
 
@@ -135,7 +141,10 @@ fun WeeklyPlanScreen(
                 Spacer(modifier = Modifier.weight(1f))
                 CircleIconButton(
                     icon = Icons.Filled.AutoAwesome, contentDescription = "AI Workout Planner",
-                    onClick = { aiPlannerViewModel = AIWorkoutPlannerViewModel(viewModel.weekIdentifier) },
+                    onClick = {
+                        if (canUseAI) aiPlannerViewModel = AIWorkoutPlannerViewModel(viewModel.weekIdentifier)
+                        else onUpgrade()
+                    },
                 )
             }
 

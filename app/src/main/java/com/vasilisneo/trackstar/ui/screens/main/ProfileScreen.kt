@@ -34,6 +34,7 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Cake
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MilitaryTech
 import androidx.compose.material.icons.filled.MonitorWeight
@@ -90,8 +91,13 @@ fun ProfileScreen(
     onSettings: () -> Unit = {},
     onUpgrade: () -> Unit = {},
     onQrCode: () -> Unit = {},
+    onMyCoach: () -> Unit = {},
     viewModel: ProfileViewModel = viewModel(),
 ) {
+    // Athletes get a "My Coach" row here (they have no MyTeam tab — that's Gold-coach-only, matching
+    // iOS, which surfaces the coach relationship in Profile). Coaches manage their own roster tab.
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val isAthlete = remember { com.vasilisneo.trackstar.data.auth.TokenStore(ctx).role != "coach" }
     // Real profile from GET /api/profile, falling back to the cached session name/email
     // (and "—" for body stats) while the fetch is in flight or if it fails offline.
     val remote = viewModel.profile
@@ -137,7 +143,12 @@ fun ProfileScreen(
 
                 PersonalSection(profile, onUpgrade = onUpgrade)
 
-                AppSection(onPersonalInfo = onPersonalInfo, onSettings = onSettings)
+                AppSection(
+                    onPersonalInfo = onPersonalInfo,
+                    onSettings = onSettings,
+                    showMyCoach = isAthlete,
+                    onMyCoach = onMyCoach,
+                )
 
                 LogoutSection(onLogout = { viewModel.logout(); onLogout() })
             }
@@ -360,8 +371,17 @@ private fun StatFace(icon: ImageVector, iconTint: Color, value: String, unit: St
 }
 
 @Composable
-private fun AppSection(onPersonalInfo: () -> Unit, onSettings: () -> Unit) {
+private fun AppSection(
+    onPersonalInfo: () -> Unit,
+    onSettings: () -> Unit,
+    showMyCoach: Boolean,
+    onMyCoach: () -> Unit,
+) {
     ProfileGroup {
+        if (showMyCoach) {
+            ProfileRow(icon = Icons.Filled.Groups, label = "My Coach", onClick = onMyCoach)
+            HorizontalDivider(color = Color.White.copy(alpha = 0.08f), modifier = Modifier.padding(start = 62.dp))
+        }
         ProfileRow(icon = Icons.Outlined.Badge, label = "Personal Info", onClick = onPersonalInfo)
         HorizontalDivider(color = Color.White.copy(alpha = 0.08f), modifier = Modifier.padding(start = 62.dp))
         ProfileRow(icon = Icons.Filled.Settings, label = "Settings", onClick = onSettings)

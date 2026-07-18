@@ -3,8 +3,8 @@ package com.vasilisneo.trackstar.ui.screens.main.settings
 // Replica of AppearanceView on iOS: a 3-column grid of theme swatches, each filled with that
 // theme's real background gradient. Selecting an unlocked theme persists it and re-tints the
 // whole app (accent + background) live, driven by the reactive AppTheme state. Bronze/Silver/
-// Gold are subscription-gated — tapping them opens the upgrade screen (as on iOS), since there's
-// no subscription system to unlock them yet.
+// Gold are subscription-gated per tier (theme.isUnlocked(plan), mirroring iOS's canSelectTheme);
+// tapping a locked one opens the upgrade screen.
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,6 +25,8 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -45,6 +47,8 @@ import com.vasilisneo.trackstar.ui.theme.selectAppTheme
 fun AppearanceScreen(onBackClick: () -> Unit = {}, onUpgrade: () -> Unit = {}) {
     val context = LocalContext.current
     val selected = currentAppTheme
+    // Premium themes unlock per tier against the live plan (recomposes on plan change).
+    val plan by com.vasilisneo.trackstar.data.billing.BillingManager.currentPlan.collectAsState()
 
     SettingsScaffold(title = "Appearance", subtitle = "Choose a background theme", onBack = onBackClick) {
         Column(
@@ -54,10 +58,12 @@ fun AppearanceScreen(onBackClick: () -> Unit = {}, onUpgrade: () -> Unit = {}) {
             for (row in AppTheme.entries.chunked(3)) {
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                     for (theme in row) {
+                        val locked = !theme.isUnlocked(plan)
                         ThemeSwatchCell(
                             theme = theme,
                             selected = theme == selected,
-                            onClick = { if (theme.locked) onUpgrade() else selectAppTheme(context, theme) },
+                            locked = locked,
+                            onClick = { if (locked) onUpgrade() else selectAppTheme(context, theme) },
                             modifier = Modifier.weight(1f)
                         )
                     }
@@ -70,7 +76,7 @@ fun AppearanceScreen(onBackClick: () -> Unit = {}, onUpgrade: () -> Unit = {}) {
 }
 
 @Composable
-private fun ThemeSwatchCell(theme: AppTheme, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun ThemeSwatchCell(theme: AppTheme, selected: Boolean, locked: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -84,12 +90,12 @@ private fun ThemeSwatchCell(theme: AppTheme, selected: Boolean, onClick: () -> U
                     .fillMaxWidth()
                     .height(76.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .alpha(if (theme.locked) 0.35f else 1f)
+                    .alpha(if (locked) 0.35f else 1f)
                     .background(TrackstarBackground)
                     .background(Brush.verticalGradient(listOf(theme.gradientTop, TrackstarBackground)))
             )
             when {
-                theme.locked -> {
+                locked -> {
                     Box(modifier = Modifier.fillMaxWidth().height(76.dp).clip(RoundedCornerShape(16.dp)).background(Color.Black.copy(alpha = 0.3f)))
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Icon(Icons.Filled.Lock, contentDescription = null, tint = theme.accent, modifier = Modifier.size(14.dp))
@@ -111,7 +117,7 @@ private fun ThemeSwatchCell(theme: AppTheme, selected: Boolean, onClick: () -> U
             fontSize = 12.sp,
             fontWeight = FontWeight.SemiBold,
             color = when {
-                theme.locked -> Color.White.copy(alpha = 0.3f)
+                locked -> Color.White.copy(alpha = 0.3f)
                 selected -> Color.White
                 else -> Color.White.copy(alpha = 0.5f)
             }

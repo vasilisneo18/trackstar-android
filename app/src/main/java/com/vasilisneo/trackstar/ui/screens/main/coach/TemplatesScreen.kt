@@ -68,13 +68,22 @@ import kotlin.math.roundToInt
 fun TemplatesScreen(onClose: () -> Unit, onOpenTemplate: (String, String) -> Unit, viewModel: TemplatesViewModel = viewModel()) {
     val templates = viewModel.templates
     var showCreate by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    // At the Gold template cap (FeatureGate.GOLD_TEMPLATE_LIMIT), the + surfaces the limit instead
+    // of opening the create dialog.
+    fun requestCreate() {
+        if (viewModel.canCreate) showCreate = true
+        else android.widget.Toast.makeText(
+            context, "You've reached the ${viewModel.templateLimit}-template limit.", android.widget.Toast.LENGTH_LONG
+        ).show()
+    }
 
     Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
         Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp)) {
                 GlassCircleIconButton(onClick = onClose, contentDescription = "Close", icon = Icons.Filled.Close)
                 Spacer(modifier = Modifier.weight(1f))
-                GlassCircleIconButton(onClick = { showCreate = true }, contentDescription = "New template", icon = Icons.Filled.Add)
+                GlassCircleIconButton(onClick = { requestCreate() }, contentDescription = "New template", icon = Icons.Filled.Add)
             }
 
             LazyColumn(
@@ -93,7 +102,7 @@ fun TemplatesScreen(onClose: () -> Unit, onOpenTemplate: (String, String) -> Uni
                         }
                     }
                 } else if (templates.isEmpty()) {
-                    item { EmptyState(onCreate = { showCreate = true }) }
+                    item { EmptyState(onCreate = { requestCreate() }) }
                 } else {
                     items(templates, key = { it.id }) { t ->
                         SwipeRevealTemplateRow(

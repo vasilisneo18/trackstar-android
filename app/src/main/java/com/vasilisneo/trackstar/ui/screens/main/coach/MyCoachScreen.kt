@@ -1,10 +1,10 @@
 package com.vasilisneo.trackstar.ui.screens.main.coach
 
-// Athlete-side "My Coach" tab (the MyTeam slot renders this for athletes; coaches get
-// AthletesScreen). Mirrors the coach section iOS surfaces in ProfileView: when linked, a card
-// with the coach's avatar, name and "coaching since"; when unlinked, an empty state that points
-// the athlete at their QR code (a coach scans it) — accepting an invite link is the other path,
-// handled by AcceptInviteSheet via the trackstar://invite/{token} deep link.
+// Athlete-side "My Coach" screen, pushed from Profile (athletes have no MyTeam tab — that tab is
+// Gold-coach-only, matching iOS, which surfaces the coach relationship inside ProfileView). When
+// linked: a card with the coach's avatar, name and "coaching since"; when unlinked: an empty state
+// pointing the athlete at their QR code (a coach scans it) — accepting an invite link is the other
+// path, handled by AcceptInviteSheet via the trackstar://invite/{token} deep link.
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -38,7 +39,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vasilisneo.trackstar.data.api.ProfileResponse
-import com.vasilisneo.trackstar.ui.components.ProfileAvatarButton
+import com.vasilisneo.trackstar.ui.components.GlassCircleIconButton
 import com.vasilisneo.trackstar.ui.components.initialsFrom
 import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
 import com.vasilisneo.trackstar.ui.theme.trackstarBackground
@@ -51,7 +52,7 @@ private val CoachAvatar = Color(0xFF5E5CE6)
 
 @Composable
 fun MyCoachScreen(
-    onProfileClick: () -> Unit = {},
+    onBack: () -> Unit = {},
     onShowQr: () -> Unit = {},
     viewModel: MyCoachViewModel = viewModel(),
 ) {
@@ -64,12 +65,12 @@ fun MyCoachScreen(
 
     Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Nav bar with profile avatar, matching the other tabs.
+            // Nav bar with a back button — this is a pushed detail from Profile, not a tab.
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                ProfileAvatarButton(initials = initialsFrom(null), onClick = onProfileClick)
+                GlassCircleIconButton(onClick = onBack, icon = Icons.Filled.Close, contentDescription = "Close")
                 Spacer(modifier = Modifier.weight(1f))
             }
 

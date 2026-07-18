@@ -39,6 +39,13 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -102,6 +109,8 @@ fun ActiveSessionScreen(
                                 CurrentExerciseSection(
                                     exercise = current.exercise,
                                     loggedSetIds = viewModel.loggedSets.keys,
+                                    currentSetId = viewModel.currentSet?.id,
+                                    isResting = viewModel.isResting,
                                     onSetClick = { set ->
                                         // Timed sets (duration) go through the duration helper
                                         // card, not the numeric LogSetSheet.
@@ -115,6 +124,7 @@ fun ActiveSessionScreen(
                                     a = current.a, b = current.b,
                                     loggedSetIds = viewModel.loggedSets.keys,
                                     currentRound = viewModel.currentCompoundRoundIndex(current.a, current.b),
+                                    isResting = viewModel.isResting,
                                     onRoundClick = { round -> loggingRound = Triple(current.a, current.b, round) },
                                 )
                             }
@@ -289,7 +299,7 @@ private fun ProgressSection(viewModel: ActiveSessionViewModel) {
 }
 
 @Composable
-private fun CurrentExerciseSection(exercise: ExerciseData, loggedSetIds: Set<String>, onSetClick: (ExerciseSet) -> Unit) {
+private fun CurrentExerciseSection(exercise: ExerciseData, loggedSetIds: Set<String>, currentSetId: String?, isResting: Boolean, onSetClick: (ExerciseSet) -> Unit) {
     val isDuration = exercise.sets?.firstOrNull()?.frequencyValue?.duration != null
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(modifier = Modifier.padding(horizontal = 4.dp)) {
@@ -306,7 +316,15 @@ private fun CurrentExerciseSection(exercise: ExerciseData, loggedSetIds: Set<Str
                 Text("WEIGHT", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp, color = Color.White.copy(alpha = 0.3f))
             }
             exercise.sets.orEmpty().forEachIndexed { index, set ->
-                SetRow(index = index + 1, set = set, isLogged = loggedSetIds.contains(set.id), onClick = { onSetClick(set) })
+                val logged = loggedSetIds.contains(set.id)
+                SetRow(
+                    index = index + 1,
+                    set = set,
+                    isLogged = logged,
+                    isCurrent = !logged && set.id == currentSetId,
+                    isResting = isResting,
+                    onClick = { onSetClick(set) },
+                )
             }
         }
     }
@@ -316,7 +334,7 @@ private fun CurrentExerciseSection(exercise: ExerciseData, loggedSetIds: Set<Str
 // joined with " + ", and one row per round showing both exercises' rep/weight stacked with an
 // arrow divider between them (instead of one line per set like the single-exercise table).
 @Composable
-private fun CurrentCompoundSection(a: ExerciseData, b: ExerciseData, loggedSetIds: Set<String>, currentRound: Int?, onRoundClick: (Int) -> Unit) {
+private fun CurrentCompoundSection(a: ExerciseData, b: ExerciseData, loggedSetIds: Set<String>, currentRound: Int?, isResting: Boolean, onRoundClick: (Int) -> Unit) {
     val rounds = maxOf(a.sets.orEmpty().size, b.sets.orEmpty().size)
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(modifier = Modifier.padding(horizontal = 4.dp)) {
@@ -332,12 +350,15 @@ private fun CurrentCompoundSection(a: ExerciseData, b: ExerciseData, loggedSetId
         Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color.White.copy(alpha = 0.06f))) {
             for (round in 0 until rounds) {
                 if (round > 0) Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.06f)))
+                val roundLogged = a.sets.orEmpty().getOrNull(round)?.id?.let { loggedSetIds.contains(it) } == true &&
+                    b.sets.orEmpty().getOrNull(round)?.id?.let { loggedSetIds.contains(it) } == true
                 CompoundRoundRow(
                     round = round + 1,
                     nameA = a.name ?: "Exercise", setA = a.sets.orEmpty().getOrNull(round),
                     nameB = b.name ?: "Exercise", setB = b.sets.orEmpty().getOrNull(round),
-                    isLogged = a.sets.orEmpty().getOrNull(round)?.id?.let { loggedSetIds.contains(it) } == true &&
-                        b.sets.orEmpty().getOrNull(round)?.id?.let { loggedSetIds.contains(it) } == true,
+                    isLogged = roundLogged,
+                    isCurrent = !roundLogged && currentRound == round,
+                    isResting = isResting,
                     onClick = { onRoundClick(round) },
                 )
             }
@@ -346,27 +367,36 @@ private fun CurrentCompoundSection(a: ExerciseData, b: ExerciseData, loggedSetId
 }
 
 @Composable
-private fun CompoundRoundRow(round: Int, nameA: String, setA: ExerciseSet?, nameB: String, setB: ExerciseSet?, isLogged: Boolean, onClick: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.Top,
-        modifier = Modifier.fillMaxWidth().clickable(enabled = !isLogged, onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp)
-    ) {
-        Box(
-            modifier = Modifier.size(28.dp).clip(CircleShape).background(if (isLogged) CompletedGreen else Color.White.copy(alpha = 0.1f)),
-            contentAlignment = Alignment.Center
+private fun CompoundRoundRow(round: Int, nameA: String, setA: ExerciseSet?, nameB: String, setB: ExerciseSet?, isLogged: Boolean, isCurrent: Boolean, isResting: Boolean, onClick: () -> Unit) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        if (isCurrent) ActiveSetHighlight(flashing = !isResting)
+        Row(
+            verticalAlignment = Alignment.Top,
+            modifier = Modifier.fillMaxWidth().clickable(enabled = !isLogged, onClick = onClick).padding(horizontal = 16.dp, vertical = 16.dp)
         ) {
-            if (isLogged) Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
-            else Text("$round", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.45f))
-        }
-        Spacer(modifier = Modifier.padding(start = 12.dp))
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            CompoundLine(name = nameA, set = setA, isLogged = isLogged)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Box(modifier = Modifier.weight(1f).height(1.dp).background(Color.White.copy(alpha = 0.08f)))
-                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, tint = Color.White.copy(alpha = 0.25f), modifier = Modifier.size(11.dp))
-                Box(modifier = Modifier.weight(1f).height(1.dp).background(Color.White.copy(alpha = 0.08f)))
+            Box(
+                modifier = Modifier.size(28.dp).clip(CircleShape).background(
+                    when {
+                        isLogged -> CompletedGreen
+                        isCurrent -> TrackstarAccent
+                        else -> Color.White.copy(alpha = 0.1f)
+                    }
+                ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isLogged) Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
+                else Text("$round", fontSize = 13.sp, fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium, color = if (isCurrent) Color.White else Color.White.copy(alpha = 0.45f))
             }
-            CompoundLine(name = nameB, set = setB, isLogged = isLogged)
+            Spacer(modifier = Modifier.padding(start = 12.dp))
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                CompoundLine(name = nameA, set = setA, isLogged = isLogged)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Box(modifier = Modifier.weight(1f).height(1.dp).background(Color.White.copy(alpha = 0.08f)))
+                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, tint = Color.White.copy(alpha = 0.25f), modifier = Modifier.size(11.dp))
+                    Box(modifier = Modifier.weight(1f).height(1.dp).background(Color.White.copy(alpha = 0.08f)))
+                }
+                CompoundLine(name = nameB, set = setB, isLogged = isLogged)
+            }
         }
     }
 }
@@ -385,40 +415,84 @@ private fun CompoundLine(name: String, set: ExerciseSet?, isLogged: Boolean) {
     }
 }
 
+// Accent highlight behind the active set — ports iOS's setRow background: while the rest timer is
+// running it's a steady tint (0.12); once rest is over it flashes (accent opacity eased between
+// 0.04 and 0.18, ~0.9s, forever) to nudge the next set. Place inside a Box; fills the parent inset.
 @Composable
-private fun SetRow(index: Int, set: ExerciseSet, isLogged: Boolean, onClick: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+private fun BoxScope.ActiveSetHighlight(flashing: Boolean) {
+    val alpha = if (flashing) {
+        val transition = rememberInfiniteTransition(label = "activeSetFlash")
+        val animated by transition.animateFloat(
+            initialValue = 0.04f,
+            targetValue = 0.18f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 900, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "activeSetFlashAlpha",
+        )
+        animated
+    } else {
+        0.12f
+    }
+    Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = !isLogged, onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp)
-    ) {
-        Box(
-            modifier = Modifier.size(28.dp).clip(CircleShape).background(if (isLogged) CompletedGreen else Color.White.copy(alpha = 0.1f)),
-            contentAlignment = Alignment.Center
+            .matchParentSize()
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(TrackstarAccent.copy(alpha = alpha))
+    )
+}
+
+@Composable
+private fun SetRow(index: Int, set: ExerciseSet, isLogged: Boolean, isCurrent: Boolean, isResting: Boolean, onClick: () -> Unit) {
+    Box(modifier = Modifier.fillMaxWidth()) {
+        // Active-set highlight — steady while resting, flashing once the rest timer ends (iOS parity).
+        if (isCurrent) ActiveSetHighlight(flashing = !isResting)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(enabled = !isLogged, onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 18.dp)
         ) {
-            if (isLogged) {
-                Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
-            } else {
-                Text("$index", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.45f))
+            Box(
+                modifier = Modifier.size(28.dp).clip(CircleShape).background(
+                    when {
+                        isLogged -> CompletedGreen
+                        isCurrent -> TrackstarAccent
+                        else -> Color.White.copy(alpha = 0.1f)
+                    }
+                ),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isLogged) {
+                    Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
+                } else {
+                    Text(
+                        "$index",
+                        fontSize = 13.sp,
+                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isCurrent) Color.White else Color.White.copy(alpha = 0.45f),
+                    )
+                }
             }
-        }
-        Spacer(modifier = Modifier.padding(start = 12.dp))
-        Text(
-            set.repsOrDurationText(),
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Normal,
-            color = Color.White.copy(alpha = if (isLogged) 0.3f else 1f),
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            set.weightText(),
-            fontSize = 17.sp,
-            color = Color.White.copy(alpha = if (isLogged) 0.3f else 1f)
-        )
-        if (!isLogged) {
-            Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Color.White.copy(alpha = 0.35f), modifier = Modifier.size(16.dp).padding(start = 8.dp))
+            Spacer(modifier = Modifier.padding(start = 12.dp))
+            Text(
+                set.repsOrDurationText(),
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Normal,
+                color = Color.White.copy(alpha = if (isLogged) 0.3f else 1f),
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                set.weightText(),
+                fontSize = 17.sp,
+                color = Color.White.copy(alpha = if (isLogged) 0.3f else 1f)
+            )
+            if (!isLogged) {
+                Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Color.White.copy(alpha = if (isCurrent) 0.6f else 0.35f), modifier = Modifier.size(16.dp).padding(start = 8.dp))
+            }
         }
     }
 }
