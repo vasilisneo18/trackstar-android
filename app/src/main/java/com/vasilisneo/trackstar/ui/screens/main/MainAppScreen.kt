@@ -1,9 +1,9 @@
 package com.vasilisneo.trackstar.ui.screens.main
 
 // Replica of the bottom tab bar built in MainAppCoordinator.buildTabs() on iOS: Workout,
-// Stats, MyTeam, Diet. The MyTeam tab always shows, but its coach roster is gated: it appears
-// only for a Gold-plan coach (FeatureGate.canCoach), matching iOS — everyone else gets the
-// athlete "My Coach" screen instead.
+// Stats, MyTeam, Diet. The MyTeam tab is gated purely on the Gold plan (FeatureGate.canCoach),
+// matching iOS — which gates the tab on the plan alone, NOT the local role ("Keychain role is
+// NOT used for UI visibility"). Everyone else gets the athlete "My Coach" screen in Profile.
 //
 // iOS's tab bar is a floating rounded pill inset from the screen edges with a blurred
 // (.ultraThinMaterial) background and a pill-shaped highlight behind the selected item —
@@ -107,13 +107,11 @@ fun MainAppScreen(
 ) {
     val tabNavController = rememberNavController()
 
-    // MyTeam tab is shown only for a Gold coach, matching iOS (MainAppCoordinator.buildTabs adds
-    // the athletes tab only when FeatureGate.canCoach). Athletes/free/non-Gold users get the other
-    // three tabs; their coach relationship lives in Profile → My Coach instead.
-    val ctx = androidx.compose.ui.platform.LocalContext.current
-    val role = remember { com.vasilisneo.trackstar.data.auth.TokenStore(ctx).role }
+    // MyTeam tab is shown whenever the plan is Gold, matching iOS (MainAppCoordinator.buildTabs
+    // adds the athletes tab only when FeatureGate.canCoach, which is plan-only). Collecting
+    // currentPlan makes the tab appear/disappear reactively the moment the plan changes.
     val plan by com.vasilisneo.trackstar.data.billing.BillingManager.currentPlan.collectAsState()
-    val isCoach = role == "coach" && com.vasilisneo.trackstar.data.billing.FeatureGate.canCoach(plan)
+    val isCoach = com.vasilisneo.trackstar.data.billing.FeatureGate.canCoach(plan)
     val visibleTabs = remember(isCoach) { MainTabs.filter { it.route != "myteam" || isCoach } }
 
     // Active session is owned here (not inside the Workout tab or a nav route) so it survives

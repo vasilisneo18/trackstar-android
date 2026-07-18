@@ -1,6 +1,8 @@
 package com.vasilisneo.trackstar
 
+import android.app.Activity
 import android.app.Application
+import android.os.Bundle
 import com.vasilisneo.trackstar.data.auth.TokenStore
 import com.vasilisneo.trackstar.data.billing.AppIconManager
 import com.vasilisneo.trackstar.data.billing.BillingManager
@@ -14,6 +16,10 @@ import kotlinx.coroutines.launch
 class TrackstarApplication : Application() {
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
+    // Count of started (visible) activities. Drops to 0 exactly when the app goes to the
+    // background — our cue to apply any queued launcher-icon change (see AppIconManager).
+    private var startedActivities = 0
+
     override fun onCreate() {
         super.onCreate()
         val tokenStore = TokenStore(this) // constructor seeds AuthTokenHolder
@@ -24,11 +30,32 @@ class TrackstarApplication : Application() {
         tokenStore.userId?.let { BillingManager.logIn(it) }
 
         // Keep the launcher icon in sync with the plan (mirrors iOS RevenueCatManager.updateAppIcon).
-        // AppIconManager no-ops when the icon is already correct, so this is cheap on every launch.
+        // set() only *queues* the change — it's applied when the app next backgrounds so the
+        // launcher re-home doesn't yank the user out mid-use (see AppIconManager).
         appScope.launch {
             BillingManager.currentPlan.collect { plan ->
                 AppIconManager.set(this@TrackstarApplication, plan)
             }
         }
+
+        // Apply the queued icon swap the moment the app enters the background.
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            override fun onActivityStarted(activity: Activity) {
+                startedActivities++
+            }
+
+            override fun onActivityStopped(activity: Activity) {
+                startedActivities--
+                if (startedActivities <= 0) {
+                    AppIconManager.applyPending(this@TrackstarApplication)
+                }
+            }
+
+            override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
+            override fun onActivityResumed(activity: Activity) {}
+            override fun onActivityPaused(activity: Activity) {}
+            override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+            override fun onActivityDestroyed(activity: Activity) {}
+        })
     }
 }

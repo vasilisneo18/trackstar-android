@@ -166,6 +166,12 @@ fun LandingScreen(
 // Mirrors iOS's `.lineLimit(1).truncationMode(.middle)` on the cached-email row — Compose's
 // Text has no built-in middle-ellipsis, so measure the full string and binary-search the
 // widest head+tail split that still fits the available width.
+//
+// The final Text MUST render with softWrap = false: the ellipsis char "…" (U+2026) is a valid
+// line-break opportunity, so with the default softWrap = true + maxLines = 1 Compose breaks the
+// line right after the "…" and drops the tail onto a hidden second line — you'd see
+// "vasilis.neophyt…" with the tail missing, i.e. an end-truncation. softWrap = false lays the
+// already-fitted string out on one line exactly as it was measured.
 @Composable
 private fun MiddleEllipsisText(
     text: String,
@@ -200,7 +206,7 @@ private fun MiddleEllipsisText(
             }
             best
         }
-        Text(display, fontSize = fontSize, fontWeight = fontWeight, color = color, maxLines = 1)
+        Text(display, fontSize = fontSize, fontWeight = fontWeight, color = color, maxLines = 1, softWrap = false)
     }
 }
 
