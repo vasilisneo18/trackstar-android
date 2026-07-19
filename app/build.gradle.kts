@@ -18,6 +18,19 @@ val revenueCatApiKey: String = run {
     props.getProperty("revenuecat.apiKey") ?: System.getenv("REVENUECAT_API_KEY") ?: ""
 }
 
+// Google OAuth *web* client ID used as the serverClientId for Sign in with Google (the same client
+// ID the backend verifies the returned token against). Kept in local.properties as
+// `google.serverClientId=...`, falling back to the GOOGLE_SERVER_CLIENT_ID env var for CI. Blank is
+// fine: GoogleSignInManager treats an unconfigured ID as "not available" and the button no-ops
+// gracefully, so the app builds and runs before the Android OAuth client is set up in Google Cloud.
+val googleServerClientId: String = run {
+    val props = Properties().apply {
+        val f = rootProject.file("local.properties")
+        if (f.exists()) f.inputStream().use { load(it) }
+    }
+    props.getProperty("google.serverClientId") ?: System.getenv("GOOGLE_SERVER_CLIENT_ID") ?: ""
+}
+
 // Release signing config, read from the gitignored keystore.properties. Absent on machines/CI
 // without the upload key — release builds there fall back to unsigned (debug builds unaffected).
 val keystoreProps = Properties().apply {
@@ -40,6 +53,7 @@ android {
         versionName = "1.0.0"
 
         buildConfigField("String", "REVENUECAT_API_KEY", "\"$revenueCatApiKey\"")
+        buildConfigField("String", "GOOGLE_SERVER_CLIENT_ID", "\"$googleServerClientId\"")
     }
 
     signingConfigs {
@@ -107,6 +121,12 @@ dependencies {
     // In-app subscriptions via RevenueCat (wraps Google Play Billing). iOS uses the RC SDK too,
     // and the backend already syncs plans from RC's webhook.
     implementation("com.revenuecat.purchases:purchases:8.10.1")
+    // Sign in with Google via Credential Manager (modern replacement for GoogleSignInClient).
+    // credentials-play-services-auth backports the flow to older devices; googleid provides the
+    // Google ID token option + credential parsing.
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     // Networking — talks to the Spring Boot API (fitness-book-api).
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0")

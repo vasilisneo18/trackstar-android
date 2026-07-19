@@ -15,6 +15,9 @@ interface AuthApi {
     @POST("auth/register")
     suspend fun register(@Body body: RegisterRequest): Response<AuthResponse>
 
+    @POST("auth/social")
+    suspend fun social(@Body body: SocialAuthRequest): Response<AuthResponse>
+
     @POST("auth/forgot-password")
     suspend fun forgotPassword(@Body body: ForgotPasswordRequest): Response<MessageResponse>
 }

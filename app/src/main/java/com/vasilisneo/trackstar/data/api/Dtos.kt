@@ -35,6 +35,17 @@ data class AuthResponse(
     @SerializedName("newUser") val isNewUser: Boolean = false,
 )
 
+// Social sign-in (Google/Apple). provider = "google" | "apple"; identityToken is the ID token from
+// the provider that the backend verifies. firstName/lastName/email are only used when creating a
+// brand-new account (the backend derives the email from the verified token for Google).
+data class SocialAuthRequest(
+    val provider: String,
+    val identityToken: String,
+    val firstName: String?,
+    val lastName: String?,
+    val email: String?,
+)
+
 data class RefreshRequest(val refreshToken: String)
 
 data class ForgotPasswordRequest(val email: String)

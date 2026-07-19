@@ -1,6 +1,7 @@
 package com.vasilisneo.trackstar.ui.screens.login
 
 import android.app.Application
+import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -8,15 +9,16 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.vasilisneo.trackstar.data.auth.ApiResult
 import com.vasilisneo.trackstar.data.auth.AuthRepository
+import com.vasilisneo.trackstar.data.auth.GoogleSignInManager
 import com.vasilisneo.trackstar.data.auth.TokenStore
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
  * Mirrors the state LoginViewModel exposes on iOS (isLoading, isGoogleLoading,
  * errorMessage, isLoginEnabled) — minus Apple sign-in, which doesn't exist on Android.
  * login() calls the real POST /api/auth/login and persists the JWT via TokenStore;
- * loginWithGoogle() is still a stub (no Google Sign-In SDK wired yet).
+ * loginWithGoogle() runs Credential Manager + POST /api/auth/social (needs the Android OAuth
+ * client configured in Google Cloud to actually return a token — see GoogleSignInManager).
  */
 class LoginViewModel(app: Application) : AndroidViewModel(app) {
     private val tokenStore = TokenStore(app)
@@ -113,12 +115,40 @@ class LoginViewModel(app: Application) : AndroidViewModel(app) {
         cachedEmail = null
     }
 
-    fun loginWithGoogle() {
+    /** Sign in with Google: launch the account chooser, then exchange the Google ID token for our
+     *  JWT via POST /api/auth/social. `context` must be the hosting Activity (Credential Manager
+     *  shows its UI from it). Cancelling the chooser is silent; other failures surface a message. */
+    fun loginWithGoogle(context: Context, onSuccess: () -> Unit = {}) {
         if (isLoading || isGoogleLoading) return
         viewModelScope.launch {
             isGoogleLoading = true
-            delay(800)
-            isGoogleLoading = false
+            errorMessage = null
+
+            val credential = GoogleSignInManager.signIn(context).getOrElse { e ->
+                isGoogleLoading = false
+                if (e !is GoogleSignInManager.Cancelled) {
+                    errorMessage = e.message ?: "Google sign-in failed."
+                }
+                return@launch
+            }
+
+            when (val result = repository.socialLogin(
+                provider = "google",
+                idToken = credential.idToken,
+                firstName = credential.givenName,
+                lastName = credential.familyName,
+                email = credential.id,
+            )) {
+                is ApiResult.Success -> {
+                    isGoogleLoading = false
+                    cachedEmail = tokenStore.lastEmail
+                    onSuccess()
+                }
+                is ApiResult.Error -> {
+                    isGoogleLoading = false
+                    errorMessage = result.message
+                }
+            }
         }
     }
 }

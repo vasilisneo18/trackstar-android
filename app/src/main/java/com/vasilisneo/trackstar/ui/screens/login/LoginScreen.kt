@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -46,6 +47,9 @@ fun LoginScreen(
     LaunchedEffect(Unit) {
         if (initialEmail.isNotBlank()) viewModel.onEmailChange(initialEmail)
     }
+
+    // Activity context for Credential Manager's Google sign-in UI.
+    val context = LocalContext.current
 
     AuthScreenScaffold(
         title = "Welcome back",
@@ -96,7 +100,7 @@ fun LoginScreen(
         GoogleSignInButton(
             isLoading = viewModel.isGoogleLoading,
             enabled = !viewModel.isLoading,
-            onClick = viewModel::loginWithGoogle
+            onClick = { viewModel.loginWithGoogle(context, onLoginSuccess) }
         )
 
         viewModel.errorMessage?.let { error -> AuthErrorText(error) }
