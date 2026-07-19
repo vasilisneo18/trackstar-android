@@ -124,6 +124,15 @@ private fun openManageUrl(context: android.content.Context, url: String) {
         .onFailure { runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri)) } }
 }
 
+// Message for a comped-grant holder who taps to upgrade: they already hold the plan free, so there's
+// nothing to buy until the grant ends.
+private fun grantUpgradeMessage(planName: String, expiry: java.util.Date?): String {
+    val until = expiry?.let {
+        " until " + java.text.DateFormat.getDateInstance(java.text.DateFormat.MEDIUM).format(it)
+    } ?: ""
+    return "You have $planName free$until. You can purchase a subscription once your grant expires."
+}
+
 private fun featureIcon(feature: String): ImageVector {
     val f = feature.lowercase()
     return when {
@@ -153,15 +162,29 @@ fun SubscriptionScreen(
 
     val currentPlan by BillingManager.currentPlan.collectAsState()
     val managementUrl by BillingManager.managementUrl.collectAsState()
+    val currentPlanExpiry by BillingManager.currentPlanExpiry.collectAsState()
     val pricing by BillingManager.pricing.collectAsState()
+
     val isCurrentPlan = currentPlan == selectedTier.plan
-    // Non-null message shown in a dialog when the active plan can't be managed from Google Play
-    // (bought on Apple, or a comped grant). Null = route straight to the Play subscription page.
+    // Relation of the card you're viewing to the plan you hold (Free < Bronze < Silver < Gold).
+    val isDowngrade = selectedTier.plan.ordinal < currentPlan.ordinal
+
+    // Where the active plan is billed, derived from RevenueCat's management URL: Apple, or a comped
+    // grant (a paid plan with no management URL). Google Play on Android needs no special handling.
+    val isApplePlan = managementUrl?.contains("apple", ignoreCase = true) == true
+    val isGrantPlan = currentPlan != AppPlan.FREE && managementUrl == null
+
+    // Caption above the CTA — only when it adds information (cross-platform Apple, or a grant).
+    val subscribedCaption = when {
+        isApplePlan -> "Subscribed on Apple"
+        isGrantPlan -> "Plan granted by Trackstar"
+        else -> null
+    }
+    // Human name of the plan you currently hold (for the grant/downgrade dialogs).
+    val currentTierName = Tiers.firstOrNull { it.plan == currentPlan }?.name ?: "your plan"
+
+    // Non-null message shown in a dialog (Apple cross-platform, comped grant, or downgrade attempt).
     var manageInfoMessage by remember { mutableStateOf<String?>(null) }
-    // Matches iOS: once you hold any paid plan, changing tiers is done through the store's own
-    // subscription page (cancel/upgrade/downgrade) rather than firing a second purchase — which on
-    // Google Play would risk leaving two active subscriptions.
-    val hasPaidPlan = currentPlan != AppPlan.FREE
 
     Box(
         modifier = Modifier
@@ -212,7 +235,16 @@ fun SubscriptionScreen(
             }
 
             // Bottom CTA — navigationBarsPadding so it clears the system nav bar on 3-button devices.
-            Box(modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 24.dp)) {
+            Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 24.dp)) {
+                subscribedCaption?.let { caption ->
+                    Text(
+                        caption,
+                        fontSize = 12.sp,
+                        color = Color.White.copy(alpha = 0.45f),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                    )
+                }
                 when {
                     isCurrentPlan -> PillButton(
                         text = "Current Plan",
@@ -221,30 +253,36 @@ fun SubscriptionScreen(
                         enabled = false,
                         onClick = {}
                     )
-                    hasPaidPlan -> PillButton(
-                        text = "Manage Subscription",
+                    // Lower tier than the one you hold: the highest plan always applies, so we don't
+                    // offer an in-app downgrade — just explain.
+                    isDowngrade -> PillButton(
+                        text = "Manage",
                         foreground = Color.Black,
                         background = Color.White,
                         onClick = {
-                            // RevenueCat's managementURL points at whichever store actually bills the
-                            // sub. Open Google Play directly; for a cross-platform (Apple) purchase or
-                            // a comped grant (null URL) there's nothing to open here, so explain.
-                            val url = managementUrl
-                            when {
-                                url == null -> manageInfoMessage =
-                                    "This plan was granted to you and isn't billed through a store, so there's nothing to manage here. It will simply expire when the grant ends."
-                                url.contains("play.google", ignoreCase = true) -> openManageUrl(context, url)
-                                url.contains("apple", ignoreCase = true) -> manageInfoMessage =
-                                    "This subscription was purchased through Apple. To change or cancel it, open Settings › [your name] › Subscriptions on your iPhone or iPad, or manage it at apps.apple.com."
-                                else -> openManageUrl(context, url)
-                            }
+                            manageInfoMessage =
+                                "You're on $currentTierName. Your highest plan is always active, so there's nothing to switch to on ${selectedTier.name}."
                         }
                     )
+                    // Higher tier (or you're on Free): an upgrade.
                     else -> PillButton(
                         text = "Join ${selectedTier.name}",
                         foreground = Color.Black,
                         background = Color.White,
-                        onClick = { showBilling = true }
+                        onClick = {
+                            val url = managementUrl
+                            when {
+                                // Free → straight to purchase.
+                                currentPlan == AppPlan.FREE -> showBilling = true
+                                // Comped grant (paid plan, no store URL) → nothing to buy yet.
+                                url == null -> manageInfoMessage = grantUpgradeMessage(currentTierName, currentPlanExpiry)
+                                // Bought on Apple → must cancel there before buying on Android.
+                                url.contains("apple", ignoreCase = true) -> manageInfoMessage =
+                                    "This subscription was purchased on Apple. To subscribe on Android, cancel it from your Apple subscriptions first, then come back and purchase here."
+                                // Bought on Google Play (or other store) → change it there.
+                                else -> openManageUrl(context, url)
+                            }
+                        }
                     )
                 }
             }

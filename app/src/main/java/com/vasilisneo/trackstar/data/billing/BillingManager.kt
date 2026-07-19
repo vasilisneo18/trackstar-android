@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Currency
+import java.util.Date
 import kotlin.math.roundToInt
 
 // Android analogue of iOS's RevenueCatManager: the single owner of RevenueCat state. Configured
@@ -54,6 +55,11 @@ object BillingManager {
     // nothing store-managed to manage (e.g. a promotional/comped grant). Drives "Manage Subscription".
     private val _managementUrl = MutableStateFlow<String?>(null)
     val managementUrl: StateFlow<String?> = _managementUrl.asStateFlow()
+
+    // Expiry of the current plan's active entitlement (null on Free). Used to tell a comped-grant
+    // user when their free access ends before they can purchase.
+    private val _currentPlanExpiry = MutableStateFlow<Date?>(null)
+    val currentPlanExpiry: StateFlow<Date?> = _currentPlanExpiry.asStateFlow()
 
     private val _pricing = MutableStateFlow<Map<AppPlan, PlanPricing>>(emptyMap())
     val pricing: StateFlow<Map<AppPlan, PlanPricing>> = _pricing.asStateFlow()
@@ -93,6 +99,7 @@ object BillingManager {
             runCatching { Purchases.sharedInstance.awaitLogOut() }
             _currentPlan.value = AppPlan.FREE
             _managementUrl.value = null
+            _currentPlanExpiry.value = null
         }
     }
 
@@ -102,10 +109,12 @@ object BillingManager {
             .onSuccess { info -> applyCustomerInfo(info) }
     }
 
-    // Push the plan + its store-management URL from a CustomerInfo into the flows.
+    // Push the plan, its store-management URL, and its expiry from a CustomerInfo into the flows.
     private fun applyCustomerInfo(info: CustomerInfo) {
-        _currentPlan.value = planFrom(info)
+        val plan = planFrom(info)
+        _currentPlan.value = plan
         _managementUrl.value = info.managementURL?.toString()
+        _currentPlanExpiry.value = plan.entitlementId?.let { info.getExpirationDateForEntitlement(it) }
     }
 
     private suspend fun fetchOfferings() {
