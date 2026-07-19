@@ -27,10 +27,13 @@ enum class AppPlan(val entitlementId: String?) {
 enum class BillingPeriod { MONTHLY, ANNUAL }
 
 // Live, localized prices for one plan, pulled from the RevenueCat offering (so the screen shows
-// real store prices instead of the hardcoded EUR fallbacks). Any field may be null if the matching
-// package isn't in the offering yet.
+// real store prices in the buyer's own currency instead of the hardcoded EUR fallbacks). Any field
+// may be null if the matching package isn't in the offering yet. `annualMonthlyEquivalent` (the
+// annual price ÷ 12) and `savings` ("Save NN%") are computed in BillingManager from the raw store
+// amounts so they stay consistent with — and in the same currency as — whatever the store returns.
 data class PlanPricing(
     val monthlyPrice: String? = null,
     val annualPrice: String? = null,
     val annualMonthlyEquivalent: String? = null,
+    val savings: String? = null,
 )

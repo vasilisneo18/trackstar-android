@@ -65,6 +65,7 @@ import androidx.compose.ui.unit.sp
 import com.vasilisneo.trackstar.data.billing.AppPlan
 import com.vasilisneo.trackstar.data.billing.BillingManager
 import com.vasilisneo.trackstar.data.billing.BillingPeriod
+import com.vasilisneo.trackstar.data.billing.PlanPricing
 import com.vasilisneo.trackstar.ui.components.GlassCircleIconButton
 import com.vasilisneo.trackstar.ui.theme.trackstarBackground
 import com.vasilisneo.trackstar.ui.theme.TrackstarSurface
@@ -110,6 +111,16 @@ private fun android.content.Context.findActivity(): android.app.Activity? {
     return null
 }
 
+// Opens Google Play's own subscription-management page (cancel / upgrade / downgrade / payment
+// method) — the Android analogue of iOS's "Manage in App Store". Prefers the Play Store app, falling
+// back to a browser if it isn't the handler.
+private fun openPlaySubscriptions(context: android.content.Context) {
+    val uri = android.net.Uri.parse("https://play.google.com/store/account/subscriptions")
+    val playStore = android.content.Intent(android.content.Intent.ACTION_VIEW, uri).setPackage("com.android.vending")
+    runCatching { context.startActivity(playStore) }
+        .onFailure { runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri)) } }
+}
+
 private fun featureIcon(feature: String): ImageVector {
     val f = feature.lowercase()
     return when {
@@ -140,6 +151,10 @@ fun SubscriptionScreen(
     val currentPlan by BillingManager.currentPlan.collectAsState()
     val pricing by BillingManager.pricing.collectAsState()
     val isCurrentPlan = currentPlan == selectedTier.plan
+    // Matches iOS: once you hold any paid plan, changing tiers is done through the store's own
+    // subscription page (cancel/upgrade/downgrade) rather than firing a second purchase — which on
+    // Google Play would risk leaving two active subscriptions.
+    val hasPaidPlan = currentPlan != AppPlan.FREE
 
     Box(
         modifier = Modifier
@@ -186,18 +201,32 @@ fun SubscriptionScreen(
             ) { page ->
                 // Full-width page + the card's own horizontal margin, so adjacent cards
                 // don't peek in at the edges (contentPadding would cause that).
-                PlanCard(Tiers[page], modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+                PlanCard(Tiers[page], pricing[Tiers[page].plan], modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             }
 
             // Bottom CTA — navigationBarsPadding so it clears the system nav bar on 3-button devices.
             Box(modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 24.dp)) {
-                PillButton(
-                    text = if (isCurrentPlan) "Current Plan" else "Join ${selectedTier.name}",
-                    foreground = if (isCurrentPlan) Color.White else Color.Black,
-                    background = if (isCurrentPlan) Color.White.copy(alpha = 0.12f) else Color.White,
-                    enabled = !isCurrentPlan,
-                    onClick = { showBilling = true }
-                )
+                when {
+                    isCurrentPlan -> PillButton(
+                        text = "Current Plan",
+                        foreground = Color.White.copy(alpha = 0.5f),
+                        background = Color.White.copy(alpha = 0.08f),
+                        enabled = false,
+                        onClick = {}
+                    )
+                    hasPaidPlan -> PillButton(
+                        text = "Manage Subscription",
+                        foreground = Color.Black,
+                        background = Color.White,
+                        onClick = { openPlaySubscriptions(context) }
+                    )
+                    else -> PillButton(
+                        text = "Join ${selectedTier.name}",
+                        foreground = Color.Black,
+                        background = Color.White,
+                        onClick = { showBilling = true }
+                    )
+                }
             }
         }
     }
@@ -209,6 +238,8 @@ fun SubscriptionScreen(
             tier = selectedTier,
             monthly = livePrice?.monthlyPrice ?: selectedTier.monthly,
             annual = livePrice?.annualPrice ?: selectedTier.annual,
+            annualMonthly = livePrice?.annualMonthlyEquivalent ?: selectedTier.annualMonthly,
+            savings = livePrice?.savings ?: selectedTier.savings,
             onDismiss = { showBilling = false },
             onSubscribe = { billing ->
                 val activity = context.findActivity()
@@ -245,7 +276,9 @@ fun SubscriptionScreen(
 }
 
 @Composable
-private fun PlanCard(tier: Tier, modifier: Modifier = Modifier) {
+private fun PlanCard(tier: Tier, pricing: PlanPricing?, modifier: Modifier = Modifier) {
+    // Live store price (in the buyer's currency) when loaded, else the hardcoded EUR fallback.
+    val monthlyPrice = pricing?.monthlyPrice ?: tier.monthly
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -267,7 +300,7 @@ private fun PlanCard(tier: Tier, modifier: Modifier = Modifier) {
             )
             Column(modifier = Modifier.align(Alignment.BottomStart).padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(tier.name, fontSize = 34.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                Text("${tier.monthly}/month", fontSize = 16.sp, color = Color.White.copy(alpha = 0.55f))
+                Text("$monthlyPrice/month", fontSize = 16.sp, color = Color.White.copy(alpha = 0.55f))
             }
         }
 
@@ -292,6 +325,8 @@ private fun BillingSheet(
     tier: Tier,
     monthly: String,
     annual: String,
+    annualMonthly: String,
+    savings: String,
     onDismiss: () -> Unit,
     onSubscribe: (BillingPeriod) -> Unit,
     onRestore: () -> Unit,
@@ -302,11 +337,13 @@ private fun BillingSheet(
     val priceLabel = if (isAnnual) "$annual/yr" else "$monthly/mo"
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = TrackstarSurface) {
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        // navigationBarsPadding so the trial CTA / restore / terms clear the 3-button nav bar
+        // instead of being clipped behind it.
+        Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             BillingRow(
                 title = "Annual",
-                subtitle = "$annual/year  ·  ${tier.annualMonthly}/month",
-                badge = tier.savings,
+                subtitle = "$annual/year  ·  $annualMonthly/month",
+                badge = savings,
                 selected = isAnnual,
                 onClick = { isAnnual = true }
             )
@@ -338,7 +375,7 @@ private fun BillingSheet(
                 modifier = Modifier.fillMaxWidth().padding(top = 10.dp).clickable(enabled = !isPurchasing, onClick = onRestore)
             )
             Text(
-                "Cancel anytime · Billed in EUR · By subscribing you agree to our Terms of Service.",
+                "Cancel anytime · By subscribing you agree to our Terms of Service.",
                 fontSize = 11.sp, color = Color.White.copy(alpha = 0.22f), textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(top = 16.dp)
             )

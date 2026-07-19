@@ -25,6 +25,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.text.NumberFormat
+import java.util.Currency
+import kotlin.math.roundToInt
 
 // Android analogue of iOS's RevenueCatManager: the single owner of RevenueCat state. Configured
 // once at launch, identified with the backend userId after auth (so purchases attribute to the
@@ -98,13 +101,38 @@ object BillingManager {
         val offering = currentOffering(offerings) ?: return
         val map = mutableMapOf<AppPlan, PlanPricing>()
         for (plan in listOf(AppPlan.BRONZE, AppPlan.SILVER, AppPlan.GOLD)) {
-            val monthly = packageFor(offering, plan, BillingPeriod.MONTHLY)?.product?.price?.formatted
-            val annual = packageFor(offering, plan, BillingPeriod.ANNUAL)?.product?.price?.formatted
-            if (monthly != null || annual != null) {
-                map[plan] = PlanPricing(monthlyPrice = monthly, annualPrice = annual)
-            }
+            val monthlyPrice = packageFor(offering, plan, BillingPeriod.MONTHLY)?.product?.price
+            val annualPrice = packageFor(offering, plan, BillingPeriod.ANNUAL)?.product?.price
+            if (monthlyPrice == null && annualPrice == null) continue
+
+            // Derive the "/month" equivalent and savings % from the raw store amounts (amountMicros)
+            // rather than the display strings, so they're exact and carry the store's own currency.
+            val currency = annualPrice?.currencyCode ?: monthlyPrice?.currencyCode
+            val annualMonthly = annualPrice?.let { formatMicros(it.amountMicros / 12.0, currency) }
+            val savings = if (monthlyPrice != null && annualPrice != null) {
+                val fullYear = monthlyPrice.amountMicros * 12.0
+                val pct = if (fullYear > 0) ((fullYear - annualPrice.amountMicros) / fullYear * 100).roundToInt() else 0
+                if (pct > 0) "Save $pct%" else null
+            } else null
+
+            map[plan] = PlanPricing(
+                monthlyPrice = monthlyPrice?.formatted,
+                annualPrice = annualPrice?.formatted,
+                annualMonthlyEquivalent = annualMonthly,
+                savings = savings,
+            )
         }
         _pricing.value = map
+    }
+
+    // Formats a micro-denominated amount in the store's currency (e.g. 5_830_000 in "EUR" → "€5.83"),
+    // matching how the store itself formats its prices. Null if we don't know the currency.
+    private fun formatMicros(micros: Double, currencyCode: String?): String? {
+        if (currencyCode == null) return null
+        return runCatching {
+            NumberFormat.getCurrencyInstance().apply { currency = Currency.getInstance(currencyCode) }
+                .format(micros / 1_000_000.0)
+        }.getOrNull()
     }
 
     // Launches the Play purchase sheet for the given tier/cadence. Returns:
