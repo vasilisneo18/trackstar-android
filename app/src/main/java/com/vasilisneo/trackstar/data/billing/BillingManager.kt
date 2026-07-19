@@ -8,7 +8,6 @@ import com.revenuecat.purchases.Offering
 import com.revenuecat.purchases.Offerings
 import com.revenuecat.purchases.Purchases
 import com.revenuecat.purchases.PurchasesConfiguration
-import com.revenuecat.purchases.Store
 import com.revenuecat.purchases.PurchasesErrorCode
 import com.revenuecat.purchases.PurchasesException
 import com.revenuecat.purchases.awaitCustomerInfo
@@ -50,11 +49,11 @@ object BillingManager {
     private val _currentPlan = MutableStateFlow(AppPlan.FREE)
     val currentPlan: StateFlow<AppPlan> = _currentPlan.asStateFlow()
 
-    // Store the active plan was purchased through (null when on Free). Used to route "Manage
-    // Subscription" to the right place, since a cross-platform (e.g. Apple-bought) plan can't be
-    // managed from Google Play.
-    private val _currentStore = MutableStateFlow<SubStore?>(null)
-    val currentStore: StateFlow<SubStore?> = _currentStore.asStateFlow()
+    // RevenueCat's management URL for the active subscription — points at whichever store actually
+    // bills it (Google Play, or the App Store for a cross-platform purchase), or null when there's
+    // nothing store-managed to manage (e.g. a promotional/comped grant). Drives "Manage Subscription".
+    private val _managementUrl = MutableStateFlow<String?>(null)
+    val managementUrl: StateFlow<String?> = _managementUrl.asStateFlow()
 
     private val _pricing = MutableStateFlow<Map<AppPlan, PlanPricing>>(emptyMap())
     val pricing: StateFlow<Map<AppPlan, PlanPricing>> = _pricing.asStateFlow()
@@ -93,7 +92,7 @@ object BillingManager {
         scope.launch {
             runCatching { Purchases.sharedInstance.awaitLogOut() }
             _currentPlan.value = AppPlan.FREE
-            _currentStore.value = null
+            _managementUrl.value = null
         }
     }
 
@@ -103,23 +102,10 @@ object BillingManager {
             .onSuccess { info -> applyCustomerInfo(info) }
     }
 
-    // Push the plan + its purchase store from a CustomerInfo into the flows.
+    // Push the plan + its store-management URL from a CustomerInfo into the flows.
     private fun applyCustomerInfo(info: CustomerInfo) {
-        val plan = planFrom(info)
-        _currentPlan.value = plan
-        _currentStore.value = storeFrom(info, plan)
-    }
-
-    // The store the currently-active entitlement was purchased through, so the UI can route plan
-    // management correctly (a plan bought on Apple can't be managed from Google Play).
-    private fun storeFrom(info: CustomerInfo, plan: AppPlan): SubStore? {
-        val entitlement = plan.entitlementId?.let { info.entitlements.active[it] } ?: return null
-        return when (entitlement.store) {
-            Store.PLAY_STORE -> SubStore.PLAY
-            Store.APP_STORE, Store.MAC_APP_STORE -> SubStore.APP_STORE
-            Store.PROMOTIONAL -> SubStore.PROMOTIONAL
-            else -> SubStore.OTHER
-        }
+        _currentPlan.value = planFrom(info)
+        _managementUrl.value = info.managementURL?.toString()
     }
 
     private suspend fun fetchOfferings() {

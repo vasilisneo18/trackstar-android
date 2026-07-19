@@ -26,12 +26,6 @@ enum class AppPlan(val entitlementId: String?) {
 
 enum class BillingPeriod { MONTHLY, ANNUAL }
 
-// Where the active subscription was actually purchased. RevenueCat unifies entitlements across
-// platforms, so an Apple-bought plan still shows as active on Android — but it can only be *managed*
-// in the store it was bought from. Drives the "Manage Subscription" routing (Play page vs. an
-// instruction to manage on Apple vs. nothing for a comped grant).
-enum class SubStore { PLAY, APP_STORE, PROMOTIONAL, OTHER }
-
 // Live, localized prices for one plan, pulled from the RevenueCat offering (so the screen shows
 // real store prices in the buyer's own currency instead of the hardcoded EUR fallbacks). Any field
 // may be null if the matching package isn't in the offering yet. `annualMonthlyEquivalent` (the

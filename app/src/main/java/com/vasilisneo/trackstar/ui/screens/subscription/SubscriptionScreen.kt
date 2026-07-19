@@ -68,7 +68,6 @@ import com.vasilisneo.trackstar.data.billing.AppPlan
 import com.vasilisneo.trackstar.data.billing.BillingManager
 import com.vasilisneo.trackstar.data.billing.BillingPeriod
 import com.vasilisneo.trackstar.data.billing.PlanPricing
-import com.vasilisneo.trackstar.data.billing.SubStore
 import com.vasilisneo.trackstar.ui.components.GlassCircleIconButton
 import com.vasilisneo.trackstar.ui.theme.trackstarBackground
 import com.vasilisneo.trackstar.ui.theme.TrackstarSurface
@@ -114,13 +113,14 @@ private fun android.content.Context.findActivity(): android.app.Activity? {
     return null
 }
 
-// Opens Google Play's own subscription-management page (cancel / upgrade / downgrade / payment
-// method) — the Android analogue of iOS's "Manage in App Store". Prefers the Play Store app, falling
-// back to a browser if it isn't the handler.
-private fun openPlaySubscriptions(context: android.content.Context) {
-    val uri = android.net.Uri.parse("https://play.google.com/store/account/subscriptions")
-    val playStore = android.content.Intent(android.content.Intent.ACTION_VIEW, uri).setPackage("com.android.vending")
-    runCatching { context.startActivity(playStore) }
+// Opens RevenueCat's subscription-management URL (cancel / upgrade / downgrade / payment method) —
+// the Android analogue of iOS's "Manage in App Store". For a Google Play URL it prefers the Play
+// Store app, falling back to a browser if that isn't the handler.
+private fun openManageUrl(context: android.content.Context, url: String) {
+    val uri = android.net.Uri.parse(url)
+    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, uri)
+    if (url.contains("play.google", ignoreCase = true)) intent.setPackage("com.android.vending")
+    runCatching { context.startActivity(intent) }
         .onFailure { runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri)) } }
 }
 
@@ -152,7 +152,7 @@ fun SubscriptionScreen(
     val selectedTier = Tiers[pagerState.currentPage]
 
     val currentPlan by BillingManager.currentPlan.collectAsState()
-    val currentStore by BillingManager.currentStore.collectAsState()
+    val managementUrl by BillingManager.managementUrl.collectAsState()
     val pricing by BillingManager.pricing.collectAsState()
     val isCurrentPlan = currentPlan == selectedTier.plan
     // Non-null message shown in a dialog when the active plan can't be managed from Google Play
@@ -226,14 +226,17 @@ fun SubscriptionScreen(
                         foreground = Color.Black,
                         background = Color.White,
                         onClick = {
-                            // Route by where the plan was actually bought — Apple/promo plans can't
-                            // be managed from Google Play, so explain instead of dead-ending there.
-                            when (currentStore) {
-                                SubStore.APP_STORE -> manageInfoMessage =
-                                    "This subscription was purchased through Apple. To change or cancel it, open Settings › [your name] › Subscriptions on your iPhone or iPad, or manage it at apps.apple.com."
-                                SubStore.PROMOTIONAL -> manageInfoMessage =
+                            // RevenueCat's managementURL points at whichever store actually bills the
+                            // sub. Open Google Play directly; for a cross-platform (Apple) purchase or
+                            // a comped grant (null URL) there's nothing to open here, so explain.
+                            val url = managementUrl
+                            when {
+                                url == null -> manageInfoMessage =
                                     "This plan was granted to you and isn't billed through a store, so there's nothing to manage here. It will simply expire when the grant ends."
-                                else -> openPlaySubscriptions(context)
+                                url.contains("play.google", ignoreCase = true) -> openManageUrl(context, url)
+                                url.contains("apple", ignoreCase = true) -> manageInfoMessage =
+                                    "This subscription was purchased through Apple. To change or cancel it, open Settings › [your name] › Subscriptions on your iPhone or iPad, or manage it at apps.apple.com."
+                                else -> openManageUrl(context, url)
                             }
                         }
                     )
