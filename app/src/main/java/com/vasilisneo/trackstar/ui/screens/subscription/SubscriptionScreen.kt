@@ -38,10 +38,12 @@ import androidx.compose.material.icons.filled.MilitaryTech
 import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
@@ -66,6 +68,7 @@ import com.vasilisneo.trackstar.data.billing.AppPlan
 import com.vasilisneo.trackstar.data.billing.BillingManager
 import com.vasilisneo.trackstar.data.billing.BillingPeriod
 import com.vasilisneo.trackstar.data.billing.PlanPricing
+import com.vasilisneo.trackstar.data.billing.SubStore
 import com.vasilisneo.trackstar.ui.components.GlassCircleIconButton
 import com.vasilisneo.trackstar.ui.theme.trackstarBackground
 import com.vasilisneo.trackstar.ui.theme.TrackstarSurface
@@ -149,8 +152,12 @@ fun SubscriptionScreen(
     val selectedTier = Tiers[pagerState.currentPage]
 
     val currentPlan by BillingManager.currentPlan.collectAsState()
+    val currentStore by BillingManager.currentStore.collectAsState()
     val pricing by BillingManager.pricing.collectAsState()
     val isCurrentPlan = currentPlan == selectedTier.plan
+    // Non-null message shown in a dialog when the active plan can't be managed from Google Play
+    // (bought on Apple, or a comped grant). Null = route straight to the Play subscription page.
+    var manageInfoMessage by remember { mutableStateOf<String?>(null) }
     // Matches iOS: once you hold any paid plan, changing tiers is done through the store's own
     // subscription page (cancel/upgrade/downgrade) rather than firing a second purchase — which on
     // Google Play would risk leaving two active subscriptions.
@@ -218,7 +225,17 @@ fun SubscriptionScreen(
                         text = "Manage Subscription",
                         foreground = Color.Black,
                         background = Color.White,
-                        onClick = { openPlaySubscriptions(context) }
+                        onClick = {
+                            // Route by where the plan was actually bought — Apple/promo plans can't
+                            // be managed from Google Play, so explain instead of dead-ending there.
+                            when (currentStore) {
+                                SubStore.APP_STORE -> manageInfoMessage =
+                                    "This subscription was purchased through Apple. To change or cancel it, open Settings › [your name] › Subscriptions on your iPhone or iPad, or manage it at apps.apple.com."
+                                SubStore.PROMOTIONAL -> manageInfoMessage =
+                                    "This plan was granted to you and isn't billed through a store, so there's nothing to manage here. It will simply expire when the grant ends."
+                                else -> openPlaySubscriptions(context)
+                            }
+                        }
                     )
                     else -> PillButton(
                         text = "Join ${selectedTier.name}",
@@ -229,6 +246,15 @@ fun SubscriptionScreen(
                 }
             }
         }
+    }
+
+    manageInfoMessage?.let { message ->
+        AlertDialog(
+            onDismissRequest = { manageInfoMessage = null },
+            confirmButton = { TextButton(onClick = { manageInfoMessage = null }) { Text("OK") } },
+            title = { Text("Manage subscription") },
+            text = { Text(message) },
+        )
     }
 
     if (showBilling) {

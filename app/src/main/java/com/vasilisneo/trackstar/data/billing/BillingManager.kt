@@ -8,6 +8,7 @@ import com.revenuecat.purchases.Offering
 import com.revenuecat.purchases.Offerings
 import com.revenuecat.purchases.Purchases
 import com.revenuecat.purchases.PurchasesConfiguration
+import com.revenuecat.purchases.Store
 import com.revenuecat.purchases.PurchasesErrorCode
 import com.revenuecat.purchases.PurchasesException
 import com.revenuecat.purchases.awaitCustomerInfo
@@ -49,6 +50,12 @@ object BillingManager {
     private val _currentPlan = MutableStateFlow(AppPlan.FREE)
     val currentPlan: StateFlow<AppPlan> = _currentPlan.asStateFlow()
 
+    // Store the active plan was purchased through (null when on Free). Used to route "Manage
+    // Subscription" to the right place, since a cross-platform (e.g. Apple-bought) plan can't be
+    // managed from Google Play.
+    private val _currentStore = MutableStateFlow<SubStore?>(null)
+    val currentStore: StateFlow<SubStore?> = _currentStore.asStateFlow()
+
     private val _pricing = MutableStateFlow<Map<AppPlan, PlanPricing>>(emptyMap())
     val pricing: StateFlow<Map<AppPlan, PlanPricing>> = _pricing.asStateFlow()
 
@@ -86,13 +93,33 @@ object BillingManager {
         scope.launch {
             runCatching { Purchases.sharedInstance.awaitLogOut() }
             _currentPlan.value = AppPlan.FREE
+            _currentStore.value = null
         }
     }
 
     private suspend fun refresh() {
         if (!isConfigured) return
         runCatching { Purchases.sharedInstance.awaitCustomerInfo() }
-            .onSuccess { info -> _currentPlan.value = planFrom(info) }
+            .onSuccess { info -> applyCustomerInfo(info) }
+    }
+
+    // Push the plan + its purchase store from a CustomerInfo into the flows.
+    private fun applyCustomerInfo(info: CustomerInfo) {
+        val plan = planFrom(info)
+        _currentPlan.value = plan
+        _currentStore.value = storeFrom(info, plan)
+    }
+
+    // The store the currently-active entitlement was purchased through, so the UI can route plan
+    // management correctly (a plan bought on Apple can't be managed from Google Play).
+    private fun storeFrom(info: CustomerInfo, plan: AppPlan): SubStore? {
+        val entitlement = plan.entitlementId?.let { info.entitlements.active[it] } ?: return null
+        return when (entitlement.store) {
+            Store.PLAY_STORE -> SubStore.PLAY
+            Store.APP_STORE, Store.MAC_APP_STORE -> SubStore.APP_STORE
+            Store.PROMOTIONAL -> SubStore.PROMOTIONAL
+            else -> SubStore.OTHER
+        }
     }
 
     private suspend fun fetchOfferings() {
@@ -150,7 +177,7 @@ object BillingManager {
         _isPurchasing.value = true
         return try {
             val result = Purchases.sharedInstance.awaitPurchase(PurchaseParams.Builder(activity, pkg).build())
-            _currentPlan.value = planFrom(result.customerInfo)
+            applyCustomerInfo(result.customerInfo)
             Result.success(true)
         } catch (e: PurchasesException) {
             if (e.code == PurchasesErrorCode.PurchaseCancelledError) Result.success(false)
@@ -166,9 +193,8 @@ object BillingManager {
         _isPurchasing.value = true
         return try {
             val info = Purchases.sharedInstance.awaitRestore()
-            val plan = planFrom(info)
-            _currentPlan.value = plan
-            Result.success(plan)
+            applyCustomerInfo(info)
+            Result.success(_currentPlan.value)
         } catch (e: Exception) {
             Result.failure(e)
         } finally {
