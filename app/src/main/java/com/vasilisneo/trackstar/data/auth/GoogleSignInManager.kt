@@ -1,6 +1,8 @@
 package com.vasilisneo.trackstar.data.auth
 
 import android.content.Context
+import android.content.Intent
+import android.provider.Settings
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -24,6 +26,18 @@ object GoogleSignInManager {
 
     // User backed out of the account chooser — callers should stay silent rather than show an error.
     class Cancelled : Exception()
+
+    // No Google account on the device at all — callers can launch launchAddGoogleAccount() so the
+    // user can add one (Credential Manager doesn't offer to add an account on its own).
+    class NoAccount : Exception()
+
+    // Opens the system "Add account" screen filtered to Google, so a user with no Google account can
+    // add one and then retry sign-in.
+    fun launchAddGoogleAccount(context: Context) {
+        val intent = Intent(Settings.ACTION_ADD_ACCOUNT)
+            .putExtra(Settings.EXTRA_ACCOUNT_TYPES, arrayOf("com.google"))
+        runCatching { context.startActivity(intent) }
+    }
 
     suspend fun signIn(context: Context): Result<GoogleIdTokenCredential> {
         if (!isConfigured) {
@@ -55,7 +69,7 @@ object GoogleSignInManager {
         } catch (e: GetCredentialCancellationException) {
             Result.failure(Cancelled())
         } catch (e: NoCredentialException) {
-            Result.failure(IllegalStateException("No Google account found on this device."))
+            Result.failure(NoAccount())
         } catch (e: GetCredentialException) {
             Result.failure(IllegalStateException("Google sign-in failed. Please try again."))
         }

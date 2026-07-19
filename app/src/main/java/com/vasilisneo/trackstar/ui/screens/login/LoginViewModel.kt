@@ -126,8 +126,16 @@ class LoginViewModel(app: Application) : AndroidViewModel(app) {
 
             val credential = GoogleSignInManager.signIn(context).getOrElse { e ->
                 isGoogleLoading = false
-                if (e !is GoogleSignInManager.Cancelled) {
-                    errorMessage = e.message ?: "Google sign-in failed."
+                when (e) {
+                    // Backed out of the chooser — stay silent.
+                    is GoogleSignInManager.Cancelled -> {}
+                    // No Google account on the device — open the system add-account screen so they
+                    // can add one, then tap Continue with Google again.
+                    is GoogleSignInManager.NoAccount -> {
+                        GoogleSignInManager.launchAddGoogleAccount(context)
+                        errorMessage = "Add a Google account, then tap Continue with Google again."
+                    }
+                    else -> errorMessage = e.message ?: "Google sign-in failed."
                 }
                 return@launch
             }
