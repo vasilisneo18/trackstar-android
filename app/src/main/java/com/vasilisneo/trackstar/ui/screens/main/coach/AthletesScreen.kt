@@ -156,6 +156,7 @@ fun AthletesScreen(
                             Text("MyTeam", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         }
                     }
+                    item { com.vasilisneo.trackstar.ui.components.OfflineBanner() }
 
                     if (viewModel.isLoading && athletes.isEmpty()) {
                         item {

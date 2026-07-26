@@ -139,6 +139,8 @@ fun ProfileScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                com.vasilisneo.trackstar.ui.components.OfflineBanner()
+
                 ProfileHeader(profile)
 
                 PersonalSection(profile, onUpgrade = onUpgrade)

@@ -190,6 +190,7 @@ fun DietScreen(
                         Text("Diet Plan", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
+                item { com.vasilisneo.trackstar.ui.components.OfflineBanner() }
                 // Pinned day selector — docks flush below the nav bar; frosts (with it) once near-
                 // docked. drawBehind paints the frost far above the item's own bounds; the LazyColumn
                 // clips it at its top edge (= nav bar bottom), so the last sliver of title scrolling

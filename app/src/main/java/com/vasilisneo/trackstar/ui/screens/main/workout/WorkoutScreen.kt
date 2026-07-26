@@ -162,6 +162,7 @@ fun WorkoutScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.fillMaxSize().haze(hazeState)
             ) {
+                    item { com.vasilisneo.trackstar.ui.components.OfflineBanner() }
                     displaySessions.forEach { display ->
                         when (display) {
                             is SessionDisplay.Upcoming -> {

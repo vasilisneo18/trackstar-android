@@ -103,6 +103,8 @@ fun AthleteDetailScreen(athleteId: String, onBack: () -> Unit) {
 
             TabPicker(selected = tab, onSelect = { tab = it }, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
 
+            com.vasilisneo.trackstar.ui.components.OfflineBanner()
+
             Box(modifier = Modifier.fillMaxSize()) {
                 when (tab) {
                     AthleteTab.SESSIONS -> SessionsWeekList(vm.sessions) { reportSession = it }
