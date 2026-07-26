@@ -120,6 +120,7 @@ fun StatsScreen(
                         .alpha((1f - collapse).coerceIn(0f, 1f))
                 )
             }
+            item { com.vasilisneo.trackstar.ui.components.OfflineBanner() }
             item { SummaryRow(viewModel.allTimeCount, viewModel.thisMonthCount, viewModel.thisWeekCount) }
             item { CompletionCard(viewModel.completionRate) }
             if (viewModel.streak > 0) item { StreakCard(viewModel.streak) }

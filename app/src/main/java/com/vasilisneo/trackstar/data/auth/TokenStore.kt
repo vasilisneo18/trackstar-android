@@ -15,6 +15,7 @@ class TokenStore(context: Context) {
         // Seed the networking layer's in-memory tokens from persisted prefs (survives relaunch).
         AuthTokenHolder.token = prefs.getString(KEY_TOKEN, null)
         AuthTokenHolder.refreshToken = prefs.getString(KEY_REFRESH, null)
+        AuthTokenHolder.userId = prefs.getString(KEY_USER_ID, null)
         // Let the OkHttp Authenticator persist silently-refreshed tokens without a Context.
         AuthTokenHolder.onTokensRefreshed = { accessToken, refreshToken ->
             prefs.edit()
@@ -41,6 +42,7 @@ class TokenStore(context: Context) {
         }.apply()
         AuthTokenHolder.token = auth.token
         AuthTokenHolder.refreshToken = auth.refreshToken
+        AuthTokenHolder.userId = auth.userId
     }
 
     /** Cache the raw credentials used to sign in, so "Continue as" can re-login with one
@@ -74,6 +76,10 @@ class TokenStore(context: Context) {
             .apply()
         AuthTokenHolder.token = null
         AuthTokenHolder.refreshToken = null
+        AuthTokenHolder.userId = null
+        // Wipe the local cache so the next account doesn't see the previous user's data (mirrors
+        // iOS's per-user isolated Realm).
+        com.vasilisneo.trackstar.data.local.LocalStore.wipeAsync()
         // Detach the RevenueCat customer so the next sign-in starts clean (mirrors iOS logout).
         com.vasilisneo.trackstar.data.billing.BillingManager.logOut()
     }
@@ -83,6 +89,8 @@ class TokenStore(context: Context) {
         prefs.edit().clear().apply()
         AuthTokenHolder.token = null
         AuthTokenHolder.refreshToken = null
+        AuthTokenHolder.userId = null
+        com.vasilisneo.trackstar.data.local.LocalStore.wipeAsync()
     }
 
     private companion object {

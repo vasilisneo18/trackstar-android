@@ -6,6 +6,8 @@ import android.os.Bundle
 import com.vasilisneo.trackstar.data.auth.TokenStore
 import com.vasilisneo.trackstar.data.billing.AppIconManager
 import com.vasilisneo.trackstar.data.billing.BillingManager
+import com.vasilisneo.trackstar.data.local.LocalStore
+import com.vasilisneo.trackstar.data.network.ConnectivityMonitor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -22,6 +24,12 @@ class TrackstarApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+
+        // Bring up the local cache (Room) and connectivity tracking before any screen/repository
+        // runs, so cache-then-network reads and the offline banner work from the first frame.
+        LocalStore.init(this)
+        ConnectivityMonitor.start(this)
+
         val tokenStore = TokenStore(this) // constructor seeds AuthTokenHolder
 
         // Bring up RevenueCat and, if a session already exists, re-identify the customer so plan

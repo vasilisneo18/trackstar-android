@@ -20,6 +20,11 @@ object AuthTokenHolder {
     @Volatile
     var refreshToken: String? = null
 
+    /** Current signed-in backend userId, mirrored in memory (kept in sync by TokenStore) so the
+     *  context-free repositories can scope their local cache per user without a Context. */
+    @Volatile
+    var userId: String? = null
+
     /** Set by TokenStore so the Authenticator can persist a silently-refreshed access/refresh
      *  token pair to disk (it runs off a background thread with no Context of its own). */
     @Volatile
