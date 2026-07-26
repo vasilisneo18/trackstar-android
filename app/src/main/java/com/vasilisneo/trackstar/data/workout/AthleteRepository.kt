@@ -11,24 +11,28 @@ import com.vasilisneo.trackstar.data.api.ProfileResponse
 import com.vasilisneo.trackstar.data.api.WorkoutSessionResponse
 import com.vasilisneo.trackstar.data.auth.ApiResult
 import com.vasilisneo.trackstar.data.auth.apiCall
+import com.vasilisneo.trackstar.data.local.cachedRead
 
-// Coach-side reads over /api/coach/... — the roster plus each athlete's plan and sessions. API-first
-// like the other repos. Write/invite/diet operations get added as the later coach phases land.
+// Coach-side reads over /api/coach/... — the roster plus each athlete's plan and sessions. Reads are
+// cache-then-network so the roster and athlete detail render offline. Write/invite operations stay
+// online-only until the Phase 3 outbox.
 class AthleteRepository {
     private val api = NetworkClient.athleteApi
 
-    suspend fun getAthletes(): ApiResult<List<ProfileResponse>> = apiCall { api.getAthletes() }
+    suspend fun getAthletes(): ApiResult<List<ProfileResponse>> =
+        cachedRead("roster") { apiCall { api.getAthletes() } }
 
-    suspend fun getAthlete(athleteId: String): ApiResult<ProfileResponse> = apiCall { api.getAthlete(athleteId) }
+    suspend fun getAthlete(athleteId: String): ApiResult<ProfileResponse> =
+        cachedRead("athlete:$athleteId") { apiCall { api.getAthlete(athleteId) } }
 
     suspend fun getAthletePlan(athleteId: String, weekIdentifier: String): ApiResult<List<PlannedSessionResponse>> =
-        apiCall { api.getAthletePlan(athleteId, weekIdentifier) }
+        cachedRead("athletePlan:$athleteId:$weekIdentifier") { apiCall { api.getAthletePlan(athleteId, weekIdentifier) } }
 
     suspend fun getAthleteSessions(athleteId: String): ApiResult<List<WorkoutSessionResponse>> =
-        apiCall { api.getAthleteSessions(athleteId) }
+        cachedRead("athleteSessions:$athleteId") { apiCall { api.getAthleteSessions(athleteId) } }
 
     suspend fun getAthleteNotes(athleteId: String): ApiResult<AthleteNotesDto> =
-        apiCall { api.getAthleteNotes(athleteId) }
+        cachedRead("athleteNotes:$athleteId") { apiCall { api.getAthleteNotes(athleteId) } }
 
     suspend fun saveAthleteNotes(athleteId: String, notes: AthleteNotesDto): ApiResult<AthleteNotesDto> =
         apiCall { api.saveAthleteNotes(athleteId, notes) }
@@ -43,8 +47,10 @@ class AthleteRepository {
         apiCall { api.createInvite() }
 
     // Athlete side: the linked coach's profile. Errors (400 "No coach linked") when unlinked —
-    // callers treat that as the empty state rather than a failure.
-    suspend fun getMyCoach(): ApiResult<ProfileResponse> = apiCall { api.getMyCoach() }
+    // callers treat that as the empty state rather than a failure. Cache-then-network, but the 400
+    // is not an offline error so it won't be masked by a stale cached coach.
+    suspend fun getMyCoach(): ApiResult<ProfileResponse> =
+        cachedRead("myCoach") { apiCall { api.getMyCoach() } }
 
     suspend fun validateInvite(token: String): ApiResult<InviteValidationResponse> =
         apiCall { api.validateInvite(token) }

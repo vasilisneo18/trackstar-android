@@ -2,11 +2,14 @@ package com.vasilisneo.trackstar.data.auth
 
 import com.vasilisneo.trackstar.data.api.NetworkClient
 import com.vasilisneo.trackstar.data.api.ProfileResponse
+import com.vasilisneo.trackstar.data.local.cachedRead
 
 // Fetches the signed-in user's full profile (GET /api/profile) — the body stats the Profile
-// screen shows beyond the name/email cached in TokenStore.
+// screen shows beyond the name/email cached in TokenStore. Cache-then-network so the Profile
+// screen renders from cache when offline.
 class ProfileRepository {
     private val api = NetworkClient.profileApi
 
-    suspend fun getProfile(): ApiResult<ProfileResponse> = apiCall { api.getProfile() }
+    suspend fun getProfile(): ApiResult<ProfileResponse> =
+        cachedRead("profile") { apiCall { api.getProfile() } }
 }

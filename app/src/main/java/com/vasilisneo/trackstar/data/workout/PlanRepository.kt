@@ -6,15 +6,21 @@ import com.vasilisneo.trackstar.data.api.PlannedSessionRequest
 import com.vasilisneo.trackstar.data.api.PlannedSessionResponse
 import com.vasilisneo.trackstar.data.auth.ApiResult
 import com.vasilisneo.trackstar.data.auth.apiCall
+import com.vasilisneo.trackstar.data.local.cachedRead
 
 // Fetches, upserts, and deletes planned sessions (/api/plan). Pass an `athleteId` to operate on an
 // athlete's plan via /api/coach/athletes/{id}/plan (coach editing their athlete's week).
+// getPlan() is cache-then-network (per week, per athlete) so the weekly plan shows offline.
 class PlanRepository {
     private val api = NetworkClient.planApi
     private val coachApi = NetworkClient.athleteApi
 
-    suspend fun getPlan(weekIdentifier: String, athleteId: String? = null): ApiResult<List<PlannedSessionResponse>> =
-        apiCall { if (athleteId == null) api.getPlan(weekIdentifier) else coachApi.getAthletePlan(athleteId, weekIdentifier) }
+    suspend fun getPlan(weekIdentifier: String, athleteId: String? = null): ApiResult<List<PlannedSessionResponse>> {
+        val key = if (athleteId == null) "plan:$weekIdentifier" else "athletePlan:$athleteId:$weekIdentifier"
+        return cachedRead(key) {
+            apiCall { if (athleteId == null) api.getPlan(weekIdentifier) else coachApi.getAthletePlan(athleteId, weekIdentifier) }
+        }
+    }
 
     suspend fun upsertSession(request: PlannedSessionRequest, athleteId: String? = null): ApiResult<PlannedSessionResponse> =
         apiCall { if (athleteId == null) api.upsertSession(request) else coachApi.upsertAthleteSession(athleteId, request) }

@@ -28,7 +28,8 @@ class SessionRepository {
                 result
             }
             is ApiResult.Error -> {
-                val cached = if (userId != null) loadCached(userId) else emptyList()
+                // Only serve stale sessions on a genuine connectivity failure, not a server error.
+                val cached = if (userId != null && result.offline) loadCached(userId) else emptyList()
                 if (cached.isNotEmpty()) ApiResult.Success(cached) else result
             }
         }

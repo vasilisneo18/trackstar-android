@@ -7,7 +7,10 @@ import java.io.IOException
 
 sealed interface ApiResult<out T> {
     data class Success<T>(val data: T) : ApiResult<T>
-    data class Error(val message: String) : ApiResult<Nothing>
+    // `offline` is true only for connectivity failures (no network) — repositories fall back to the
+    // local cache in that case, but NOT on real server/business errors (4xx/5xx), so stale data is
+    // never shown in place of a legitimate error.
+    data class Error(val message: String, val offline: Boolean = false) : ApiResult<Nothing>
 }
 
 /** In-memory session tokens, read by the OkHttp auth interceptor + Authenticator. Kept in sync
@@ -48,7 +51,7 @@ suspend fun <T> apiCall(block: suspend () -> Response<T>): ApiResult<T> {
             ApiResult.Error(parseError(response))
         }
     } catch (e: IOException) {
-        ApiResult.Error("No internet connection. Please try again.")
+        ApiResult.Error("No internet connection. Please try again.", offline = true)
     } catch (e: Exception) {
         ApiResult.Error("Something went wrong. Please try again.")
     }

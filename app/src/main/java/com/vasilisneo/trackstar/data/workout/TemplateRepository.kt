@@ -8,15 +8,18 @@ import com.vasilisneo.trackstar.data.api.TemplateSessionSyncRequest
 import com.vasilisneo.trackstar.data.api.TemplateSyncRequest
 import com.vasilisneo.trackstar.data.auth.ApiResult
 import com.vasilisneo.trackstar.data.auth.apiCall
+import com.vasilisneo.trackstar.data.local.cachedRead
 
-// Coach workout-plan templates (/api/coach/templates). API-first like the other coach repos.
+// Coach workout-plan templates (/api/coach/templates). Reads are cache-then-network so the
+// template list and each template's sessions show offline.
 class TemplateRepository {
     private val api = NetworkClient.templateApi
 
-    suspend fun getTemplates(): ApiResult<List<TemplateDto>> = apiCall { api.getTemplates() }
+    suspend fun getTemplates(): ApiResult<List<TemplateDto>> =
+        cachedRead("templates") { apiCall { api.getTemplates() } }
 
     suspend fun getTemplateSessions(id: String): ApiResult<List<TemplateSessionDto>> =
-        apiCall { api.getTemplateSessions(id) }
+        cachedRead("templateSessions:$id") { apiCall { api.getTemplateSessions(id) } }
 
     suspend fun createTemplate(id: String, name: String): ApiResult<TemplateDto> =
         apiCall { api.createTemplate(TemplateSyncRequest(id, name)) }
