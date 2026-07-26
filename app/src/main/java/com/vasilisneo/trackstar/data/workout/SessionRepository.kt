@@ -7,6 +7,7 @@ import com.vasilisneo.trackstar.data.auth.ApiResult
 import com.vasilisneo.trackstar.data.auth.AuthTokenHolder
 import com.vasilisneo.trackstar.data.auth.apiCall
 import com.vasilisneo.trackstar.data.local.LocalStore
+import com.vasilisneo.trackstar.data.local.Outbox
 import com.vasilisneo.trackstar.data.local.WorkoutSessionEntity
 import java.util.UUID
 
@@ -35,8 +36,42 @@ class SessionRepository {
         }
     }
 
-    suspend fun saveSession(request: WorkoutSessionRequest): ApiResult<WorkoutSessionResponse> =
-        apiCall { api.saveSession(request) }
+    // Saves a finished session; if offline, queues it in the outbox (replayed on reconnect) and
+    // optimistically adds it to the local cache + returns Success echoing the request, so history/
+    // stats reflect the workout immediately and it's never lost.
+    suspend fun saveSession(request: WorkoutSessionRequest): ApiResult<WorkoutSessionResponse> {
+        val result = apiCall { api.saveSession(request) }
+        if (result is ApiResult.Error && result.offline) {
+            Outbox.enqueueSessionSave(request)
+            AuthTokenHolder.userId?.let { cacheOne(it, request.toEcho()) }
+            return ApiResult.Success(request.toEcho())
+        }
+        return result
+    }
+
+    private fun WorkoutSessionRequest.toEcho() = WorkoutSessionResponse(
+        id = null,
+        clientId = clientId,
+        date = date,
+        durationSeconds = durationSeconds,
+        sessionData = sessionData,
+    )
+
+    private suspend fun cacheOne(userId: String, session: WorkoutSessionResponse) {
+        if (!LocalStore.isReady) return
+        runCatching {
+            LocalStore.db.workoutSessionDao().insertAll(
+                listOf(
+                    WorkoutSessionEntity(
+                        userId = userId,
+                        cacheKey = session.clientId ?: session.id ?: UUID.randomUUID().toString(),
+                        date = session.date,
+                        json = LocalStore.gson.toJson(session),
+                    ),
+                ),
+            )
+        }
+    }
 
     // --- cache helpers -------------------------------------------------------
 

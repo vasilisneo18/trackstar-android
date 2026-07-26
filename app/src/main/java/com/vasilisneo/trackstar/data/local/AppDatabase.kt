@@ -11,13 +11,14 @@ import androidx.room.RoomDatabase
 // their own entities/DAOs in later phases — bump `version` and add a migration when the schema
 // changes after this ships.
 @Database(
-    entities = [WorkoutSessionEntity::class, CacheEntry::class],
-    version = 2,
+    entities = [WorkoutSessionEntity::class, CacheEntry::class, PendingActionEntity::class],
+    version = 3,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun workoutSessionDao(): WorkoutSessionDao
     abstract fun cacheDao(): CacheDao
+    abstract fun pendingActionDao(): PendingActionDao
 
     companion object {
         @Volatile

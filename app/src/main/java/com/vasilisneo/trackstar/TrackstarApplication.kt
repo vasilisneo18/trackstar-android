@@ -7,6 +7,7 @@ import com.vasilisneo.trackstar.data.auth.TokenStore
 import com.vasilisneo.trackstar.data.billing.AppIconManager
 import com.vasilisneo.trackstar.data.billing.BillingManager
 import com.vasilisneo.trackstar.data.local.LocalStore
+import com.vasilisneo.trackstar.data.local.PendingSyncService
 import com.vasilisneo.trackstar.data.network.ConnectivityMonitor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,6 +30,8 @@ class TrackstarApplication : Application() {
         // runs, so cache-then-network reads and the offline banner work from the first frame.
         LocalStore.init(this)
         ConnectivityMonitor.start(this)
+        // Replays any offline writes queued in the outbox once connectivity is available.
+        PendingSyncService.start()
 
         val tokenStore = TokenStore(this) // constructor seeds AuthTokenHolder
 

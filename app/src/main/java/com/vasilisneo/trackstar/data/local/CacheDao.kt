@@ -16,4 +16,7 @@ interface CacheDao {
 
     @Query("DELETE FROM cache_entries WHERE userId = :userId AND cacheKey = :key")
     suspend fun delete(userId: String, key: String)
+
+    @Query("DELETE FROM cache_entries")
+    suspend fun clearAll()
 }

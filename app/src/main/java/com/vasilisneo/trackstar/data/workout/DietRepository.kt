@@ -4,7 +4,11 @@ import com.vasilisneo.trackstar.data.api.DietSyncRequest
 import com.vasilisneo.trackstar.data.api.NetworkClient
 import com.vasilisneo.trackstar.data.api.WeeklyDietPlanDto
 import com.vasilisneo.trackstar.data.auth.ApiResult
+import com.vasilisneo.trackstar.data.auth.AuthTokenHolder
 import com.vasilisneo.trackstar.data.auth.apiCall
+import com.vasilisneo.trackstar.data.local.CacheEntry
+import com.vasilisneo.trackstar.data.local.LocalStore
+import com.vasilisneo.trackstar.data.local.Outbox
 import com.vasilisneo.trackstar.data.local.cachedRead
 
 // Weekly diet plan (GET/POST /api/diet). API-first like the plan/session repos — the ViewModel
@@ -25,11 +29,30 @@ class DietRepository {
         }
     }
 
+    // Saves the diet plan; if offline, queues it (replayed on reconnect) and optimistically
+    // overwrites the cached plan so the change shows on a cold reload, returning Success.
     suspend fun saveDiet(plan: WeeklyDietPlanDto, athleteId: String? = null): ApiResult<Unit> =
         when (val r = apiCall {
             if (athleteId == null) api.saveDiet(DietSyncRequest(plan)) else coachApi.saveAthleteDiet(athleteId, DietSyncRequest(plan))
         }) {
             is ApiResult.Success -> ApiResult.Success(Unit)
-            is ApiResult.Error -> ApiResult.Error(r.message)
+            is ApiResult.Error -> {
+                if (r.offline) {
+                    Outbox.enqueueDietSave(plan, athleteId)
+                    cacheDiet(plan, athleteId)
+                    ApiResult.Success(Unit)
+                } else {
+                    ApiResult.Error(r.message)
+                }
+            }
         }
+
+    private suspend fun cacheDiet(plan: WeeklyDietPlanDto, athleteId: String?) {
+        val userId = AuthTokenHolder.userId ?: return
+        if (!LocalStore.isReady) return
+        val key = athleteId?.let { "diet:athlete:$it" } ?: "diet"
+        runCatching {
+            LocalStore.db.cacheDao().put(CacheEntry(userId, key, LocalStore.gson.toJson(plan)))
+        }
+    }
 }

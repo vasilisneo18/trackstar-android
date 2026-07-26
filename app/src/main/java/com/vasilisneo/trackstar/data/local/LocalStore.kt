@@ -25,10 +25,16 @@ object LocalStore {
         if (!::database.isInitialized) database = AppDatabase.get(context)
     }
 
-    // Fire-and-forget full cache wipe on logout. Cache is derived, disposable data and typically
-    // single-user, so clearing every table is the simplest correct isolation.
+    // Fire-and-forget cache wipe on logout. Clears the derived read caches (sessions + KV) for
+    // per-user isolation, but deliberately KEEPS pending_actions so an unsynced offline write isn't
+    // lost if the user logs out before it syncs — it replays when they're back online.
     fun wipeAsync() {
         if (!isReady) return
-        scope.launch { runCatching { database.clearAllTables() } }
+        scope.launch {
+            runCatching {
+                database.workoutSessionDao().clearAll()
+                database.cacheDao().clearAll()
+            }
+        }
     }
 }
