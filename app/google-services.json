@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "802405020826",
+    "project_id": "fitnessbook-a116e",
+    "storage_bucket": "fitnessbook-a116e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:802405020826:android:6d6cfd1729f8aee9559b23",
+        "android_client_info": {
+          "package_name": "com.vasilisneo.trackstar"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "802405020826-bijmq767gr109os42155jf4t5mlbbci5.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCsadnfvGO5hNV2SndnA_QprVa7xaCuM5Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "802405020826-bijmq767gr109os42155jf4t5mlbbci5.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "802405020826-fvo5b07qpjs7uovvkg72kqaosi6hiok0.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.vasilisneo.metalion"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

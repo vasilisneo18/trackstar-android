@@ -70,10 +70,15 @@ class MainActivity : ComponentActivity() {
     // same Compose state the initial intent seeds. AcceptInviteSheet renders when this is set.
     private val pendingInvite = androidx.compose.runtime.mutableStateOf<PendingInvite?>(null)
 
+    // Android 13+ requires runtime consent to post notifications; harmless no-op below that.
+    private val requestNotificationPermission =
+        registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handleInviteIntent(intent)
+        maybeRequestNotificationPermission()
         // Apply the saved Appearance theme before the first frame so there's no midnight→theme flash.
         loadSavedTheme(this)
         // Auto-login: if a session token is already persisted, open straight into the main
@@ -501,6 +506,16 @@ class MainActivity : ComponentActivity() {
         val invite = intent?.data?.let(::parseInviteUri) ?: return
         if (!TokenStore(this).isLoggedIn) return
         pendingInvite.value = invite
+    }
+
+    // Ask for POST_NOTIFICATIONS on Android 13+ (Tiramisu) if not already granted. Pre-13 devices
+    // grant notifications at install, so nothing to do.
+    private fun maybeRequestNotificationPermission() {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) return
+        val granted = androidx.core.content.ContextCompat.checkSelfPermission(
+            this, android.Manifest.permission.POST_NOTIFICATIONS,
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (!granted) requestNotificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
     }
 }
 

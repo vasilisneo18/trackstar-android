@@ -40,6 +40,12 @@ class TrackstarApplication : Application() {
         BillingManager.configure(this, BuildConfig.REVENUECAT_API_KEY)
         tokenStore.userId?.let { BillingManager.logIn(it) }
 
+        // Refresh the FCM push token with the backend on launch if already signed in (covers a token
+        // that rotated while the app was closed).
+        if (tokenStore.isLoggedIn) {
+            appScope.launch { com.vasilisneo.trackstar.data.push.PushTokenRegistrar.register() }
+        }
+
         // Keep the launcher icon in sync with the plan (mirrors iOS RevenueCatManager.updateAppIcon).
         // set() only *queues* the change — it's applied when the app next backgrounds so the
         // launcher re-home doesn't yank the user out mid-use (see AppIconManager).
