@@ -102,6 +102,11 @@ fun WorkoutScreen(
     androidx.compose.runtime.LaunchedEffect(refreshKey) {
         if (refreshKey > 0) viewModel.fetch()
     }
+    // Refresh the plan whenever the app returns to the foreground, so a coach's plan change made
+    // while the athlete was away shows up without a manual reopen (mirrors iOS's refresh-on-appear).
+    androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+        viewModel.fetch()
+    }
     val selectedDate = viewModel.selectedDate
     val weekStart = selectedDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
     val weekDays = (0..6).map { weekStart.plusDays(it.toLong()) }
