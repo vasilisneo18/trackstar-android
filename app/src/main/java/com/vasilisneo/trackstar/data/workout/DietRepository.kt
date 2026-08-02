@@ -15,11 +15,12 @@ import com.vasilisneo.trackstar.data.local.cachedRead
 // holds the plan in memory and calls save on every change. Pass an `athleteId` to operate on an
 // athlete's diet via /api/coach/athletes/{id}/diet (coach editing their athlete's plan).
 // getDiet() is cache-then-network so the Diet tab works offline.
-class DietRepository {
+// `open` so a test fake can override getDiet/saveDiet when constructor-injected into a view model.
+open class DietRepository {
     private val api = NetworkClient.dietApi
     private val coachApi = NetworkClient.athleteApi
 
-    suspend fun getDiet(athleteId: String? = null): ApiResult<WeeklyDietPlanDto> {
+    open suspend fun getDiet(athleteId: String? = null): ApiResult<WeeklyDietPlanDto> {
         val key = athleteId?.let { "diet:athlete:$it" } ?: "diet"
         return cachedRead(key) {
             when (val r = apiCall { if (athleteId == null) api.getDiet() else coachApi.getAthleteDiet(athleteId) }) {
@@ -31,7 +32,7 @@ class DietRepository {
 
     // Saves the diet plan; if offline, queues it (replayed on reconnect) and optimistically
     // overwrites the cached plan so the change shows on a cold reload, returning Success.
-    suspend fun saveDiet(plan: WeeklyDietPlanDto, athleteId: String? = null): ApiResult<Unit> =
+    open suspend fun saveDiet(plan: WeeklyDietPlanDto, athleteId: String? = null): ApiResult<Unit> =
         when (val r = apiCall {
             if (athleteId == null) api.saveDiet(DietSyncRequest(plan)) else coachApi.saveAthleteDiet(athleteId, DietSyncRequest(plan))
         }) {

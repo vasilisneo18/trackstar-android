@@ -22,9 +22,18 @@ import java.util.Locale
 // `athleteId` non-null puts the VM in coach mode: it reads/writes the athlete's diet via
 // /coach/athletes/{id}/diet (@JvmOverloads so the no-arg AndroidViewModel factory still finds an
 // (Application) constructor for the signed-in user's own diet).
-class DietViewModel @JvmOverloads constructor(app: Application, private val athleteId: String? = null) : AndroidViewModel(app) {
+// repo is constructor-injected so tests can supply a fake. The (Application) and (Application,
+// String?) secondary constructors are the ones Compose's viewModel() factory and the coach-mode
+// call site resolve at runtime (self diet vs. an athlete's diet).
+class DietViewModel(
+    app: Application,
+    private val athleteId: String?,
+    private val repo: DietRepository,
+) : AndroidViewModel(app) {
 
-    private val repo = DietRepository()
+    constructor(app: Application) : this(app, null, DietRepository())
+    constructor(app: Application, athleteId: String?) : this(app, athleteId, DietRepository())
+
     private val tokenStore = TokenStore(app)
 
     // meals keyed by weekday name ("Monday" … "Sunday").
