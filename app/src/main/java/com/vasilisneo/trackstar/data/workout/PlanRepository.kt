@@ -50,7 +50,7 @@ open class PlanRepository {
         return result
     }
 
-    suspend fun upsertBatch(requests: List<PlannedSessionRequest>, athleteId: String? = null): ApiResult<List<PlannedSessionResponse>> {
+    open suspend fun upsertBatch(requests: List<PlannedSessionRequest>, athleteId: String? = null): ApiResult<List<PlannedSessionResponse>> {
         val result = apiCall { if (athleteId == null) api.upsertBatch(requests) else coachApi.upsertAthleteBatch(athleteId, requests) }
         if (result is ApiResult.Error && result.offline) {
             Outbox.enqueuePlanBatch(requests, athleteId)

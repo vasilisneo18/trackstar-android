@@ -9,15 +9,16 @@ import com.vasilisneo.trackstar.data.api.WorkoutPlanResponse
 import com.vasilisneo.trackstar.data.auth.ApiResult
 import com.vasilisneo.trackstar.data.auth.apiCall
 
-class AiRepository {
+// `open` so test fakes can override these when constructor-injected into the AI planner view models.
+open class AiRepository {
     private val api = NetworkClient.aiApi
 
-    suspend fun generateWorkoutPlan(input: WorkoutPlanInput): ApiResult<WorkoutPlanResponse> =
+    open suspend fun generateWorkoutPlan(input: WorkoutPlanInput): ApiResult<WorkoutPlanResponse> =
         apiCall { api.generateWorkoutPlan(input) }
 
-    suspend fun generateDietPlan(input: DietPlanInput): ApiResult<DietPlanResponse> =
+    open suspend fun generateDietPlan(input: DietPlanInput): ApiResult<DietPlanResponse> =
         apiCall { api.generateDietPlan(input) }
 
-    suspend fun getUsage(): ApiResult<AiUsageResponse> =
+    open suspend fun getUsage(): ApiResult<AiUsageResponse> =
         apiCall { api.getUsage() }
 }

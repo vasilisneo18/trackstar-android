@@ -55,10 +55,15 @@ private val DayDisplayName = mapOf(
 // fewer than iOS's 6, since the equipment step has zero effect on generation (see AiApi.kt).
 // Review is a checklist (checkbox per exercise, default all checked) instead of iOS's swipe-
 // accept/reject cards — same outcome, simpler gesture surface.
-class AIWorkoutPlannerViewModel(private val weekIdentifier: String) {
+// aiRepository/planRepository are injectable with real defaults (this VM is a plain class created
+// directly, not via a factory, so default params are safe) — tests pass fakes to drive the wizard,
+// usage check, generation, and apply without the network.
+class AIWorkoutPlannerViewModel(
+    private val weekIdentifier: String,
+    private val aiRepository: AiRepository = AiRepository(),
+    private val planRepository: PlanRepository = PlanRepository(),
+) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val aiRepository = AiRepository()
-    private val planRepository = PlanRepository()
 
     var step by mutableStateOf(0)
         private set
