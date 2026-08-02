@@ -18,11 +18,12 @@ import com.vasilisneo.trackstar.data.local.cachedRead
 // getPlan() is cache-then-network (per week, per athlete) so the weekly plan shows offline; writes
 // queue in the outbox when offline (replayed on reconnect) and optimistically update the cached
 // week so the edit shows immediately.
-class PlanRepository {
+// `open` so a test fake can override getPlan when constructor-injected into a view model.
+open class PlanRepository {
     private val api = NetworkClient.planApi
     private val coachApi = NetworkClient.athleteApi
 
-    suspend fun getPlan(weekIdentifier: String, athleteId: String? = null): ApiResult<List<PlannedSessionResponse>> {
+    open suspend fun getPlan(weekIdentifier: String, athleteId: String? = null): ApiResult<List<PlannedSessionResponse>> {
         return cachedRead(planKey(weekIdentifier, athleteId)) {
             apiCall { if (athleteId == null) api.getPlan(weekIdentifier) else coachApi.getAthletePlan(athleteId, weekIdentifier) }
         }

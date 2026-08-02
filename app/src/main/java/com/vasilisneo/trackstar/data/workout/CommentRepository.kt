@@ -8,10 +8,11 @@ import com.vasilisneo.trackstar.data.auth.ApiResult
 import com.vasilisneo.trackstar.data.auth.apiCall
 
 // Per-exercise comments/notes (/exercises/comments). See CommentApi for endpoint shapes.
-class CommentRepository {
+// `open` so a test fake can override getWeekComments when constructor-injected into a view model.
+open class CommentRepository {
     private val api = NetworkClient.commentApi
 
-    suspend fun getWeekComments(weekIdentifier: String): ApiResult<List<ExerciseComment>> =
+    open suspend fun getWeekComments(weekIdentifier: String): ApiResult<List<ExerciseComment>> =
         apiCall { api.getWeekComments(weekIdentifier) }
 
     suspend fun getExerciseComments(exerciseId: String, weekIdentifier: String): ApiResult<List<ExerciseComment>> =

@@ -32,11 +32,18 @@ sealed interface SessionDisplay {
 // Loads the selected week's plan (GET /api/plan?weekIdentifier=) and all completed sessions
 // (GET /api/sessions), following the same AndroidViewModel(app)-owns-its-repos pattern as
 // ProfileViewModel. Silently keeps stale data on ApiResult.Error, matching that precedent.
-class WorkoutViewModel(app: Application) : AndroidViewModel(app) {
+// Repositories are constructor-injected so tests can supply fakes and exercise the plan/session
+// display logic without the network. The secondary (Application) constructor is the one Compose's
+// viewModel() factory resolves at runtime.
+class WorkoutViewModel(
+    app: Application,
+    private val planRepository: PlanRepository,
+    private val sessionRepository: SessionRepository,
+    private val commentRepository: CommentRepository,
+) : AndroidViewModel(app) {
 
-    private val planRepository = PlanRepository()
-    private val sessionRepository = SessionRepository()
-    private val commentRepository = CommentRepository()
+    constructor(app: Application) : this(app, PlanRepository(), SessionRepository(), CommentRepository())
+
     private val tokenStore = com.vasilisneo.trackstar.data.auth.TokenStore(app)
 
     // Exercise notes for the week, merged onto cards by exercise id (best-effort).
