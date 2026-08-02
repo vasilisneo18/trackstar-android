@@ -18,10 +18,12 @@ import java.util.UUID
 // failure falls back to the last cached set so history/stats keep working offline (mirrors iOS's
 // SessionHistoryStore Realm fallback). saveSession() stays online-only in this phase — offline
 // writes come with the pending-sync outbox (Phase 3).
-class SessionRepository {
+// `open` so tests can substitute a fake getSessions() when constructor-injected into a view model
+// (no mocking framework in the project).
+open class SessionRepository {
     private val api = NetworkClient.sessionApi
 
-    suspend fun getSessions(): ApiResult<List<WorkoutSessionResponse>> {
+    open suspend fun getSessions(): ApiResult<List<WorkoutSessionResponse>> {
         val userId = AuthTokenHolder.userId
         return when (val result = apiCall { api.getSessions() }) {
             is ApiResult.Success -> {

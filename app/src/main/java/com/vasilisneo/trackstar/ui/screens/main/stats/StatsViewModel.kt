@@ -21,9 +21,16 @@ import java.time.format.DateTimeFormatter
 // completed-session list (GET /api/sessions) — no dedicated stats endpoint, matching iOS's
 // SessionHistoryStore-fed view. Kept as an AndroidViewModel(app) that owns its repo, like the
 // other tab view models.
-class StatsViewModel(app: Application) : AndroidViewModel(app) {
+// sessionRepository is constructor-injected so tests can supply a fake that returns a controlled
+// session list and exercise the derived stats without hitting the network. The secondary
+// (Application) constructor is the one Compose's viewModel() factory resolves at runtime.
+class StatsViewModel(
+    app: Application,
+    private val sessionRepository: SessionRepository,
+) : AndroidViewModel(app) {
 
-    private val sessionRepository = SessionRepository()
+    constructor(app: Application) : this(app, SessionRepository())
+
     private val tokenStore = TokenStore(app)
 
     var isLoading by mutableStateOf(false)
