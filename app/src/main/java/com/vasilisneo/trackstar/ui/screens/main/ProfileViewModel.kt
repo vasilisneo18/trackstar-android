@@ -14,9 +14,15 @@ import kotlinx.coroutines.launch
 
 // Loads the signed-in user's profile from GET /api/profile, falling back to the name/email
 // cached in TokenStore while the request is in flight (or if it fails offline).
-class ProfileViewModel(app: Application) : AndroidViewModel(app) {
+// repository is constructor-injected so tests can supply a fake. The secondary (Application)
+// constructor is the one Compose's viewModel() factory resolves at runtime.
+class ProfileViewModel(
+    app: Application,
+    private val repository: ProfileRepository,
+) : AndroidViewModel(app) {
 
-    private val repository = ProfileRepository()
+    constructor(app: Application) : this(app, ProfileRepository())
+
     private val tokenStore = TokenStore(app)
 
     var profile by mutableStateOf<ProfileResponse?>(null)
