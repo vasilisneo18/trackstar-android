@@ -70,11 +70,16 @@ object BillingManager {
     var isConfigured: Boolean = false
         private set
 
-    // Call once from Application.onCreate.
+    // Call once from Application.onCreate. Fail-safe: if the RevenueCat SDK can't initialize (bad
+    // config, or a non-device runtime like a JVM/Robolectric test), leave isConfigured=false and
+    // degrade to the free tier rather than crashing app launch.
     fun configure(context: Context, apiKey: String) {
         if (isConfigured || apiKey.isBlank()) return
-        Purchases.logLevel = LogLevel.ERROR
-        Purchases.configure(PurchasesConfiguration.Builder(context.applicationContext, apiKey).build())
+        val configured = runCatching {
+            Purchases.logLevel = LogLevel.ERROR
+            Purchases.configure(PurchasesConfiguration.Builder(context.applicationContext, apiKey).build())
+        }.isSuccess
+        if (!configured) return
         isConfigured = true
         scope.launch {
             refresh()

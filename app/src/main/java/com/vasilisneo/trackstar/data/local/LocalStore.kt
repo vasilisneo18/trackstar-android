@@ -25,6 +25,13 @@ object LocalStore {
         if (!::database.isInitialized) database = AppDatabase.get(context)
     }
 
+    // Test seam: install an in-memory database so repository cache tests can exercise the real
+    // cachedRead/cache paths in isolation, without the singleton file DB.
+    @androidx.annotation.VisibleForTesting
+    internal fun setDatabaseForTest(testDb: AppDatabase) {
+        database = testDb
+    }
+
     // Fire-and-forget cache wipe on logout. Clears the derived read caches (sessions + KV) for
     // per-user isolation, but deliberately KEEPS pending_actions so an unsynced offline write isn't
     // lost if the user logs out before it syncs — it replays when they're back online.
