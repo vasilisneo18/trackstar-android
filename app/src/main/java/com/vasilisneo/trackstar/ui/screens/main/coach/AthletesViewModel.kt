@@ -25,9 +25,16 @@ data class AthleteWeeklySummary(val plannedCount: Int, val completedCount: Int)
 
 // Ports iOS's AthletesViewModel: loads the coach's roster and, per athlete, counts this week's
 // planned sessions and completed sessions (API-first — no local cache yet).
-class AthletesViewModel(app: Application) : AndroidViewModel(app) {
+// repo is constructor-injected so tests can supply a fake and exercise the roster + weekly-summary
+// logic without the network. The secondary (Application) constructor is the one Compose's
+// viewModel() factory resolves at runtime.
+class AthletesViewModel(
+    app: Application,
+    private val repo: AthleteRepository,
+) : AndroidViewModel(app) {
 
-    private val repo = AthleteRepository()
+    constructor(app: Application) : this(app, AthleteRepository())
+
     private val tokenStore = TokenStore(app)
 
     var athletes by mutableStateOf<List<ProfileResponse>>(emptyList())

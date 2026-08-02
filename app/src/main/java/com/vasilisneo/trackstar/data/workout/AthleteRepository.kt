@@ -16,19 +16,21 @@ import com.vasilisneo.trackstar.data.local.cachedRead
 // Coach-side reads over /api/coach/... — the roster plus each athlete's plan and sessions. Reads are
 // cache-then-network so the roster and athlete detail render offline. Write/invite operations stay
 // online-only until the Phase 3 outbox.
-class AthleteRepository {
+// `open` (class + the roster/plan/session/remove methods) so a test fake can override them when
+// constructor-injected into a view model.
+open class AthleteRepository {
     private val api = NetworkClient.athleteApi
 
-    suspend fun getAthletes(): ApiResult<List<ProfileResponse>> =
+    open suspend fun getAthletes(): ApiResult<List<ProfileResponse>> =
         cachedRead("roster") { apiCall { api.getAthletes() } }
 
     suspend fun getAthlete(athleteId: String): ApiResult<ProfileResponse> =
         cachedRead("athlete:$athleteId") { apiCall { api.getAthlete(athleteId) } }
 
-    suspend fun getAthletePlan(athleteId: String, weekIdentifier: String): ApiResult<List<PlannedSessionResponse>> =
+    open suspend fun getAthletePlan(athleteId: String, weekIdentifier: String): ApiResult<List<PlannedSessionResponse>> =
         cachedRead("athletePlan:$athleteId:$weekIdentifier") { apiCall { api.getAthletePlan(athleteId, weekIdentifier) } }
 
-    suspend fun getAthleteSessions(athleteId: String): ApiResult<List<WorkoutSessionResponse>> =
+    open suspend fun getAthleteSessions(athleteId: String): ApiResult<List<WorkoutSessionResponse>> =
         cachedRead("athleteSessions:$athleteId") { apiCall { api.getAthleteSessions(athleteId) } }
 
     suspend fun getAthleteNotes(athleteId: String): ApiResult<AthleteNotesDto> =
@@ -37,7 +39,7 @@ class AthleteRepository {
     suspend fun saveAthleteNotes(athleteId: String, notes: AthleteNotesDto): ApiResult<AthleteNotesDto> =
         apiCall { api.saveAthleteNotes(athleteId, notes) }
 
-    suspend fun removeAthlete(athleteId: String): ApiResult<MessageResponse> =
+    open suspend fun removeAthlete(athleteId: String): ApiResult<MessageResponse> =
         apiCall { api.removeAthlete(athleteId) }
 
     suspend fun addAthlete(email: String): ApiResult<ProfileResponse> =
