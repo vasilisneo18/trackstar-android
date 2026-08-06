@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -205,7 +206,6 @@ private fun AddSlotSheet(
     onDismiss: () -> Unit,
     onAdd: (start: String, end: String, capacity: Int, title: String, repeatWeeks: Int) -> Unit,
 ) {
-    rememberModalBottomSheetState()
     var start by remember { mutableStateOf("09:00") }
     var end by remember { mutableStateOf("10:00") }
     var capacity by remember { mutableIntStateOf(1) }
@@ -216,9 +216,10 @@ private fun AddSlotSheet(
     var pickStart by remember { mutableStateOf(false) }
     var pickEnd by remember { mutableStateOf(false) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = com.vasilisneo.trackstar.ui.theme.TrackstarSurface) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = com.vasilisneo.trackstar.ui.theme.TrackstarSurface) {
         Column(
-            Modifier.fillMaxWidth().padding(horizontal = 20.dp).navigationBarsPadding().padding(bottom = 24.dp).imePadding(),
+            Modifier.fillMaxWidth().fillMaxHeight(0.75f).padding(horizontal = 20.dp).navigationBarsPadding().padding(bottom = 24.dp).imePadding(),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Text("New session · $dayLabel", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
@@ -256,7 +257,7 @@ private fun AddSlotSheet(
                 }
             }
 
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.weight(1f))
             com.vasilisneo.trackstar.ui.components.AuthCapsuleButton(
                 text = if (recurring) "Add $weeks sessions" else "Add session",
                 onClick = { onAdd(start, end, capacity, title, if (recurring) weeks else 1) },
