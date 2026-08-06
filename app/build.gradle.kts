@@ -51,7 +51,7 @@ android {
         // versionCode is Play's internal build counter — it MUST increase on every upload and is
         // not user-facing. versionName is the public "1.0.0" shown on the store; bump it only for
         // real marketing releases, not per test build.
-        versionCode = 17
+        versionCode = 18
         versionName = "1.0.0"
 
         buildConfigField("String", "REVENUECAT_API_KEY", "\"$revenueCatApiKey\"")
@@ -129,7 +129,7 @@ dependencies {
     implementation("androidx.camera:camera-view:1.4.1")
     // In-app subscriptions via RevenueCat (wraps Google Play Billing). iOS uses the RC SDK too,
     // and the backend already syncs plans from RC's webhook.
-    implementation("com.revenuecat.purchases:purchases:8.10.1")
+    implementation("com.revenuecat.purchases:purchases:9.0.0")
     // Sign in with Google via Credential Manager (modern replacement for GoogleSignInClient).
     // credentials-play-services-auth backports the flow to older devices; googleid provides the
     // Google ID token option + credential parsing.
