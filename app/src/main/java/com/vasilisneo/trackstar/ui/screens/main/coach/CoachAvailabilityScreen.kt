@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -129,8 +130,9 @@ fun CoachAvailabilityScreen(
                         CoachSlotCard(
                             time = "${slot.startTime} – ${slot.endTime}",
                             title = slot.title,
-                            capacityLabel = "${slot.bookedByCount()}/${slot.capacity} booked",
-                            attendees = slot.attendees?.mapNotNull { it.name } ?: emptyList(),
+                            booked = slot.bookedByCount(),
+                            capacity = slot.capacity,
+                            attendees = slot.attendees?.mapNotNull { it.name?.ifBlank { null } } ?: emptyList(),
                             onDelete = { viewModel.deleteSlot(slot.id) },
                         )
                     }
@@ -160,23 +162,53 @@ fun CoachAvailabilityScreen(
 private fun SlotResponse.bookedByCount(): Int = capacity - remaining
 
 @Composable
-private fun CoachSlotCard(time: String, title: String?, capacityLabel: String, attendees: List<String>, onDelete: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+private fun CoachSlotCard(time: String, title: String?, booked: Int, capacity: Int, attendees: List<String>, onDelete: () -> Unit) {
+    Column(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardFill).padding(16.dp)
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(time, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-            title?.takeIf { it.isNotBlank() }?.let {
-                Text(it, fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f))
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.weight(1f)) {
+                Text(time, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                title?.takeIf { it.isNotBlank() }?.let {
+                    Text(it, fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f))
+                }
+                Text(
+                    if (capacity == 1) (if (booked > 0) "Booked" else "Open") else "$booked/$capacity booked",
+                    fontSize = 12.sp, color = TrackstarAccent, modifier = Modifier.padding(top = 4.dp),
+                )
             }
-            Text(capacityLabel, fontSize = 12.sp, color = TrackstarAccent, modifier = Modifier.padding(top = 4.dp))
-            if (attendees.isNotEmpty()) {
-                Text(attendees.joinToString(", "), fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f), modifier = Modifier.padding(top = 2.dp))
+            Icon(Icons.Filled.DeleteOutline, contentDescription = "Delete session", tint = Color(0xFFE5484D).copy(alpha = 0.8f),
+                modifier = Modifier.size(22.dp).clickable(onClick = onDelete))
+        }
+
+        // Who booked — one row per attendee with an initials avatar, or a hint when nobody has yet.
+        Spacer(Modifier.height(12.dp))
+        if (attendees.isEmpty()) {
+            Text("No bookings yet", fontSize = 12.sp, color = Color.White.copy(alpha = 0.35f))
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                attendees.forEach { name ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier.size(26.dp).clip(CircleShape).background(TrackstarAccent.copy(alpha = 0.9f)),
+                            contentAlignment = Alignment.Center,
+                        ) { Text(initials(name), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White) }
+                        Spacer(Modifier.width(10.dp))
+                        Text(name, fontSize = 13.sp, color = Color.White.copy(alpha = 0.85f))
+                    }
+                }
             }
         }
-        Icon(Icons.Filled.DeleteOutline, contentDescription = "Delete session", tint = Color(0xFFE5484D).copy(alpha = 0.8f),
-            modifier = Modifier.size(22.dp).clickable(onClick = onDelete))
+    }
+}
+
+// "Jane Doe" -> "JD", "madonna" -> "M".
+private fun initials(name: String): String {
+    val parts = name.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+    return when {
+        parts.isEmpty() -> "?"
+        parts.size == 1 -> parts[0].take(1).uppercase()
+        else -> (parts.first().take(1) + parts.last().take(1)).uppercase()
     }
 }
 
