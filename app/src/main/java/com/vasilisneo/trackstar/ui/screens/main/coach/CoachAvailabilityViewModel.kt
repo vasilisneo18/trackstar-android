@@ -58,6 +58,7 @@ class CoachAvailabilityViewModel(
     fun goToDay(date: LocalDate) { selectedDay = date.dayOfWeek }
     fun goToPreviousWeek() { weekStart = weekStart.minusWeeks(1) }
     fun goToNextWeek() { weekStart = weekStart.plusWeeks(1) }
+    fun clearError() { errorMessage = null }
 
     init { fetch() }
 

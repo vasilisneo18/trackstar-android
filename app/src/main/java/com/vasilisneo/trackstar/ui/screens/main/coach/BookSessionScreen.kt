@@ -23,9 +23,15 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -49,6 +55,18 @@ fun BookSessionScreen(
     onBack: () -> Unit = {},
     viewModel: BookSessionViewModel = viewModel(),
 ) {
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(viewModel.errorMessage) {
+        viewModel.errorMessage?.let { snackbarHostState.showSnackbar(it); viewModel.clearError() }
+    }
+    // Re-fetch when returning (e.g. after a booking elsewhere or a coach change) — skip the first
+    // resume since init already fetched.
+    val skipFirstResume = remember { mutableStateOf(true) }
+    LifecycleResumeEffect(Unit) {
+        if (skipFirstResume.value) skipFirstResume.value = false else viewModel.fetch()
+        onPauseOrDispose { }
+    }
+
     Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(
@@ -120,6 +138,7 @@ fun BookSessionScreen(
                 onNext = viewModel::goToNextWeek,
             )
         }
+        SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp))
     }
 }
 

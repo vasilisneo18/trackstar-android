@@ -65,10 +65,24 @@ import com.vasilisneo.trackstar.ui.theme.loadSavedTheme
 // is an optional query param the coach's share link carries, used to personalize the sheet.
 data class PendingInvite(val token: String, val coachName: String?)
 
+// A tapped booking push (type == "booking"), carried from the notification's data payload. kind is
+// booked / withdrawn / cancelled / spot_open; the rest describe the session for the detail popup.
+data class PendingBookingTap(
+    val kind: String?,
+    val slotId: String?,
+    val date: String?,
+    val time: String?,
+    val sessionTitle: String?,
+    val person: String?,
+)
+
 class MainActivity : ComponentActivity() {
     // Held at Activity scope so onNewIntent (link tapped while already running) can push into the
     // same Compose state the initial intent seeds. AcceptInviteSheet renders when this is set.
     private val pendingInvite = androidx.compose.runtime.mutableStateOf<PendingInvite?>(null)
+
+    // A tapped booking notification, staged for the composition to show a popup / navigate.
+    private val pendingBooking = androidx.compose.runtime.mutableStateOf<PendingBookingTap?>(null)
 
     // Android 13+ requires runtime consent to post notifications; harmless no-op below that.
     private val requestNotificationPermission =
@@ -78,6 +92,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handleInviteIntent(intent)
+        handleBookingIntent(intent)
         maybeRequestNotificationPermission()
         // Apply the saved Appearance theme before the first frame so there's no midnight→theme flash.
         loadSavedTheme(this)
@@ -514,6 +529,22 @@ class MainActivity : ComponentActivity() {
                             onDismiss = { pendingInvite.value = null },
                         )
                     }
+
+                    // Tapped booking notification: cancelled -> detail popup (the slot is gone, so
+                    // there's nothing to navigate to); spot_open -> athlete's booking screen;
+                    // booked/withdrawn -> coach's availability screen.
+                    pendingBooking.value?.let { tap ->
+                        when (tap.kind) {
+                            "cancelled" -> CancelledSessionDialog(tap) { pendingBooking.value = null }
+                            "spot_open" -> androidx.compose.runtime.LaunchedEffect(tap) {
+                                navController.navigate("book_session"); pendingBooking.value = null
+                            }
+                            "booked", "withdrawn" -> androidx.compose.runtime.LaunchedEffect(tap) {
+                                navController.navigate("coach_availability"); pendingBooking.value = null
+                            }
+                            else -> androidx.compose.runtime.LaunchedEffect(tap) { pendingBooking.value = null }
+                        }
+                    }
                 }
             }
         }
@@ -523,6 +554,22 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleInviteIntent(intent)
+        handleBookingIntent(intent)
+    }
+
+    // Reads a tapped booking notification's data extras (see TrackstarMessagingService) and stages it
+    // for the composition. Ignored unless logged in — the routing targets live in the main graph.
+    private fun handleBookingIntent(intent: android.content.Intent?) {
+        if (intent?.getStringExtra("type") != "booking") return
+        if (!TokenStore(this).isLoggedIn) return
+        pendingBooking.value = PendingBookingTap(
+            kind = intent.getStringExtra("kind"),
+            slotId = intent.getStringExtra("slotId"),
+            date = intent.getStringExtra("date"),
+            time = intent.getStringExtra("time"),
+            sessionTitle = intent.getStringExtra("sessionTitle"),
+            person = intent.getStringExtra("person"),
+        )
     }
 
     // Parses trackstar://invite/{token}[?coachName=...] from an intent and stages it for the
@@ -553,3 +600,41 @@ fun parseInviteUri(data: Uri): PendingInvite? {
     val token = data.lastPathSegment?.takeIf { it.isNotBlank() } ?: return null
     return PendingInvite(token, data.getQueryParameter("coachName"))
 }
+
+// Shown when an athlete taps a "Session cancelled" push. The slot no longer exists server-side, so
+// the details come entirely from the notification payload.
+@androidx.compose.runtime.Composable
+private fun CancelledSessionDialog(tap: PendingBookingTap, onDismiss: () -> Unit) {
+    val whenText = buildString {
+        tap.date?.let { append(prettyBookingDate(it)) }
+        tap.time?.let { if (isNotEmpty()) append(" at "); append(it) }
+    }
+    val detail = buildString {
+        tap.sessionTitle?.takeIf { it.isNotBlank() }?.let { append("\"").append(it).append("\"\n") }
+        if (whenText.isNotBlank()) append(whenText)
+        tap.person?.takeIf { it.isNotBlank() }?.let { append("\nwith ").append(it) }
+    }.ifBlank { "Your session has been cancelled." }
+
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = androidx.compose.ui.graphics.Color(0xFF1A1A26),
+        title = { androidx.compose.material3.Text("Session cancelled", color = androidx.compose.ui.graphics.Color.White) },
+        text = {
+            androidx.compose.material3.Text(
+                detail,
+                color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.75f),
+            )
+        },
+        confirmButton = {
+            androidx.compose.material3.TextButton(onClick = onDismiss) {
+                androidx.compose.material3.Text("OK")
+            }
+        },
+    )
+}
+
+// "2026-08-11" -> "Tue, 11 Aug"; falls back to the raw string if it doesn't parse.
+private fun prettyBookingDate(iso: String): String = runCatching {
+    java.time.LocalDate.parse(iso)
+        .format(java.time.format.DateTimeFormatter.ofPattern("EEE, d MMM"))
+}.getOrDefault(iso)

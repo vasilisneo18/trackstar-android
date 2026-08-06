@@ -30,10 +30,10 @@ class TrackstarMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         val title = message.notification?.title ?: message.data["title"] ?: "Trackstar"
         val body = message.notification?.body ?: message.data["body"] ?: return
-        showNotification(title, body)
+        showNotification(title, body, message.data)
     }
 
-    private fun showNotification(title: String, body: String) {
+    private fun showNotification(title: String, body: String, data: Map<String, String>) {
         val manager = getSystemService(NotificationManager::class.java) ?: return
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL_ID, "Notifications", NotificationManager.IMPORTANCE_HIGH).apply {
@@ -41,11 +41,15 @@ class TrackstarMessagingService : FirebaseMessagingService() {
             },
         )
 
+        // Carry the data payload (type/kind/slotId/date/time/...) as intent extras so tapping a
+        // foreground notification routes exactly like an FCM-backgrounded tap (which already delivers
+        // data as launch-intent extras). MainActivity reads these to show a detail popup / navigate.
         val tapIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            data.forEach { (k, v) -> putExtra(k, v) }
         }
         val pending = PendingIntent.getActivity(
-            this, 0, tapIntent,
+            this, System.currentTimeMillis().toInt(), tapIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 

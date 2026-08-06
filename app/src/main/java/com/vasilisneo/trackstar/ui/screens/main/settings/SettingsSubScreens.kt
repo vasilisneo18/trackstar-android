@@ -38,11 +38,18 @@ import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import com.vasilisneo.trackstar.data.auth.ApiResult
+import com.vasilisneo.trackstar.data.auth.ProfileRepository
+import com.vasilisneo.trackstar.data.api.UpdateProfileRequest
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -69,6 +76,15 @@ fun NotificationsScreen(onBackClick: () -> Unit = {}) {
     var comments by rememberBooleanPref("notifyComments", true)
     var completions by rememberBooleanPref("notifySessionCompletions", true)
 
+    // "Open spot alerts" is server-side (the backend decides who to notify), so it loads from and
+    // persists to the profile endpoint rather than SharedPreferences.
+    val scope = rememberCoroutineScope()
+    val profileRepo = remember { ProfileRepository() }
+    var openSpotAlerts by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        (profileRepo.getProfile() as? ApiResult.Success)?.let { openSpotAlerts = it.data.notifyOnOpenSlot == true }
+    }
+
     SettingsScaffold(title = "Notifications", onBack = onBackClick) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             SettingsSectionHeader("Push Notifications")
@@ -78,6 +94,14 @@ fun NotificationsScreen(onBackClick: () -> Unit = {}) {
                 SettingsToggleRow(Icons.Filled.ChatBubble, "Comments", comments) { comments = it }
                 SettingsRowDivider()
                 SettingsToggleRow(Icons.Filled.CheckCircle, "Session Completions", completions) { completions = it }
+            }
+
+            SettingsSectionHeader("Session Bookings")
+            SettingsGroup {
+                SettingsToggleRow(Icons.Filled.NotificationsActive, "Alert me when a spot opens up", openSpotAlerts) { checked ->
+                    openSpotAlerts = checked
+                    scope.launch { profileRepo.updateProfile(UpdateProfileRequest(notifyOnOpenSlot = checked)) }
+                }
             }
         }
     }
