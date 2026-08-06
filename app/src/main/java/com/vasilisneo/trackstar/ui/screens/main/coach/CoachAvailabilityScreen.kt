@@ -117,7 +117,7 @@ fun CoachAvailabilityScreen(
                                 modifier = Modifier.fillMaxWidth().padding(top = 60.dp),
                             ) {
                                 Icon(Icons.Filled.EventBusy, contentDescription = null, tint = Color.White.copy(alpha = 0.2f), modifier = Modifier.size(46.dp))
-                                Text("No slots", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.5f))
+                                Text("No sessions", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.5f))
                                 Text("Add availability for this day.", fontSize = 13.sp, color = Color.White.copy(alpha = 0.3f))
                             }
                         }
@@ -172,7 +172,7 @@ private fun CoachSlotCard(time: String, title: String?, capacityLabel: String, a
                 Text(attendees.joinToString(", "), fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f), modifier = Modifier.padding(top = 2.dp))
             }
         }
-        Icon(Icons.Filled.DeleteOutline, contentDescription = "Delete slot", tint = Color(0xFFE5484D).copy(alpha = 0.8f),
+        Icon(Icons.Filled.DeleteOutline, contentDescription = "Delete session", tint = Color(0xFFE5484D).copy(alpha = 0.8f),
             modifier = Modifier.size(22.dp).clickable(onClick = onDelete))
     }
 }
@@ -192,7 +192,7 @@ private fun AddSlotButton(onClick: () -> Unit) {
     ) {
         Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(8.dp))
-        Text("Add Slot", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.7f))
+        Text("Add Session", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.7f))
     }
 }
 
@@ -216,7 +216,7 @@ private fun AddSlotSheet(
 
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = com.vasilisneo.trackstar.ui.theme.TrackstarSurface) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text("New slot · $dayLabel", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text("New session · $dayLabel", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
 
             FieldRow(label = "Start", value = start, onClick = { pickStart = true })
             FieldRow(label = "End", value = end, onClick = { pickEnd = true })
@@ -253,7 +253,7 @@ private fun AddSlotSheet(
 
             Spacer(Modifier.height(4.dp))
             com.vasilisneo.trackstar.ui.components.AuthCapsuleButton(
-                text = if (recurring) "Add $weeks slots" else "Add slot",
+                text = if (recurring) "Add $weeks sessions" else "Add session",
                 onClick = { onAdd(start, end, capacity, title, if (recurring) weeks else 1) },
                 enabled = start < end,
             )
