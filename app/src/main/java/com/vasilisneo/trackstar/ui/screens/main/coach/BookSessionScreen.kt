@@ -4,13 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -18,10 +18,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -29,15 +30,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vasilisneo.trackstar.data.api.SlotResponse
 import com.vasilisneo.trackstar.ui.components.GlassCircleIconButton
+import com.vasilisneo.trackstar.ui.screens.main.plan.DayTabPill
+import com.vasilisneo.trackstar.ui.screens.main.plan.WeekNavigationBar
+import com.vasilisneo.trackstar.ui.screens.main.plan.formattedWeekRange
 import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
 import com.vasilisneo.trackstar.ui.theme.trackstarBackground
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 
 private val CardFill = Color.White.copy(alpha = 0.06f)
 
@@ -58,34 +61,64 @@ fun BookSessionScreen(
             Text("Book a Session", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
 
-            when {
-                viewModel.isLoading && viewModel.available.isEmpty() ->
-                    Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = Color.White.copy(alpha = 0.6f)) }
-                viewModel.available.isEmpty() ->
-                    Box(Modifier.fillMaxSize().padding(bottom = 80.dp, start = 32.dp, end = 32.dp), Alignment.Center) {
-                        Text("No sessions available. Your coach hasn't added any upcoming slots yet.",
-                            color = Color.White.copy(alpha = 0.5f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                    }
-                else -> LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    viewModel.availableByDate.forEach { (date, slots) ->
-                        item(key = "hdr-$date") {
-                            Text(prettyDate(date), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                                color = Color.White.copy(alpha = 0.5f), modifier = Modifier.padding(top = 8.dp, start = 4.dp))
-                        }
-                        items(slots, key = { it.id }) { slot ->
-                            AthleteSlotCard(
-                                slot = slot,
-                                busy = viewModel.busySlotId == slot.id,
-                                onBook = { viewModel.book(slot.id) },
-                                onCancel = { viewModel.cancel(slot.id) },
-                            )
-                        }
+            // Day tabs — same expand/collapse pills as the weekly plan; a dot marks days with sessions.
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 8.dp)) {
+                val gap = 6.dp
+                val inactiveW = 34.dp
+                val activeW = (maxWidth - inactiveW * 6 - gap * 6).coerceAtLeast(72.dp)
+                Row(horizontalArrangement = Arrangement.spacedBy(gap), modifier = Modifier.fillMaxWidth()) {
+                    viewModel.weekDays.forEach { day ->
+                        DayTabPill(
+                            day = day.dayOfWeek,
+                            isActive = day.dayOfWeek == viewModel.selectedDay,
+                            hasExercises = viewModel.hasSlots(day.dayOfWeek),
+                            activeWidth = activeW,
+                            inactiveWidth = inactiveW,
+                            onClick = { viewModel.goToDay(day) },
+                        )
                     }
                 }
             }
+
+            val daySlots = viewModel.slotsForSelectedDay
+            when {
+                viewModel.isLoading && viewModel.available.isEmpty() ->
+                    Box(Modifier.weight(1f).fillMaxWidth(), Alignment.Center) { CircularProgressIndicator(color = TrackstarAccent) }
+                else -> LazyColumn(
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    if (daySlots.isEmpty()) {
+                        item {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp),
+                                modifier = Modifier.fillMaxWidth().padding(top = 60.dp),
+                            ) {
+                                Icon(Icons.Filled.EventBusy, contentDescription = null, tint = Color.White.copy(alpha = 0.2f), modifier = Modifier.size(46.dp))
+                                Text("No sessions", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.5f))
+                                Text("Your coach has no availability this day.", fontSize = 13.sp,
+                                    color = Color.White.copy(alpha = 0.3f), textAlign = TextAlign.Center)
+                            }
+                        }
+                    }
+                    items(daySlots, key = { it.id }) { slot ->
+                        AthleteSlotCard(
+                            slot = slot,
+                            busy = viewModel.busySlotId == slot.id,
+                            onBook = { viewModel.book(slot.id) },
+                            onCancel = { viewModel.cancel(slot.id) },
+                        )
+                    }
+                }
+            }
+
+            WeekNavigationBar(
+                weekRange = formattedWeekRange(viewModel.weekStart),
+                onPrevious = viewModel::goToPreviousWeek,
+                onNext = viewModel::goToNextWeek,
+            )
         }
     }
 }
@@ -131,7 +164,3 @@ private fun BookingChip(text: String, booked: Boolean, onClick: () -> Unit) {
         Text(text, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
     }
 }
-
-private fun prettyDate(iso: String): String = runCatching {
-    LocalDate.parse(iso).format(DateTimeFormatter.ofPattern("EEE, d MMM"))
-}.getOrDefault(iso)

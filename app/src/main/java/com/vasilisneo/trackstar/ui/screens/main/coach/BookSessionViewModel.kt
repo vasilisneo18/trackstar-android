@@ -10,9 +10,13 @@ import com.vasilisneo.trackstar.data.api.SlotResponse
 import com.vasilisneo.trackstar.data.auth.ApiResult
 import com.vasilisneo.trackstar.data.workout.BookingRepository
 import kotlinx.coroutines.launch
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.temporal.TemporalAdjusters
 
-// Athlete side of booking: browse the linked coach's upcoming slots and book/cancel. repo is
-// constructor-injected (secondary Application constructor for the viewModel() factory).
+// Athlete side of booking: browse the linked coach's upcoming slots and book/cancel, laid out like
+// the weekly plan — a week bar at the bottom and per-day tabs up top. repo is constructor-injected
+// (secondary Application constructor for the viewModel() factory).
 class BookSessionViewModel(
     app: Application,
     private val repo: BookingRepository,
@@ -29,8 +33,31 @@ class BookSessionViewModel(
     var errorMessage by mutableStateOf<String?>(null)
         private set
 
-    val availableByDate: List<Pair<String, List<SlotResponse>>>
-        get() = available.groupBy { it.date }.toList().sortedBy { it.first }
+    // Week + day selection, mirroring WeeklyPlanViewModel so the UI reuses DayTabPill/WeekNavigationBar.
+    var weekStart by mutableStateOf(LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)))
+        private set
+    var selectedDay by mutableStateOf(LocalDate.now().dayOfWeek)
+        private set
+
+    val weekDays: List<LocalDate>
+        get() = (0..6).map { weekStart.plusDays(it.toLong()) }
+
+    val selectedDate: LocalDate
+        get() = weekStart.plusDays((selectedDay.value - DayOfWeek.MONDAY.value).toLong())
+
+    // Slots on the selected day, earliest start first.
+    val slotsForSelectedDay: List<SlotResponse>
+        get() = available.filter { it.date == selectedDate.toString() }.sortedBy { it.startTime }
+
+    // Does the given weekday (in the current week) have any available slots? Drives the day-tab dot.
+    fun hasSlots(day: DayOfWeek): Boolean {
+        val date = weekStart.plusDays((day.value - DayOfWeek.MONDAY.value).toLong()).toString()
+        return available.any { it.date == date }
+    }
+
+    fun goToDay(date: LocalDate) { selectedDay = date.dayOfWeek }
+    fun goToPreviousWeek() { weekStart = weekStart.minusWeeks(1) }
+    fun goToNextWeek() { weekStart = weekStart.plusWeeks(1) }
 
     val myBookings: List<SlotResponse>
         get() = available.filter { it.bookedByMe }

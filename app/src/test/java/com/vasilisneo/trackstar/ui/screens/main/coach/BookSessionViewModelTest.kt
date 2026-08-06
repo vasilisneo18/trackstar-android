@@ -112,12 +112,18 @@ class BookSessionViewModelTest {
         assertFalse(vm.available.first { it.id == "s1" }.bookedByMe)
     }
 
-    @Test fun `availableByDate groups by date sorted soonest first`() = runTest(dispatcher.scheduler) {
+    @Test fun `slotsForSelectedDay filters to the selected weekday, sorted by start`() = runTest(dispatcher.scheduler) {
+        val monday = java.time.LocalDate.now().with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+        val wed = monday.plusDays(2)
         val vm = vm(FakeBookingRepo(listOf(
-            slot("a", date = "2026-08-12"),
-            slot("b", date = "2026-08-08"),
-        )))
+            slot("monA", date = monday.toString()),
+            slot("wedLate", date = wed.toString()),
+            slot("wedEarly", date = wed.toString()),
+        ).mapIndexed { i, s -> if (s.id == "wedEarly") s.copy(startTime = "08:00") else if (s.id == "wedLate") s.copy(startTime = "11:00") else s }))
         advanceUntilIdle()
-        assertEquals(listOf("2026-08-08", "2026-08-12"), vm.availableByDate.map { it.first })
+        vm.goToDay(wed)
+        assertEquals(listOf("wedEarly", "wedLate"), vm.slotsForSelectedDay.map { it.id })
+        assertTrue(vm.hasSlots(java.time.DayOfWeek.WEDNESDAY))
+        assertTrue(vm.hasSlots(java.time.DayOfWeek.MONDAY))
     }
 }
