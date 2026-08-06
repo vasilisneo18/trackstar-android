@@ -14,13 +14,15 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.temporal.TemporalAdjusters
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -39,9 +41,15 @@ class CoachAvailabilityViewModelTest {
         override suspend fun mySlots() = ApiResult.Success(slots.toList())
         override suspend fun createSlot(request: CreateSlotRequest): ApiResult<SlotResponse> {
             created.add(request)
-            val slot = slot(id = "new", date = request.date, start = request.startTime, capacity = request.capacity)
-            slots.add(slot)
-            return ApiResult.Success(slot)
+            // Mirror the backend: repeatWeeks creates one slot per week from the base date.
+            val base = LocalDate.parse(request.date)
+            var first: SlotResponse? = null
+            repeat(request.repeatWeeks.coerceAtLeast(1)) { i ->
+                val slot = slot(id = "new-$i", date = base.plusWeeks(i.toLong()).toString(), start = request.startTime, capacity = request.capacity)
+                slots.add(slot)
+                if (first == null) first = slot
+            }
+            return ApiResult.Success(first!!)
         }
         override suspend fun deleteSlot(slotId: String): ApiResult<MessageResponse> {
             deleted.add(slotId)
@@ -49,6 +57,8 @@ class CoachAvailabilityViewModelTest {
             return ApiResult.Success(MessageResponse("ok"))
         }
     }
+
+    private val monday: LocalDate = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
 
     private fun vm(repo: FakeBookingRepo) = CoachAvailabilityViewModel(ApplicationProvider.getApplicationContext(), repo)
 
@@ -58,38 +68,53 @@ class CoachAvailabilityViewModelTest {
         assertEquals(listOf("s1", "s2"), vm.slots.map { it.id })
     }
 
-    @Test fun `slotsByDate groups and sorts by date soonest first`() = runTest(dispatcher.scheduler) {
-        val vm = vm(FakeBookingRepo(listOf(
-            slot("a", date = "2026-08-10"),
-            slot("b", date = "2026-08-05"),
-            slot("c", date = "2026-08-10"),
-        )))
+    @Test fun `slotsForSelectedDay filters to the selected weekday`() = runTest(dispatcher.scheduler) {
+        val tue = monday.plusDays(1)
+        val repo = FakeBookingRepo(listOf(
+            slot("mon", date = monday.toString()),
+            slot("tueA", date = tue.toString(), start = "10:00"),
+            slot("tueB", date = tue.toString(), start = "08:00"),
+        ))
+        val vm = vm(repo)
         advanceUntilIdle()
-        val grouped = vm.slotsByDate
-        assertEquals(listOf("2026-08-05", "2026-08-10"), grouped.map { it.first })
-        assertEquals(listOf("b"), grouped[0].second.map { it.id })
-        assertEquals(listOf("a", "c"), grouped[1].second.map { it.id })
+        vm.goToDay(tue)
+        // Sorted by start time, only Tuesday's slots.
+        assertEquals(listOf("tueB", "tueA"), vm.slotsForSelectedDay.map { it.id })
+        assertTrue(vm.hasSlots(DayOfWeek.TUESDAY))
+        assertTrue(vm.hasSlots(DayOfWeek.MONDAY))
     }
 
-    @Test fun `addSlot posts the request, refetches, and reports success`() = runTest(dispatcher.scheduler) {
+    @Test fun `addSlot posts for the selected day and reports success`() = runTest(dispatcher.scheduler) {
         val repo = FakeBookingRepo()
         val vm = vm(repo)
         advanceUntilIdle()
+        val wed = monday.plusDays(2)
+        vm.goToDay(wed)
         var reported: Boolean? = null
-        vm.addSlot("2026-08-12", "09:00", "10:00", capacity = 3, title = "Group", notes = null) { reported = it }
+        vm.addSlot("09:00", "10:00", capacity = 3, title = "Group", notes = null) { reported = it }
         advanceUntilIdle()
         assertEquals(1, repo.created.size)
+        assertEquals(wed.toString(), repo.created[0].date)
         assertEquals(3, repo.created[0].capacity)
-        assertEquals("Group", repo.created[0].title)
+        assertEquals(1, repo.created[0].repeatWeeks)
         assertTrue(reported == true)
-        assertTrue(vm.slots.any { it.id == "new" })
+    }
+
+    @Test fun `addSlot with repeatWeeks creates one slot per week`() = runTest(dispatcher.scheduler) {
+        val repo = FakeBookingRepo()
+        val vm = vm(repo)
+        advanceUntilIdle()
+        vm.addSlot("09:00", "10:00", capacity = 1, title = null, notes = null, repeatWeeks = 8)
+        advanceUntilIdle()
+        assertEquals(8, repo.created[0].repeatWeeks)
+        assertEquals(8, repo.slots.size)
     }
 
     @Test fun `addSlot coerces a zero capacity up to 1`() = runTest(dispatcher.scheduler) {
         val repo = FakeBookingRepo()
         val vm = vm(repo)
         advanceUntilIdle()
-        vm.addSlot("2026-08-12", "09:00", "10:00", capacity = 0, title = null, notes = null)
+        vm.addSlot("09:00", "10:00", capacity = 0, title = null, notes = null)
         advanceUntilIdle()
         assertEquals(1, repo.created[0].capacity)
     }
@@ -107,7 +132,7 @@ class CoachAvailabilityViewModelTest {
     companion object {
         fun slot(
             id: String,
-            date: String = "2026-08-10",
+            date: String = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).toString(),
             start: String = "09:00",
             end: String = "10:00",
             capacity: Int = 1,

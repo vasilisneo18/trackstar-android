@@ -42,6 +42,7 @@ data class CreateSlotRequest(
     val capacity: Int,
     val title: String?,
     val notes: String?,
+    val repeatWeeks: Int = 1, // 1 = just this date; N = repeat weekly for N weeks
 )
 
 data class SlotResponse(
