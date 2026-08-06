@@ -95,6 +95,7 @@ fun AthletesScreen(
     onAthleteClick: (ProfileResponse) -> Unit = {},
     onAddAthlete: () -> Unit = {},
     onShowTemplates: () -> Unit = {},
+    onShowAvailability: () -> Unit = {},
     viewModel: AthletesViewModel = viewModel(),
 ) {
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -134,6 +135,8 @@ fun AthletesScreen(
                     Spacer(modifier = Modifier.size(12.dp))
                     Text("MyTeam", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White, modifier = Modifier.alpha(frostProgress))
                     Spacer(modifier = Modifier.weight(1f))
+                    GlassCircleIconButton(onClick = onShowAvailability, contentDescription = "Availability", icon = Icons.Filled.CalendarMonth)
+                    Spacer(modifier = Modifier.size(10.dp))
                     GlassCircleIconButton(onClick = onShowTemplates, contentDescription = "Templates", icon = Icons.Filled.ContentCopy)
                     Spacer(modifier = Modifier.size(10.dp))
                     GlassCircleIconButton(onClick = onAddAthlete, contentDescription = "Add athlete", icon = Icons.Filled.Add)

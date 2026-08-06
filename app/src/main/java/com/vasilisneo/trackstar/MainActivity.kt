@@ -149,6 +149,7 @@ class MainActivity : ComponentActivity() {
                                 onOpenAthlete = { athleteId -> navController.navigate("athlete/${Uri.encode(athleteId)}") },
                                 onOpenAddAthlete = { navController.navigate("add_athlete") },
                                 onOpenTemplates = { navController.navigate("templates") },
+                                onOpenAvailability = { navController.navigate("coach_availability") },
                                 onOpenAiDietPlanner = { navController.navigate("ai_diet_planner") },
                                 onOpenSubscription = { navController.navigate("subscription") },
                             )
@@ -289,6 +290,31 @@ class MainActivity : ComponentActivity() {
                             com.vasilisneo.trackstar.ui.screens.main.coach.MyCoachScreen(
                                 onBack = { navController.popBackStack() },
                                 onShowQr = { navController.navigate("qr") },
+                                onBookSession = { navController.navigate("book_session") },
+                            )
+                        }
+                        composable(
+                            // Athlete books a session with their linked coach. Modal slide-up.
+                            "book_session",
+                            enterTransition = { slideInVertically(initialOffsetY = { it }) },
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                            popExitTransition = { slideOutVertically(targetOffsetY = { it }) },
+                        ) {
+                            com.vasilisneo.trackstar.ui.screens.main.coach.BookSessionScreen(
+                                onBack = { navController.popBackStack() },
+                            )
+                        }
+                        composable(
+                            // Coach manages the availability slots athletes can book. Modal slide-up.
+                            "coach_availability",
+                            enterTransition = { slideInVertically(initialOffsetY = { it }) },
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                            popExitTransition = { slideOutVertically(targetOffsetY = { it }) },
+                        ) {
+                            com.vasilisneo.trackstar.ui.screens.main.coach.CoachAvailabilityScreen(
+                                onBack = { navController.popBackStack() },
                             )
                         }
                         composable(

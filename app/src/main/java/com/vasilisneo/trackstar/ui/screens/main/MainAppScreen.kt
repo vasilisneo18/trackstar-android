@@ -102,6 +102,7 @@ fun MainAppScreen(
     onOpenAthlete: (String) -> Unit = {},
     onOpenAddAthlete: () -> Unit = {},
     onOpenTemplates: () -> Unit = {},
+    onOpenAvailability: () -> Unit = {},
     onOpenAiDietPlanner: () -> Unit = {},
     onOpenSubscription: () -> Unit = {},
 ) {
@@ -165,6 +166,7 @@ fun MainAppScreen(
                     onAthleteClick = { athlete -> athlete.id?.let(onOpenAthlete) },
                     onAddAthlete = onOpenAddAthlete,
                     onShowTemplates = onOpenTemplates,
+                    onShowAvailability = onOpenAvailability,
                 )
             }
             composable("diet") {
