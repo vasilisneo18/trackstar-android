@@ -251,6 +251,7 @@ private fun EditSlotSheet(
 ) {
     var start by remember { mutableStateOf(slot.startTime) }
     var end by remember { mutableStateOf(slot.endTime) }
+    var endEdited by remember { mutableStateOf(true) } // existing session — keep the end unless it changes it
     var capacity by remember { mutableIntStateOf(slot.capacity) }
     var title by remember { mutableStateOf(slot.title ?: "") }
     var pickStart by remember { mutableStateOf(false) }
@@ -265,8 +266,10 @@ private fun EditSlotSheet(
         ) {
             Text("Edit session · ${prettyDate(slot.date)}", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
 
-            FieldRow(label = "Start", value = start, onClick = { pickStart = true })
-            FieldRow(label = "End", value = end, onClick = { pickEnd = true })
+            com.vasilisneo.trackstar.ui.components.AuthTextField(value = title, onValueChange = { title = it }, placeholder = "Session title, e.g. PT session")
+
+            FieldRow(label = "Start", value = displayTime(start), onClick = { pickStart = true })
+            FieldRow(label = "End", value = displayTime(end), onClick = { pickEnd = true })
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Capacity", color = Color.White.copy(alpha = 0.7f), modifier = Modifier.weight(1f))
@@ -279,8 +282,6 @@ private fun EditSlotSheet(
                 fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f),
             )
 
-            com.vasilisneo.trackstar.ui.components.AuthTextField(value = title, onValueChange = { title = it }, placeholder = "Title (optional) e.g. PT session")
-
             Spacer(Modifier.weight(1f))
             com.vasilisneo.trackstar.ui.components.AuthCapsuleButton(
                 text = "Save changes",
@@ -291,8 +292,10 @@ private fun EditSlotSheet(
         }
     }
 
-    if (pickStart) TimePickerSheet(initial = start, onDismiss = { pickStart = false }, onPick = { start = it; pickStart = false })
-    if (pickEnd) TimePickerSheet(initial = end, onDismiss = { pickEnd = false }, onPick = { end = it; pickEnd = false })
+    if (pickStart) TimePickerSheet(initial = start, onDismiss = { pickStart = false },
+        onPick = { start = it; end = nextEnd(it, end, endEdited); pickStart = false })
+    if (pickEnd) TimePickerSheet(initial = end, minExclusive = start, onDismiss = { pickEnd = false },
+        onPick = { end = it; endEdited = true; pickEnd = false })
 }
 
 @Composable
@@ -408,6 +411,7 @@ private fun AddSlotSheet(
 ) {
     var start by remember { mutableStateOf("09:00") }
     var end by remember { mutableStateOf("10:00") }
+    var endEdited by remember { mutableStateOf(false) }
     var capacity by remember { mutableIntStateOf(1) }
     var title by remember { mutableStateOf("") }
     var recurring by remember { mutableStateOf(false) }
@@ -424,8 +428,10 @@ private fun AddSlotSheet(
         ) {
             Text("New session · $dayLabel", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
 
-            FieldRow(label = "Start", value = start, onClick = { pickStart = true })
-            FieldRow(label = "End", value = end, onClick = { pickEnd = true })
+            com.vasilisneo.trackstar.ui.components.AuthTextField(value = title, onValueChange = { title = it }, placeholder = "Session title, e.g. PT session")
+
+            FieldRow(label = "Start", value = displayTime(start), onClick = { pickStart = true })
+            FieldRow(label = "End", value = displayTime(end), onClick = { pickEnd = true })
 
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Capacity", color = Color.White.copy(alpha = 0.7f), modifier = Modifier.weight(1f))
@@ -435,8 +441,6 @@ private fun AddSlotSheet(
             }
             Text(if (capacity == 1) "One-on-one session" else "Group session ($capacity spots)",
                 fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f))
-
-            com.vasilisneo.trackstar.ui.components.AuthTextField(value = title, onValueChange = { title = it }, placeholder = "Title (optional) e.g. PT session")
 
             // Recurring: repeat this slot on the same weekday for N weeks.
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
@@ -467,8 +471,10 @@ private fun AddSlotSheet(
         }
     }
 
-    if (pickStart) TimePickerSheet(initial = start, onDismiss = { pickStart = false }, onPick = { start = it; pickStart = false })
-    if (pickEnd) TimePickerSheet(initial = end, onDismiss = { pickEnd = false }, onPick = { end = it; pickEnd = false })
+    if (pickStart) TimePickerSheet(initial = start, onDismiss = { pickStart = false },
+        onPick = { start = it; end = nextEnd(it, end, endEdited); pickStart = false })
+    if (pickEnd) TimePickerSheet(initial = end, minExclusive = start, onDismiss = { pickEnd = false },
+        onPick = { end = it; endEdited = true; pickEnd = false })
 }
 
 @Composable
@@ -487,16 +493,43 @@ private fun WeeksChip(label: String, selected: Boolean, modifier: Modifier = Mod
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun TimePickerSheet(initial: String, onDismiss: () -> Unit, onPick: (String) -> Unit) {
+private fun TimePickerSheet(initial: String, minExclusive: String? = null, onDismiss: () -> Unit, onPick: (String) -> Unit) {
     val parts = initial.split(":")
-    val state = rememberTimePickerState(initialHour = parts.getOrNull(0)?.toIntOrNull() ?: 9, initialMinute = parts.getOrNull(1)?.toIntOrNull() ?: 0, is24Hour = true)
+    // 12-hour dial with an AM/PM toggle; state.hour is still 0–23 so we store "HH:mm".
+    val state = rememberTimePickerState(initialHour = parts.getOrNull(0)?.toIntOrNull() ?: 9, initialMinute = parts.getOrNull(1)?.toIntOrNull() ?: 0, is24Hour = false)
+    val selected = "%02d:%02d".format(state.hour, state.minute)
+    // "Disable times before the start" — the dial can't grey out slots, so OK is disabled until the
+    // selection is after the start time, which prevents committing an invalid end.
+    val valid = minExclusive == null || selected > minExclusive
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = { onPick("%02d:%02d".format(state.hour, state.minute)) }) { Text("OK") } },
+        confirmButton = { TextButton(enabled = valid, onClick = { onPick(selected) }) { Text("OK") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-        text = { TimePicker(state = state) },
+        text = {
+            Column {
+                TimePicker(state = state)
+                if (!valid && minExclusive != null) {
+                    Text("Must be after ${displayTime(minExclusive)}", color = Color(0xFFE5484D), fontSize = 12.sp)
+                }
+            }
+        },
     )
 }
+
+// "09:00" -> "9:00 AM" for display; storage stays "HH:mm".
+private fun displayTime(hhmm: String): String = runCatching {
+    java.time.LocalTime.parse(hhmm).format(java.time.format.DateTimeFormatter.ofPattern("h:mm a"))
+}.getOrDefault(hhmm)
+
+// "09:30" -> "10:30" (keeps minutes; no midnight-crossing sessions expected).
+private fun plusOneHour(hhmm: String): String = runCatching {
+    java.time.LocalTime.parse(hhmm).plusHours(1).format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+}.getOrDefault(hhmm)
+
+// End time when the start changes: default to start+1h until the coach edits the end themselves,
+// and always bump it back to start+1h if a start change would leave the end at/before start.
+private fun nextEnd(newStart: String, end: String, endEdited: Boolean): String =
+    if (!endEdited || end <= newStart) plusOneHour(newStart) else end
 
 @Composable
 private fun FieldRow(label: String, value: String, onClick: () -> Unit) {
