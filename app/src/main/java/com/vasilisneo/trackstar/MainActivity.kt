@@ -536,7 +536,7 @@ class MainActivity : ComponentActivity() {
                     pendingBooking.value?.let { tap ->
                         when (tap.kind) {
                             "cancelled" -> CancelledSessionDialog(tap) { pendingBooking.value = null }
-                            "spot_open" -> androidx.compose.runtime.LaunchedEffect(tap) {
+                            "spot_open", "updated" -> androidx.compose.runtime.LaunchedEffect(tap) {
                                 navController.navigate("book_session"); pendingBooking.value = null
                             }
                             "booked", "withdrawn" -> androidx.compose.runtime.LaunchedEffect(tap) {

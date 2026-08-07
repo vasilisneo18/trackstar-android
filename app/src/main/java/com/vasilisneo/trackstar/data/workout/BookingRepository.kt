@@ -23,6 +23,12 @@ open class BookingRepository {
     open suspend fun deleteSlot(slotId: String): ApiResult<MessageResponse> =
         apiCall { api.deleteSlot(slotId) }
 
+    open suspend fun updateSlot(slotId: String, request: CreateSlotRequest): ApiResult<SlotResponse> =
+        apiCall { api.updateSlot(slotId, request) }
+
+    open suspend fun deleteSlotSeries(slotId: String): ApiResult<MessageResponse> =
+        apiCall { api.deleteSlotSeries(slotId) }
+
     // Athlete
     open suspend fun availableSlots(): ApiResult<List<SlotResponse>> =
         apiCall { api.availableSlots() }

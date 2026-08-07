@@ -5,6 +5,7 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 
 // Session booking (/api/coach/slots for coaches, /api/bookings for athletes). See the backend
@@ -20,6 +21,14 @@ interface BookingApi {
 
     @DELETE("coach/slots/{slotId}")
     suspend fun deleteSlot(@Path("slotId") slotId: String): Response<MessageResponse>
+
+    // Edit time/capacity/title of one slot (reuses the create request shape; repeatWeeks ignored).
+    @PUT("coach/slots/{slotId}")
+    suspend fun updateSlot(@Path("slotId") slotId: String, @Body body: CreateSlotRequest): Response<SlotResponse>
+
+    // Delete this occurrence and all future ones in the same recurring series.
+    @DELETE("coach/slots/{slotId}/future")
+    suspend fun deleteSlotSeries(@Path("slotId") slotId: String): Response<MessageResponse>
 
     // Athlete — browse + book the linked coach's slots.
     @GET("bookings/available")

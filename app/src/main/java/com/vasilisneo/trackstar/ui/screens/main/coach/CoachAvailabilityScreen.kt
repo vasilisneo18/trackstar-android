@@ -28,8 +28,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EventBusy
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -76,6 +80,9 @@ fun CoachAvailabilityScreen(
     viewModel: CoachAvailabilityViewModel = viewModel(),
 ) {
     var showAdd by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<SlotResponse?>(null) }
+    var cancelling by remember { mutableStateOf<SlotResponse?>(null) }
+    var deletingSeries by remember { mutableStateOf<SlotResponse?>(null) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(viewModel.errorMessage) {
@@ -147,7 +154,9 @@ fun CoachAvailabilityScreen(
                             booked = slot.bookedByCount(),
                             capacity = slot.capacity,
                             attendees = slot.attendees?.mapNotNull { it.name?.ifBlank { null } } ?: emptyList(),
-                            onDelete = { viewModel.deleteSlot(slot.id) },
+                            onEdit = { editing = slot },
+                            onCancel = { cancelling = slot },
+                            onDeletePermanently = { deletingSeries = slot },
                         )
                     }
                     item { AddSlotButton(onClick = { showAdd = true }) }
@@ -172,12 +181,124 @@ fun CoachAvailabilityScreen(
             },
         )
     }
+
+    editing?.let { slot ->
+        EditSlotSheet(
+            slot = slot,
+            onDismiss = { editing = null },
+            onSave = { start, end, capacity, title ->
+                viewModel.editSlot(slot.id, slot.date, start, end, capacity, title) { ok -> if (ok) editing = null }
+            },
+        )
+    }
+
+    cancelling?.let { slot ->
+        val hasBookings = slot.capacity - slot.remaining > 0
+        ConfirmDialog(
+            title = "Cancel this session?",
+            message = "The session on ${prettyDate(slot.date)} at ${slot.startTime} will be removed" +
+                if (hasBookings) " and booked athletes will be notified." else ".",
+            confirmText = "Cancel session",
+            onConfirm = { viewModel.deleteSlot(slot.id); cancelling = null },
+            onDismiss = { cancelling = null },
+        )
+    }
+
+    deletingSeries?.let { slot ->
+        ConfirmDialog(
+            title = "Delete permanently?",
+            message = "This session and all future weeks in its series will be removed. Any booked athletes will be notified.",
+            confirmText = "Delete all",
+            onConfirm = { viewModel.deleteSlotSeries(slot.id); deletingSeries = null },
+            onDismiss = { deletingSeries = null },
+        )
+    }
+}
+
+// "2026-08-11" -> "Tue, 11 Aug"
+private fun prettyDate(iso: String): String = runCatching {
+    java.time.LocalDate.parse(iso).format(java.time.format.DateTimeFormatter.ofPattern("EEE, d MMM"))
+}.getOrDefault(iso)
+
+@Composable
+private fun ConfirmDialog(title: String, message: String, confirmText: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF1A1A26),
+        title = { Text(title, color = Color.White) },
+        text = { Text(message, color = Color.White.copy(alpha = 0.75f)) },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(confirmText, color = Color(0xFFE5484D)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Keep", color = Color.White.copy(alpha = 0.8f)) } },
+    )
 }
 
 private fun SlotResponse.bookedByCount(): Int = capacity - remaining
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CoachSlotCard(time: String, title: String?, booked: Int, capacity: Int, attendees: List<String>, onDelete: () -> Unit) {
+private fun EditSlotSheet(
+    slot: SlotResponse,
+    onDismiss: () -> Unit,
+    onSave: (start: String, end: String, capacity: Int, title: String) -> Unit,
+) {
+    var start by remember { mutableStateOf(slot.startTime) }
+    var end by remember { mutableStateOf(slot.endTime) }
+    var capacity by remember { mutableIntStateOf(slot.capacity) }
+    var title by remember { mutableStateOf(slot.title ?: "") }
+    var pickStart by remember { mutableStateOf(false) }
+    var pickEnd by remember { mutableStateOf(false) }
+    // Capacity can't drop below the number of athletes already booked on this session.
+    val minCapacity = maxOf(1, slot.bookedByCount())
+
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = com.vasilisneo.trackstar.ui.theme.TrackstarSurface) {
+        Column(
+            Modifier.fillMaxWidth().fillMaxHeight(0.75f).padding(horizontal = 20.dp).navigationBarsPadding().padding(bottom = 24.dp).imePadding(),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Text("Edit session · ${prettyDate(slot.date)}", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+
+            FieldRow(label = "Start", value = start, onClick = { pickStart = true })
+            FieldRow(label = "End", value = end, onClick = { pickEnd = true })
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Capacity", color = Color.White.copy(alpha = 0.7f), modifier = Modifier.weight(1f))
+                StepperButton("−") { if (capacity > minCapacity) capacity-- }
+                Text("$capacity", color = Color.White, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(36.dp), textAlign = TextAlign.Center)
+                StepperButton("+") { capacity++ }
+            }
+            Text(
+                if (minCapacity > 1) "$minCapacity already booked" else if (capacity == 1) "One-on-one session" else "Group session ($capacity spots)",
+                fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f),
+            )
+
+            com.vasilisneo.trackstar.ui.components.AuthTextField(value = title, onValueChange = { title = it }, placeholder = "Title (optional) e.g. PT session")
+
+            Spacer(Modifier.weight(1f))
+            com.vasilisneo.trackstar.ui.components.AuthCapsuleButton(
+                text = "Save changes",
+                onClick = { onSave(start, end, capacity, title) },
+                enabled = start < end,
+            )
+            if (start >= end) Text("End time must be after start time", fontSize = 12.sp, color = Color(0xFFE5484D))
+        }
+    }
+
+    if (pickStart) TimePickerSheet(initial = start, onDismiss = { pickStart = false }, onPick = { start = it; pickStart = false })
+    if (pickEnd) TimePickerSheet(initial = end, onDismiss = { pickEnd = false }, onPick = { end = it; pickEnd = false })
+}
+
+@Composable
+private fun CoachSlotCard(
+    time: String,
+    title: String?,
+    booked: Int,
+    capacity: Int,
+    attendees: List<String>,
+    onEdit: () -> Unit,
+    onCancel: () -> Unit,
+    onDeletePermanently: () -> Unit,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardFill).padding(16.dp)
     ) {
@@ -192,8 +313,31 @@ private fun CoachSlotCard(time: String, title: String?, booked: Int, capacity: I
                     fontSize = 12.sp, color = TrackstarAccent, modifier = Modifier.padding(top = 4.dp),
                 )
             }
-            Icon(Icons.Filled.DeleteOutline, contentDescription = "Delete session", tint = Color(0xFFE5484D).copy(alpha = 0.8f),
-                modifier = Modifier.size(22.dp).clickable(onClick = onDelete))
+            Box {
+                Icon(Icons.Filled.MoreVert, contentDescription = "Session options", tint = Color.White.copy(alpha = 0.7f),
+                    modifier = Modifier.size(22.dp).clip(CircleShape).clickable { menuOpen = true })
+                DropdownMenu(
+                    expanded = menuOpen,
+                    onDismissRequest = { menuOpen = false },
+                    containerColor = Color(0xFF1F1F2B),
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Edit session", color = Color.White) },
+                        leadingIcon = { Icon(Icons.Filled.Edit, null, tint = Color.White.copy(alpha = 0.8f)) },
+                        onClick = { menuOpen = false; onEdit() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Cancel this session", color = Color.White) },
+                        leadingIcon = { Icon(Icons.Filled.EventBusy, null, tint = Color.White.copy(alpha = 0.8f)) },
+                        onClick = { menuOpen = false; onCancel() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Delete permanently", color = Color(0xFFE5484D)) },
+                        leadingIcon = { Icon(Icons.Filled.DeleteOutline, null, tint = Color(0xFFE5484D)) },
+                        onClick = { menuOpen = false; onDeletePermanently() },
+                    )
+                }
+            }
         }
 
         // Who booked — one row per attendee with an initials avatar, or a hint when nobody has yet.

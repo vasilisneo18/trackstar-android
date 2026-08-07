@@ -56,6 +56,20 @@ class CoachAvailabilityViewModelTest {
             slots.removeAll { it.id == slotId }
             return ApiResult.Success(MessageResponse("ok"))
         }
+        val updated = mutableListOf<Pair<String, CreateSlotRequest>>()
+        override suspend fun updateSlot(slotId: String, request: CreateSlotRequest): ApiResult<SlotResponse> {
+            updated.add(slotId to request)
+            val i = slots.indexOfFirst { it.id == slotId }
+            val newSlot = slots[i].copy(startTime = request.startTime, endTime = request.endTime, capacity = request.capacity, title = request.title)
+            slots[i] = newSlot
+            return ApiResult.Success(newSlot)
+        }
+        val deletedSeries = mutableListOf<String>()
+        override suspend fun deleteSlotSeries(slotId: String): ApiResult<MessageResponse> {
+            deletedSeries.add(slotId)
+            slots.removeAll { it.id == slotId }
+            return ApiResult.Success(MessageResponse("ok"))
+        }
     }
 
     private val monday: LocalDate = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
@@ -127,6 +141,30 @@ class CoachAvailabilityViewModelTest {
         assertEquals(listOf("s2"), vm.slots.map { it.id })
         advanceUntilIdle()
         assertTrue(repo.deleted.contains("s1"))
+    }
+
+    @Test fun `editSlot posts the update and refetches`() = runTest(dispatcher.scheduler) {
+        val repo = FakeBookingRepo(listOf(slot("s1", start = "09:00")))
+        val vm = vm(repo)
+        advanceUntilIdle()
+        var ok: Boolean? = null
+        vm.editSlot("s1", date = monday.toString(), startTime = "10:00", endTime = "11:00", capacity = 5, title = "PT") { ok = it }
+        advanceUntilIdle()
+        assertEquals("s1", repo.updated.single().first)
+        assertEquals("10:00", repo.updated.single().second.startTime)
+        assertEquals(5, repo.updated.single().second.capacity)
+        assertTrue(ok == true)
+        assertEquals("10:00", vm.slots.first { it.id == "s1" }.startTime)
+    }
+
+    @Test fun `deleteSlotSeries calls the series endpoint and refetches`() = runTest(dispatcher.scheduler) {
+        val repo = FakeBookingRepo(listOf(slot("s1"), slot("s2")))
+        val vm = vm(repo)
+        advanceUntilIdle()
+        vm.deleteSlotSeries("s1")
+        advanceUntilIdle()
+        assertTrue(repo.deletedSeries.contains("s1"))
+        assertEquals(listOf("s2"), vm.slots.map { it.id })
     }
 
     companion object {

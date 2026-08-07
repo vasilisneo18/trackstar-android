@@ -97,9 +97,32 @@ class CoachAvailabilityViewModel(
         }
     }
 
+    // "Cancel this session" — remove just this dated occurrence (booked athletes are notified).
     fun deleteSlot(id: String) {
         // Optimistic removal, then confirm on the server.
         slots = slots.filterNot { it.id == id }
         viewModelScope.launch { repo.deleteSlot(id) }
+    }
+
+    // "Delete permanently" — remove this occurrence and all future weeks of its recurring series.
+    fun deleteSlotSeries(id: String) {
+        viewModelScope.launch {
+            when (val r = repo.deleteSlotSeries(id)) {
+                is ApiResult.Success -> fetch() // count of removed slots is server-side; refetch to reflect
+                is ApiResult.Error -> errorMessage = r.message
+            }
+        }
+    }
+
+    // "Edit session" — change time/capacity/title of one slot (booked athletes are notified server-side).
+    fun editSlot(id: String, date: String, startTime: String, endTime: String, capacity: Int, title: String?, onDone: (Boolean) -> Unit = {}) {
+        viewModelScope.launch {
+            errorMessage = null
+            val req = CreateSlotRequest(date, startTime, endTime, capacity.coerceAtLeast(1), title?.ifBlank { null }, null, 1)
+            when (val r = repo.updateSlot(id, req)) {
+                is ApiResult.Success -> { fetch(); onDone(true) }
+                is ApiResult.Error -> { errorMessage = r.message; onDone(false) }
+            }
+        }
     }
 }
