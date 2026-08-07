@@ -134,12 +134,13 @@ fun CoachAvailabilityScreen(
                     verticalArrangement = Arrangement.spacedBy(18.dp),
                     modifier = Modifier.weight(1f),
                 ) {
+                    item { AddSlotButton(onClick = { showAdd = true }) }
                     if (daySlots.isEmpty()) {
                         item {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
-                                modifier = Modifier.fillMaxWidth().padding(top = 60.dp),
+                                modifier = Modifier.fillMaxWidth().padding(top = 48.dp),
                             ) {
                                 Icon(Icons.Filled.EventBusy, contentDescription = null, tint = Color.White.copy(alpha = 0.2f), modifier = Modifier.size(46.dp))
                                 Text("No sessions", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.5f))
@@ -151,7 +152,7 @@ fun CoachAvailabilityScreen(
                         Column {
                             // Time as a section label above the card, so sessions read as separated blocks.
                             Text(
-                                "${slot.startTime} – ${slot.endTime}",
+                                "${displayTime(slot.startTime)} – ${displayTime(slot.endTime)}",
                                 fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                                 color = Color.White.copy(alpha = 0.55f),
                                 modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
@@ -167,7 +168,6 @@ fun CoachAvailabilityScreen(
                             )
                         }
                     }
-                    item { AddSlotButton(onClick = { showAdd = true }) }
                 }
             }
 
