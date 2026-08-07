@@ -1,7 +1,6 @@
 package com.vasilisneo.trackstar.ui.screens.main.coach
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -102,6 +101,7 @@ fun CoachAvailabilityScreen(
             ) {
                 GlassCircleIconButton(onClick = onBack, icon = Icons.Filled.Close, contentDescription = "Close")
                 Spacer(Modifier.weight(1f))
+                GlassCircleIconButton(onClick = { showAdd = true }, icon = Icons.Filled.Add, contentDescription = "Add session")
             }
             Text("Availability", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
@@ -134,7 +134,6 @@ fun CoachAvailabilityScreen(
                     verticalArrangement = Arrangement.spacedBy(18.dp),
                     modifier = Modifier.weight(1f),
                 ) {
-                    item { AddSlotButton(onClick = { showAdd = true }) }
                     if (daySlots.isEmpty()) {
                         item {
                             Column(
@@ -380,25 +379,6 @@ private fun initials(name: String): String {
         parts.isEmpty() -> "?"
         parts.size == 1 -> parts[0].take(1).uppercase()
         else -> (parts.first().take(1) + parts.last().take(1)).uppercase()
-    }
-}
-
-@Composable
-private fun AddSlotButton(onClick: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(Color.White.copy(alpha = 0.08f))
-            .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(18.dp))
-            .clickable(onClick = onClick)
-            .padding(vertical = 14.dp)
-    ) {
-        Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(16.dp))
-        Spacer(Modifier.width(8.dp))
-        Text("Add Session", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.7f))
     }
 }
 
