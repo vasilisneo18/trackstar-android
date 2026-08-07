@@ -131,7 +131,7 @@ fun CoachAvailabilityScreen(
                     Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = TrackstarAccent) }
                 else -> LazyColumn(
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
                     modifier = Modifier.weight(1f),
                 ) {
                     if (daySlots.isEmpty()) {
@@ -148,16 +148,24 @@ fun CoachAvailabilityScreen(
                         }
                     }
                     items(daySlots, key = { it.id }) { slot ->
-                        CoachSlotCard(
-                            time = "${slot.startTime} – ${slot.endTime}",
-                            title = slot.title,
-                            booked = slot.bookedByCount(),
-                            capacity = slot.capacity,
-                            attendees = slot.attendees?.mapNotNull { it.name?.ifBlank { null } } ?: emptyList(),
-                            onEdit = { editing = slot },
-                            onCancel = { cancelling = slot },
-                            onDeletePermanently = { deletingSeries = slot },
-                        )
+                        Column {
+                            // Time as a section label above the card, so sessions read as separated blocks.
+                            Text(
+                                "${slot.startTime} – ${slot.endTime}",
+                                fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                color = Color.White.copy(alpha = 0.55f),
+                                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+                            )
+                            CoachSlotCard(
+                                title = slot.title,
+                                booked = slot.bookedByCount(),
+                                capacity = slot.capacity,
+                                attendees = slot.attendees?.mapNotNull { it.name?.ifBlank { null } } ?: emptyList(),
+                                onEdit = { editing = slot },
+                                onCancel = { cancelling = slot },
+                                onDeletePermanently = { deletingSeries = slot },
+                            )
+                        }
                     }
                     item { AddSlotButton(onClick = { showAdd = true }) }
                 }
@@ -289,7 +297,6 @@ private fun EditSlotSheet(
 
 @Composable
 private fun CoachSlotCard(
-    time: String,
     title: String?,
     booked: Int,
     capacity: Int,
@@ -299,63 +306,65 @@ private fun CoachSlotCard(
     onDeletePermanently: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
-    Column(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardFill).padding(16.dp)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardFill).padding(16.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.weight(1f)) {
-                Text(time, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                title?.takeIf { it.isNotBlank() }?.let {
-                    Text(it, fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f))
-                }
-                Text(
-                    if (capacity == 1) (if (booked > 0) "Booked" else "Open") else "$booked/$capacity booked",
-                    fontSize = 12.sp, color = TrackstarAccent, modifier = Modifier.padding(top = 4.dp),
-                )
-            }
-            Box {
-                Icon(Icons.Filled.MoreVert, contentDescription = "Session options", tint = Color.White.copy(alpha = 0.7f),
-                    modifier = Modifier.size(22.dp).clip(CircleShape).clickable { menuOpen = true })
-                DropdownMenu(
-                    expanded = menuOpen,
-                    onDismissRequest = { menuOpen = false },
-                    containerColor = Color(0xFF1F1F2B),
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Edit session", color = Color.White) },
-                        leadingIcon = { Icon(Icons.Filled.Edit, null, tint = Color.White.copy(alpha = 0.8f)) },
-                        onClick = { menuOpen = false; onEdit() },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Cancel this session", color = Color.White) },
-                        leadingIcon = { Icon(Icons.Filled.EventBusy, null, tint = Color.White.copy(alpha = 0.8f)) },
-                        onClick = { menuOpen = false; onCancel() },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Delete permanently", color = Color(0xFFE5484D)) },
-                        leadingIcon = { Icon(Icons.Filled.DeleteOutline, null, tint = Color(0xFFE5484D)) },
-                        onClick = { menuOpen = false; onDeletePermanently() },
-                    )
+        Column(Modifier.weight(1f)) {
+            Text(
+                title?.takeIf { it.isNotBlank() } ?: "Session",
+                fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Color.White,
+            )
+            Text(
+                if (capacity == 1) (if (booked > 0) "Booked" else "Open") else "$booked/$capacity booked",
+                fontSize = 12.sp, color = TrackstarAccent, modifier = Modifier.padding(top = 4.dp),
+            )
+
+            // Who booked — one row per attendee with an initials avatar, or a hint when nobody has yet.
+            Spacer(Modifier.height(12.dp))
+            if (attendees.isEmpty()) {
+                Text("No bookings yet", fontSize = 12.sp, color = Color.White.copy(alpha = 0.35f))
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    attendees.forEach { name ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier.size(26.dp).clip(CircleShape).background(TrackstarAccent.copy(alpha = 0.9f)),
+                                contentAlignment = Alignment.Center,
+                            ) { Text(initials(name), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White) }
+                            Spacer(Modifier.width(10.dp))
+                            Text(name, fontSize = 13.sp, color = Color.White.copy(alpha = 0.85f))
+                        }
+                    }
                 }
             }
         }
 
-        // Who booked — one row per attendee with an initials avatar, or a hint when nobody has yet.
-        Spacer(Modifier.height(12.dp))
-        if (attendees.isEmpty()) {
-            Text("No bookings yet", fontSize = 12.sp, color = Color.White.copy(alpha = 0.35f))
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                attendees.forEach { name ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            modifier = Modifier.size(26.dp).clip(CircleShape).background(TrackstarAccent.copy(alpha = 0.9f)),
-                            contentAlignment = Alignment.Center,
-                        ) { Text(initials(name), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White) }
-                        Spacer(Modifier.width(10.dp))
-                        Text(name, fontSize = 13.sp, color = Color.White.copy(alpha = 0.85f))
-                    }
-                }
+        Spacer(Modifier.width(8.dp))
+        Box {
+            Icon(Icons.Filled.MoreVert, contentDescription = "Session options", tint = Color.White.copy(alpha = 0.7f),
+                modifier = Modifier.size(24.dp).clip(CircleShape).clickable { menuOpen = true })
+            DropdownMenu(
+                expanded = menuOpen,
+                onDismissRequest = { menuOpen = false },
+                containerColor = Color(0xFF1F1F2B),
+                shape = RoundedCornerShape(16.dp),
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Edit session", color = Color.White) },
+                    leadingIcon = { Icon(Icons.Filled.Edit, null, tint = Color.White.copy(alpha = 0.8f)) },
+                    onClick = { menuOpen = false; onEdit() },
+                )
+                DropdownMenuItem(
+                    text = { Text("Cancel this session", color = Color.White) },
+                    leadingIcon = { Icon(Icons.Filled.EventBusy, null, tint = Color.White.copy(alpha = 0.8f)) },
+                    onClick = { menuOpen = false; onCancel() },
+                )
+                DropdownMenuItem(
+                    text = { Text("Delete permanently", color = Color(0xFFE5484D)) },
+                    leadingIcon = { Icon(Icons.Filled.DeleteOutline, null, tint = Color(0xFFE5484D)) },
+                    onClick = { menuOpen = false; onDeletePermanently() },
+                )
             }
         }
     }
