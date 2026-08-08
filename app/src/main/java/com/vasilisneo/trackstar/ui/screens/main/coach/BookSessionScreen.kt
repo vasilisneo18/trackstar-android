@@ -112,7 +112,7 @@ fun BookSessionScreen(
                     Box(Modifier.weight(1f).fillMaxWidth(), Alignment.Center) { CircularProgressIndicator(color = TrackstarAccent) }
                 else -> LazyColumn(
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
                     modifier = Modifier.weight(1f),
                 ) {
                     if (daySlots.isEmpty()) {
@@ -130,12 +130,21 @@ fun BookSessionScreen(
                         }
                     }
                     items(daySlots, key = { it.id }) { slot ->
-                        AthleteSlotCard(
-                            slot = slot,
-                            busy = viewModel.busySlotId == slot.id,
-                            onBook = { viewModel.book(slot.id) },
-                            onWithdraw = { withdrawing = slot },
-                        )
+                        Column {
+                            // Time as a section label above the card, matching the coach screen.
+                            Text(
+                                "${displayTime(slot.startTime)} – ${displayTime(slot.endTime)}",
+                                fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                color = Color.White.copy(alpha = 0.55f),
+                                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+                            )
+                            AthleteSlotCard(
+                                slot = slot,
+                                busy = viewModel.busySlotId == slot.id,
+                                onBook = { viewModel.book(slot.id) },
+                                onWithdraw = { withdrawing = slot },
+                            )
+                        }
                     }
                 }
             }
@@ -180,10 +189,9 @@ private fun AthleteSlotCard(slot: SlotResponse, busy: Boolean, onBook: () -> Uni
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardFill).padding(16.dp)
     ) {
         Column(Modifier.weight(1f)) {
-            Text("${displayTime(slot.startTime)} – ${displayTime(slot.endTime)}", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-            slot.title?.takeIf { it.isNotBlank() }?.let { Text(it, fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f)) }
+            Text(slot.title?.takeIf { it.isNotBlank() } ?: "Session", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Color.White)
             slot.coachName?.takeIf { it.isNotBlank() }?.let { Text("with $it", fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f), modifier = Modifier.padding(top = 2.dp)) }
-            if (slot.capacity > 1 && !slot.bookedByMe) {
+            if (slot.capacity > 1) {
                 Text("${slot.remaining} spot${if (slot.remaining == 1) "" else "s"} left", fontSize = 12.sp, color = TrackstarAccent, modifier = Modifier.padding(top = 4.dp))
             }
         }
