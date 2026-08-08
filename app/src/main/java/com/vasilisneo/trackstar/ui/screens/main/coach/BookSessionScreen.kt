@@ -21,15 +21,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.EventBusy
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.ui.Modifier
@@ -56,6 +63,7 @@ fun BookSessionScreen(
     viewModel: BookSessionViewModel = viewModel(),
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    var withdrawing by remember { mutableStateOf<SlotResponse?>(null) }
     LaunchedEffect(viewModel.errorMessage) {
         viewModel.errorMessage?.let { snackbarHostState.showSnackbar(it); viewModel.clearError() }
     }
@@ -126,7 +134,7 @@ fun BookSessionScreen(
                             slot = slot,
                             busy = viewModel.busySlotId == slot.id,
                             onBook = { viewModel.book(slot.id) },
-                            onCancel = { viewModel.cancel(slot.id) },
+                            onWithdraw = { withdrawing = slot },
                         )
                     }
                 }
@@ -140,10 +148,33 @@ fun BookSessionScreen(
         }
         SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp))
     }
+
+    withdrawing?.let { slot ->
+        AlertDialog(
+            onDismissRequest = { withdrawing = null },
+            containerColor = Color(0xFF1A1A26),
+            title = { Text("Withdraw from session?", color = Color.White) },
+            text = {
+                Text(
+                    "You'll give up your spot for ${slot.startTime} – ${slot.endTime}" +
+                        (slot.coachName?.takeIf { it.isNotBlank() }?.let { " with $it" } ?: "") + ".",
+                    color = Color.White.copy(alpha = 0.75f),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.cancel(slot.id); withdrawing = null }) {
+                    Text("Withdraw", color = Color(0xFFE5484D))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { withdrawing = null }) { Text("Keep", color = Color.White.copy(alpha = 0.8f)) }
+            },
+        )
+    }
 }
 
 @Composable
-private fun AthleteSlotCard(slot: SlotResponse, busy: Boolean, onBook: () -> Unit, onCancel: () -> Unit) {
+private fun AthleteSlotCard(slot: SlotResponse, busy: Boolean, onBook: () -> Unit, onWithdraw: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardFill).padding(16.dp)
@@ -159,27 +190,65 @@ private fun AthleteSlotCard(slot: SlotResponse, busy: Boolean, onBook: () -> Uni
         Spacer(Modifier.size(12.dp))
         when {
             busy -> CircularProgressIndicator(color = Color.White.copy(alpha = 0.7f), strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
-            slot.bookedByMe -> BookingChip(text = "Booked", booked = true, onClick = onCancel)
+            // Booked: a status pill (not a hidden toggle) + a ⋮ menu with an explicit "Withdraw".
+            slot.bookedByMe -> Row(verticalAlignment = Alignment.CenterVertically) {
+                BookedPill()
+                BookedMenu(onWithdraw = onWithdraw)
+            }
             slot.full -> Text("Full", color = Color.White.copy(alpha = 0.4f), fontWeight = FontWeight.SemiBold)
-            else -> BookingChip(text = "Book", booked = false, onClick = onBook)
+            else -> BookingChip(text = "Book", onClick = onBook)
         }
     }
 }
 
 @Composable
-private fun BookingChip(text: String, booked: Boolean, onClick: () -> Unit) {
+private fun BookedPill() {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .clip(RoundedCornerShape(50))
-            .background(if (booked) Color.White.copy(alpha = 0.12f) else TrackstarAccent)
+            .background(Color.White.copy(alpha = 0.12f))
+            .padding(horizontal = 14.dp, vertical = 9.dp),
+    ) {
+        Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
+        Spacer(Modifier.size(6.dp))
+        Text("Booked", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+    }
+}
+
+@Composable
+private fun BookedMenu(onWithdraw: () -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Icon(
+            Icons.Filled.MoreVert, contentDescription = "Booking options", tint = Color.White.copy(alpha = 0.7f),
+            modifier = Modifier.padding(start = 4.dp).size(24.dp).clip(RoundedCornerShape(50)).clickable { open = true },
+        )
+        DropdownMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+            containerColor = Color(0xFF1F1F2B),
+            shape = RoundedCornerShape(16.dp),
+        ) {
+            DropdownMenuItem(
+                text = { Text("Withdraw from session", color = Color(0xFFE5484D)) },
+                leadingIcon = { Icon(Icons.Filled.EventBusy, null, tint = Color(0xFFE5484D)) },
+                onClick = { open = false; onWithdraw() },
+            )
+        }
+    }
+}
+
+@Composable
+private fun BookingChip(text: String, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(TrackstarAccent)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 9.dp),
     ) {
-        if (booked) {
-            Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp))
-            Spacer(Modifier.size(6.dp))
-        }
         Text(text, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
     }
 }
