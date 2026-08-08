@@ -116,6 +116,23 @@ fun MainAppScreen(
     val isCoach = com.vasilisneo.trackstar.data.billing.FeatureGate.canCoach(plan)
     val visibleTabs = remember(isCoach) { MainTabs.filter { it.route != "myteam" || isCoach } }
 
+    // Session-booking visibility is coach-driven (server setting). A coach's own bookingEnabled gates
+    // their Availability entry; an athlete's coachBookingEnabled (their linked coach's flag) gates the
+    // Book entry. Fetched here and refreshed on resume so a coach's Settings change reflects on return.
+    val profileRepo = remember { com.vasilisneo.trackstar.data.auth.ProfileRepository() }
+    var myBookingEnabled by remember { mutableStateOf(false) }      // coach: do I offer booking?
+    var coachBookingEnabled by remember { mutableStateOf(false) }   // athlete: does my coach offer it?
+    var bookingResumeTick by remember { androidx.compose.runtime.mutableIntStateOf(0) }
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) { bookingResumeTick++; onPauseOrDispose { } }
+    androidx.compose.runtime.LaunchedEffect(bookingResumeTick) {
+        (profileRepo.getProfile() as? com.vasilisneo.trackstar.data.auth.ApiResult.Success)?.let {
+            myBookingEnabled = it.data.bookingEnabled != false
+            coachBookingEnabled = it.data.coachBookingEnabled == true
+        }
+    }
+    val showAvailabilityEntry = isCoach && myBookingEnabled
+    val showBookEntry = !isCoach && coachBookingEnabled
+
     // Active session is owned here (not inside the Workout tab or a nav route) so it survives
     // being minimized: the full-screen UI dismisses to a mini-bar while the session keeps
     // running, mirroring iOS where ActiveSessionViewModel outlives its fullScreenCover. The
@@ -143,7 +160,7 @@ fun MainAppScreen(
                     onProfileClick = onProfileClick,
                     onScheduleWorkout = onScheduleWorkout,
                     onBookSession = onOpenBookSession,
-                    isCoach = isCoach,
+                    showBookSession = showBookEntry,
                     onStartSession = { date, sessionId -> startSession(date, sessionId) },
                     onQuickLog = { date, sessionId -> quickLog = QuickLogViewModel(date, sessionId) },
                     activeSession = activeSession,
@@ -170,6 +187,7 @@ fun MainAppScreen(
                     onAddAthlete = onOpenAddAthlete,
                     onShowTemplates = onOpenTemplates,
                     onShowAvailability = onOpenAvailability,
+                    showAvailability = showAvailabilityEntry,
                 )
             }
             composable("diet") {

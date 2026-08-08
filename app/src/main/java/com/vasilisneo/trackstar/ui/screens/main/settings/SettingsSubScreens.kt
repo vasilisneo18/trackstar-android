@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -111,9 +112,19 @@ fun NotificationsScreen(onBackClick: () -> Unit = {}) {
 @Composable
 fun AppSettingsScreen(onBackClick: () -> Unit = {}) {
     var showDietTab by rememberBooleanPref("showDietTab", true)
-    var sessionBooking by rememberBooleanPref(com.vasilisneo.trackstar.ui.util.PREF_SESSION_BOOKING, true)
     var restTimerSound by rememberBooleanPref("restTimerSound", true)
     var useMetric by rememberBooleanPref("useMetricUnits", true)
+
+    // "Session Booking" is a coach setting (server-side): it controls whether the coach's athletes
+    // can book them. Athletes inherit it and have no local toggle, so it's shown only to coaches.
+    val plan by com.vasilisneo.trackstar.data.billing.BillingManager.currentPlan.collectAsState()
+    val isCoach = com.vasilisneo.trackstar.data.billing.FeatureGate.canCoach(plan)
+    val scope = rememberCoroutineScope()
+    val profileRepo = remember { ProfileRepository() }
+    var bookingEnabled by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        (profileRepo.getProfile() as? ApiResult.Success)?.let { bookingEnabled = it.data.bookingEnabled != false }
+    }
 
     SettingsScaffold(title = "App Settings", onBack = onBackClick) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -121,8 +132,13 @@ fun AppSettingsScreen(onBackClick: () -> Unit = {}) {
             SettingsGroup {
                 SettingsToggleRow(Icons.Filled.Restaurant, "Show Diet Tab", showDietTab) { showDietTab = it }
                 SettingsRowDivider()
-                SettingsToggleRow(Icons.Filled.EventAvailable, "Session Booking", sessionBooking) { sessionBooking = it }
-                SettingsRowDivider()
+                if (isCoach) {
+                    SettingsToggleRow(Icons.Filled.EventAvailable, "Session Booking", bookingEnabled) { checked ->
+                        bookingEnabled = checked
+                        scope.launch { profileRepo.updateProfile(UpdateProfileRequest(bookingEnabled = checked)) }
+                    }
+                    SettingsRowDivider()
+                }
                 // Units row: two-line label + toggles Metric/Imperial on tap
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

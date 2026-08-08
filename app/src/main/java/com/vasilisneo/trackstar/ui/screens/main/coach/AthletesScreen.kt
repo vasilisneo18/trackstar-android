@@ -96,6 +96,7 @@ fun AthletesScreen(
     onAddAthlete: () -> Unit = {},
     onShowTemplates: () -> Unit = {},
     onShowAvailability: () -> Unit = {},
+    showAvailability: Boolean = false,
     viewModel: AthletesViewModel = viewModel(),
 ) {
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -135,11 +136,8 @@ fun AthletesScreen(
                     Spacer(modifier = Modifier.size(12.dp))
                     Text("MyTeam", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White, modifier = Modifier.alpha(frostProgress))
                     Spacer(modifier = Modifier.weight(1f))
-                    // Availability (offer session booking) — only when the feature is enabled in Settings.
-                    val bookingEnabled = com.vasilisneo.trackstar.ui.util.rememberResumingBooleanPref(
-                        com.vasilisneo.trackstar.ui.util.PREF_SESSION_BOOKING, true,
-                    )
-                    if (bookingEnabled) {
+                    // Availability (offer session booking) — only when the coach has booking enabled.
+                    if (showAvailability) {
                         GlassCircleIconButton(onClick = onShowAvailability, contentDescription = "Availability", icon = Icons.Filled.CalendarMonth)
                         Spacer(modifier = Modifier.size(10.dp))
                     }

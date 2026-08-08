@@ -32,9 +32,12 @@ data class ProfileResponse(
     val coachName: String?,
     val coachingSince: String?,
     val notifyOnOpenSlot: Boolean? = null,
+    val bookingEnabled: Boolean? = null,        // this user's own coach setting
+    val coachBookingEnabled: Boolean? = null,   // whether this user's linked coach offers booking
 )
 
 // Partial profile update — mirrors com.fitnessbook.dto.UpdateProfileRequest (only the fields we send).
 data class UpdateProfileRequest(
     val notifyOnOpenSlot: Boolean? = null,
+    val bookingEnabled: Boolean? = null,
 )
