@@ -156,7 +156,7 @@ fun BookSessionScreen(
             title = { Text("Withdraw from session?", color = Color.White) },
             text = {
                 Text(
-                    "You'll give up your spot for ${slot.startTime} – ${slot.endTime}" +
+                    "You'll give up your spot for ${displayTime(slot.startTime)} – ${displayTime(slot.endTime)}" +
                         (slot.coachName?.takeIf { it.isNotBlank() }?.let { " with $it" } ?: "") + ".",
                     color = Color.White.copy(alpha = 0.75f),
                 )
@@ -180,7 +180,7 @@ private fun AthleteSlotCard(slot: SlotResponse, busy: Boolean, onBook: () -> Uni
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardFill).padding(16.dp)
     ) {
         Column(Modifier.weight(1f)) {
-            Text("${slot.startTime} – ${slot.endTime}", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+            Text("${displayTime(slot.startTime)} – ${displayTime(slot.endTime)}", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
             slot.title?.takeIf { it.isNotBlank() }?.let { Text(it, fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f)) }
             slot.coachName?.takeIf { it.isNotBlank() }?.let { Text("with $it", fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f), modifier = Modifier.padding(top = 2.dp)) }
             if (slot.capacity > 1 && !slot.bookedByMe) {

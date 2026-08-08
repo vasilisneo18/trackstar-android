@@ -496,8 +496,8 @@ private fun TimePickerSheet(initial: String, minExclusive: String? = null, onDis
     )
 }
 
-// "09:00" -> "9:00 AM" for display; storage stays "HH:mm".
-private fun displayTime(hhmm: String): String = runCatching {
+// "09:00" -> "9:00 AM" for display; storage stays "HH:mm". Shared with the athlete booking screen.
+internal fun displayTime(hhmm: String): String = runCatching {
     java.time.LocalTime.parse(hhmm).format(java.time.format.DateTimeFormatter.ofPattern("h:mm a"))
 }.getOrDefault(hhmm)
 
