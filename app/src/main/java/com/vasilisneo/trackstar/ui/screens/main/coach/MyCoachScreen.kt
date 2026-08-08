@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material3.CircularProgressIndicator
@@ -55,7 +54,6 @@ private val CoachAvatar = Color(0xFF5E5CE6)
 fun MyCoachScreen(
     onBack: () -> Unit = {},
     onShowQr: () -> Unit = {},
-    onBookSession: () -> Unit = {},
     viewModel: MyCoachViewModel = viewModel(),
 ) {
     // Re-fetch on return (e.g. after accepting an invite elsewhere) so a freshly linked coach shows.
@@ -88,7 +86,7 @@ fun MyCoachScreen(
                 val coach = viewModel.coach
                 when {
                     !viewModel.loaded -> CircularProgressIndicator(color = Color.White.copy(alpha = 0.6f))
-                    coach != null -> CoachCard(coach, onBookSession)
+                    coach != null -> CoachCard(coach)
                     else -> EmptyState(onShowQr)
                 }
             }
@@ -97,7 +95,7 @@ fun MyCoachScreen(
 }
 
 @Composable
-private fun CoachCard(coach: ProfileResponse, onBookSession: () -> Unit) {
+private fun CoachCard(coach: ProfileResponse) {
     val name = listOfNotNull(coach.firstName?.ifBlank { null }, coach.lastName?.ifBlank { null })
         .joinToString(" ").ifBlank { "Your Coach" }
     Column(
@@ -128,19 +126,6 @@ private fun CoachCard(coach: ProfileResponse, onBookSession: () -> Unit) {
             color = Color.White.copy(alpha = 0.45f),
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(24.dp))
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(percent = 50))
-                .background(TrackstarAccent)
-                .clickable(onClick = onBookSession)
-                .padding(horizontal = 28.dp, vertical = 14.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(Icons.Filled.CalendarMonth, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-                Text("Book a Session", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-            }
-        }
     }
 }
 

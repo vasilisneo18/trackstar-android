@@ -159,6 +159,7 @@ class MainActivity : ComponentActivity() {
                             MainAppScreen(
                                 onProfileClick = { navController.navigate("profile") },
                                 onScheduleWorkout = { navController.navigate("weekly_plan") },
+                                onOpenBookSession = { navController.navigate("book_session") },
                                 onOpenHistory = { navController.navigate("history") },
                                 onOpenProgress = { navController.navigate("progress") },
                                 onOpenAthlete = { athleteId -> navController.navigate("athlete/${Uri.encode(athleteId)}") },
@@ -305,7 +306,6 @@ class MainActivity : ComponentActivity() {
                             com.vasilisneo.trackstar.ui.screens.main.coach.MyCoachScreen(
                                 onBack = { navController.popBackStack() },
                                 onShowQr = { navController.navigate("qr") },
-                                onBookSession = { navController.navigate("book_session") },
                             )
                         }
                         composable(

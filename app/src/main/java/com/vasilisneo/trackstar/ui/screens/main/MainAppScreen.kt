@@ -97,6 +97,7 @@ private val TabBarRim = Color.White.copy(alpha = 0.14f)
 fun MainAppScreen(
     onProfileClick: () -> Unit = {},
     onScheduleWorkout: () -> Unit = {},
+    onOpenBookSession: () -> Unit = {},
     onOpenHistory: () -> Unit = {},
     onOpenProgress: () -> Unit = {},
     onOpenAthlete: (String) -> Unit = {},
@@ -141,6 +142,7 @@ fun MainAppScreen(
                 WorkoutScreen(
                     onProfileClick = onProfileClick,
                     onScheduleWorkout = onScheduleWorkout,
+                    onBookSession = onOpenBookSession,
                     onStartSession = { date, sessionId -> startSession(date, sessionId) },
                     onQuickLog = { date, sessionId -> quickLog = QuickLogViewModel(date, sessionId) },
                     activeSession = activeSession,

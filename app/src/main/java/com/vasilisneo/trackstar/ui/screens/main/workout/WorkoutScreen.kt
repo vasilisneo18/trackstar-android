@@ -33,7 +33,9 @@ import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.PlayArrow
@@ -89,6 +91,7 @@ import java.util.Locale
 fun WorkoutScreen(
     onProfileClick: () -> Unit = {},
     onScheduleWorkout: () -> Unit = {},
+    onBookSession: () -> Unit = {},
     onStartSession: (date: LocalDate, sessionId: String) -> Unit = { _, _ -> },
     onQuickLog: (date: LocalDate, sessionId: String) -> Unit = { _, _ -> },
     activeSession: ActiveSessionViewModel? = null,
@@ -266,6 +269,17 @@ fun WorkoutScreen(
             ) {
                 ProfileAvatarButton(initials = viewModel.userInitials, onClick = onProfileClick)
                 Spacer(modifier = Modifier.weight(1f))
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.15f))
+                        .clickable(onClick = onBookSession),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.EventAvailable, contentDescription = "Book a session", tint = Color.White, modifier = Modifier.size(18.dp))
+                }
+                Spacer(modifier = Modifier.width(10.dp))
                 Box(
                     modifier = Modifier
                         .size(44.dp)
