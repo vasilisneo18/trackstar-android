@@ -30,8 +30,10 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.ViewWeek
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -84,6 +86,7 @@ fun CoachAvailabilityScreen(
     var editing by remember { mutableStateOf<SlotResponse?>(null) }
     var cancelling by remember { mutableStateOf<SlotResponse?>(null) }
     var deletingSeries by remember { mutableStateOf<SlotResponse?>(null) }
+    var calendarMode by remember { mutableStateOf(false) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(viewModel.errorMessage) {
@@ -103,26 +106,41 @@ fun CoachAvailabilityScreen(
             ) {
                 GlassCircleIconButton(onClick = onBack, icon = Icons.Filled.Close, contentDescription = "Close")
                 Spacer(Modifier.weight(1f))
+                GlassCircleIconButton(
+                    onClick = { calendarMode = !calendarMode },
+                    icon = if (calendarMode) Icons.Filled.ViewWeek else Icons.Filled.CalendarMonth,
+                    contentDescription = if (calendarMode) "Week view" else "Calendar view",
+                )
+                Spacer(Modifier.width(10.dp))
                 GlassCircleIconButton(onClick = { showAdd = true }, icon = Icons.Filled.Add, contentDescription = "Add session")
             }
             Text("Availability", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
 
-            // Day tabs — same expand/collapse pills as the weekly plan; a dot marks days with slots.
-            BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 8.dp)) {
-                val gap = 6.dp
-                val inactiveW = 34.dp
-                val activeW = (maxWidth - inactiveW * 6 - gap * 6).coerceAtLeast(72.dp)
-                Row(horizontalArrangement = Arrangement.spacedBy(gap), modifier = Modifier.fillMaxWidth()) {
-                    viewModel.weekDays.forEach { day ->
-                        DayTabPill(
-                            day = day.dayOfWeek,
-                            isActive = day.dayOfWeek == viewModel.selectedDay,
-                            hasExercises = viewModel.hasSlots(day.dayOfWeek),
-                            activeWidth = activeW,
-                            inactiveWidth = inactiveW,
-                            onClick = { viewModel.goToDay(day) },
-                        )
+            if (calendarMode) {
+                MonthCalendar(
+                    selectedDate = viewModel.selectedDate,
+                    hasSessions = viewModel::hasSessionsOn,
+                    onSelectDate = viewModel::selectDate,
+                    modifier = Modifier.padding(vertical = 8.dp),
+                )
+            } else {
+                // Day tabs — same expand/collapse pills as the weekly plan; a dot marks days with slots.
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 8.dp)) {
+                    val gap = 6.dp
+                    val inactiveW = 34.dp
+                    val activeW = (maxWidth - inactiveW * 6 - gap * 6).coerceAtLeast(72.dp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(gap), modifier = Modifier.fillMaxWidth()) {
+                        viewModel.weekDays.forEach { day ->
+                            DayTabPill(
+                                day = day.dayOfWeek,
+                                isActive = day.dayOfWeek == viewModel.selectedDay,
+                                hasExercises = viewModel.hasSlots(day.dayOfWeek),
+                                activeWidth = activeW,
+                                inactiveWidth = inactiveW,
+                                onClick = { viewModel.goToDay(day) },
+                            )
+                        }
                     }
                 }
             }
@@ -172,11 +190,13 @@ fun CoachAvailabilityScreen(
                 }
             }
 
-            WeekNavigationBar(
-                weekRange = formattedWeekRange(viewModel.weekStart),
-                onPrevious = viewModel::goToPreviousWeek,
-                onNext = viewModel::goToNextWeek,
-            )
+            if (!calendarMode) {
+                WeekNavigationBar(
+                    weekRange = formattedWeekRange(viewModel.weekStart),
+                    onPrevious = viewModel::goToPreviousWeek,
+                    onNext = viewModel::goToNextWeek,
+                )
+            }
         }
         SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp))
     }

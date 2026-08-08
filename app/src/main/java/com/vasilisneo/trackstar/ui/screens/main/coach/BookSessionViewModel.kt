@@ -60,6 +60,14 @@ class BookSessionViewModel(
     fun goToNextWeek() { weekStart = weekStart.plusWeeks(1) }
     fun clearError() { errorMessage = null }
 
+    // Select an arbitrary date (from the calendar view); keeps week + day in sync.
+    fun selectDate(date: LocalDate) {
+        weekStart = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        selectedDay = date.dayOfWeek
+    }
+
+    fun hasSessionsOn(date: LocalDate): Boolean = available.any { it.date == date.toString() }
+
     val myBookings: List<SlotResponse>
         get() = available.filter { it.bookedByMe }
 

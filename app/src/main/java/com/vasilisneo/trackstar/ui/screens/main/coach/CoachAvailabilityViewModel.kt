@@ -60,6 +60,15 @@ class CoachAvailabilityViewModel(
     fun goToNextWeek() { weekStart = weekStart.plusWeeks(1) }
     fun clearError() { errorMessage = null }
 
+    // Select an arbitrary date (from the calendar view); keeps week + day in sync so the week view
+    // reflects the same choice when toggled back.
+    fun selectDate(date: LocalDate) {
+        weekStart = date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        selectedDay = date.dayOfWeek
+    }
+
+    fun hasSessionsOn(date: LocalDate): Boolean = slots.any { it.date == date.toString() }
+
     init { fetch() }
 
     fun fetch() {
