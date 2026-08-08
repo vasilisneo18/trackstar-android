@@ -143,6 +143,7 @@ fun MainAppScreen(
                     onProfileClick = onProfileClick,
                     onScheduleWorkout = onScheduleWorkout,
                     onBookSession = onOpenBookSession,
+                    isCoach = isCoach,
                     onStartSession = { date, sessionId -> startSession(date, sessionId) },
                     onQuickLog = { date, sessionId -> quickLog = QuickLogViewModel(date, sessionId) },
                     activeSession = activeSession,

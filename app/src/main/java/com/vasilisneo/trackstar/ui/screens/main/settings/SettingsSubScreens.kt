@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -110,6 +111,7 @@ fun NotificationsScreen(onBackClick: () -> Unit = {}) {
 @Composable
 fun AppSettingsScreen(onBackClick: () -> Unit = {}) {
     var showDietTab by rememberBooleanPref("showDietTab", true)
+    var sessionBooking by rememberBooleanPref(com.vasilisneo.trackstar.ui.util.PREF_SESSION_BOOKING, true)
     var restTimerSound by rememberBooleanPref("restTimerSound", true)
     var useMetric by rememberBooleanPref("useMetricUnits", true)
 
@@ -118,6 +120,8 @@ fun AppSettingsScreen(onBackClick: () -> Unit = {}) {
             SettingsSectionHeader("General")
             SettingsGroup {
                 SettingsToggleRow(Icons.Filled.Restaurant, "Show Diet Tab", showDietTab) { showDietTab = it }
+                SettingsRowDivider()
+                SettingsToggleRow(Icons.Filled.EventAvailable, "Session Booking", sessionBooking) { sessionBooking = it }
                 SettingsRowDivider()
                 // Units row: two-line label + toggles Metric/Imperial on tap
                 Row(

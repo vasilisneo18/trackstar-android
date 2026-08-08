@@ -92,6 +92,7 @@ fun WorkoutScreen(
     onProfileClick: () -> Unit = {},
     onScheduleWorkout: () -> Unit = {},
     onBookSession: () -> Unit = {},
+    isCoach: Boolean = false,
     onStartSession: (date: LocalDate, sessionId: String) -> Unit = { _, _ -> },
     onQuickLog: (date: LocalDate, sessionId: String) -> Unit = { _, _ -> },
     activeSession: ActiveSessionViewModel? = null,
@@ -269,17 +270,24 @@ fun WorkoutScreen(
             ) {
                 ProfileAvatarButton(initials = viewModel.userInitials, onClick = onProfileClick)
                 Spacer(modifier = Modifier.weight(1f))
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.15f))
-                        .clickable(onClick = onBookSession),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Filled.EventAvailable, contentDescription = "Book a session", tint = Color.White, modifier = Modifier.size(18.dp))
+                // Book a session: only for athletes (a coach has no coach to book with) and only when
+                // the Session Booking feature is enabled in Settings.
+                val bookingEnabled = com.vasilisneo.trackstar.ui.util.rememberResumingBooleanPref(
+                    com.vasilisneo.trackstar.ui.util.PREF_SESSION_BOOKING, true,
+                )
+                if (bookingEnabled && !isCoach) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.15f))
+                            .clickable(onClick = onBookSession),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Filled.EventAvailable, contentDescription = "Book a session", tint = Color.White, modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(modifier = Modifier.width(10.dp))
                 }
-                Spacer(modifier = Modifier.width(10.dp))
                 Box(
                     modifier = Modifier
                         .size(44.dp)
