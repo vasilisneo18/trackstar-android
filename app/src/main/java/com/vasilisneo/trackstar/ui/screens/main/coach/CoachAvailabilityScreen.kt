@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -25,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Edit
@@ -308,6 +310,7 @@ private fun CoachSlotCard(
     onDeletePermanently: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
+    var showAttendees by remember { mutableStateOf(false) }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardFill).padding(16.dp),
@@ -322,22 +325,23 @@ private fun CoachSlotCard(
                 fontSize = 12.sp, color = TrackstarAccent, modifier = Modifier.padding(top = 4.dp),
             )
 
-            // Who booked — one row per attendee with an initials avatar, or a hint when nobody has yet.
+            // Who booked — a single summary line ("Kostas and 3 others"); tap to open the full list.
             Spacer(Modifier.height(12.dp))
             if (attendees.isEmpty()) {
                 Text("No bookings yet", fontSize = 12.sp, color = Color.White.copy(alpha = 0.35f))
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    attendees.forEach { name ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier.size(26.dp).clip(CircleShape).background(TrackstarAccent.copy(alpha = 0.9f)),
-                                contentAlignment = Alignment.Center,
-                            ) { Text(initials(name), fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White) }
-                            Spacer(Modifier.width(10.dp))
-                            Text(name, fontSize = 13.sp, color = Color.White.copy(alpha = 0.85f))
-                        }
-                    }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { showAttendees = true }
+                        .padding(vertical = 2.dp),
+                ) {
+                    Box(
+                        modifier = Modifier.size(24.dp).clip(CircleShape).background(TrackstarAccent.copy(alpha = 0.9f)),
+                        contentAlignment = Alignment.Center,
+                    ) { Text(initials(attendees.first()), fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White) }
+                    Spacer(Modifier.width(8.dp))
+                    Text(attendeesSummary(attendees), fontSize = 13.sp, color = Color.White.copy(alpha = 0.85f))
+                    Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Color.White.copy(alpha = 0.4f), modifier = Modifier.size(18.dp))
                 }
             }
         }
@@ -367,6 +371,43 @@ private fun CoachSlotCard(
                     leadingIcon = { Icon(Icons.Filled.DeleteOutline, null, tint = Color(0xFFE5484D)) },
                     onClick = { menuOpen = false; onDeletePermanently() },
                 )
+            }
+        }
+    }
+
+    if (showAttendees) AttendeesSheet(names = attendees, onDismiss = { showAttendees = false })
+}
+
+// ["Jane Doe", "Bob Fox", "Al Roy"] -> "Jane and 2 others"; single -> "Jane".
+private fun attendeesSummary(names: List<String>): String {
+    val first = names.first().trim().substringBefore(' ').ifBlank { names.first() }
+    val rest = names.size - 1
+    return if (rest <= 0) first else "$first and $rest other${if (rest == 1) "" else "s"}"
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AttendeesSheet(names: List<String>, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = com.vasilisneo.trackstar.ui.theme.TrackstarSurface) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 20.dp).navigationBarsPadding().padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Booked · ${names.size}", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp),
+            ) {
+                items(names) { name ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier.size(30.dp).clip(CircleShape).background(TrackstarAccent.copy(alpha = 0.9f)),
+                            contentAlignment = Alignment.Center,
+                        ) { Text(initials(name), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White) }
+                        Spacer(Modifier.width(12.dp))
+                        Text(name, fontSize = 15.sp, color = Color.White.copy(alpha = 0.9f))
+                    }
+                }
             }
         }
     }
