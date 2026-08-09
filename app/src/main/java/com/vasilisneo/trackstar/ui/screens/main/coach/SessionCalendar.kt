@@ -1,6 +1,7 @@
 package com.vasilisneo.trackstar.ui.screens.main.coach
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -114,7 +115,9 @@ private fun DayCell(date: LocalDate, selected: Boolean, isToday: Boolean, count:
     ) {
         Box(
             modifier = Modifier.size(38.dp).clip(CircleShape)
-                .background(if (selected) TrackstarAccent else Color.Transparent),
+                .background(if (selected) TrackstarAccent else Color.Transparent)
+                // Today gets an accent ring when it isn't the selected (filled) day.
+                .then(if (isToday && !selected) Modifier.border(1.5.dp, TrackstarAccent, CircleShape) else Modifier),
             contentAlignment = Alignment.Center,
         ) {
             Text(
