@@ -22,7 +22,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.MoreVert
@@ -249,14 +248,11 @@ private fun AthleteSessionRow(slot: SlotResponse, busy: Boolean, onBook: () -> U
 
 @Composable
 private fun ShowMoreBookButton(text: String, onClick: () -> Unit) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.08f))
-            .clickable(onClick = onClick).padding(vertical = 12.dp),
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp),
     ) {
         Text(text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TrackstarAccent)
-        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = TrackstarAccent, modifier = Modifier.size(18.dp))
     }
 }
 
