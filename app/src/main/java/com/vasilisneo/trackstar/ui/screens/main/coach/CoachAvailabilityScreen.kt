@@ -132,13 +132,15 @@ fun CoachAvailabilityScreen(
                         Text("No sessions on ${prettyDate(viewModel.selectedDate.toString())}.",
                             fontSize = 13.sp, color = Color.White.copy(alpha = 0.4f), modifier = Modifier.padding(top = 12.dp))
                     } else {
-                        CoachSessionRow(
-                            slot = daySlots.first(),
-                            onEdit = { editing = daySlots.first() },
-                            onCancel = { cancelling = daySlots.first() },
-                            onDeletePermanently = { deletingSeries = daySlots.first() },
-                        )
-                        if (daySlots.size > 1) {
+                        daySlots.take(2).forEach { slot ->
+                            CoachSessionRow(
+                                slot = slot,
+                                onEdit = { editing = slot },
+                                onCancel = { cancelling = slot },
+                                onDeletePermanently = { deletingSeries = slot },
+                            )
+                        }
+                        if (daySlots.size > 2) {
                             ShowMoreButton("Show all ${daySlots.size} sessions") { showDaySheet = true }
                         }
                     }

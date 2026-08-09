@@ -114,13 +114,15 @@ fun BookSessionScreen(
                         Text("No sessions on ${prettyBookDate(viewModel.selectedDate.toString())}.",
                             fontSize = 13.sp, color = Color.White.copy(alpha = 0.4f), modifier = Modifier.padding(top = 12.dp))
                     } else {
-                        AthleteSessionRow(
-                            slot = daySlots.first(),
-                            busy = viewModel.busySlotId == daySlots.first().id,
-                            onBook = { viewModel.book(daySlots.first().id) },
-                            onWithdraw = { withdrawing = daySlots.first() },
-                        )
-                        if (daySlots.size > 1) {
+                        daySlots.take(2).forEach { slot ->
+                            AthleteSessionRow(
+                                slot = slot,
+                                busy = viewModel.busySlotId == slot.id,
+                                onBook = { viewModel.book(slot.id) },
+                                onWithdraw = { withdrawing = slot },
+                            )
+                        }
+                        if (daySlots.size > 2) {
                             ShowMoreBookButton("Show all ${daySlots.size} sessions") { showDaySheet = true }
                         }
                     }
