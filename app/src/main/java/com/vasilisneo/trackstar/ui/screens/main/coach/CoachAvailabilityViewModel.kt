@@ -67,7 +67,7 @@ class CoachAvailabilityViewModel(
         selectedDay = date.dayOfWeek
     }
 
-    fun hasSessionsOn(date: LocalDate): Boolean = slots.any { it.date == date.toString() }
+    fun sessionCountOn(date: LocalDate): Int = slots.count { it.date == date.toString() }
 
     init { fetch() }
 

@@ -37,12 +37,13 @@ import java.time.YearMonth
 import java.time.format.TextStyle
 import java.util.Locale
 
-// A month grid that marks days with sessions (a dot) and highlights the selected day. Month navigation
-// is self-contained; picking a day calls onSelectDate. Shared by the coach and athlete booking screens.
+// A month grid that shows each day's session count and highlights the selected day. Month navigation
+// is self-contained; tapping a day calls onSelectDate (which opens that day). Shared by the coach and
+// athlete booking screens.
 @Composable
 internal fun MonthCalendar(
     selectedDate: LocalDate,
-    hasSessions: (LocalDate) -> Boolean,
+    sessionCount: (LocalDate) -> Int,
     onSelectDate: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -91,7 +92,7 @@ internal fun MonthCalendar(
                             date = date,
                             selected = date == selectedDate,
                             isToday = date == today,
-                            hasSessions = hasSessions(date),
+                            count = sessionCount(date),
                             onClick = { onSelectDate(date) },
                         )
                     }
@@ -102,7 +103,7 @@ internal fun MonthCalendar(
 }
 
 @Composable
-private fun DayCell(date: LocalDate, selected: Boolean, isToday: Boolean, hasSessions: Boolean, onClick: () -> Unit) {
+private fun DayCell(date: LocalDate, selected: Boolean, isToday: Boolean, count: Int, onClick: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.clip(CircleShape).clickable(onClick = onClick).padding(vertical = 2.dp),
@@ -123,10 +124,15 @@ private fun DayCell(date: LocalDate, selected: Boolean, isToday: Boolean, hasSes
                 },
             )
         }
-        // Session dot (reserve the row height either way so weeks stay aligned).
-        Box(
-            modifier = Modifier.padding(top = 1.dp).size(5.dp).clip(CircleShape)
-                .background(if (hasSessions) (if (selected) Color.White else TrackstarAccent) else Color.Transparent),
-        )
+        // Session count (reserve the row height either way so weeks stay aligned).
+        Box(modifier = Modifier.height(13.dp), contentAlignment = Alignment.Center) {
+            if (count > 0) {
+                Text(
+                    "$count",
+                    fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                    color = if (selected) Color.White else TrackstarAccent,
+                )
+            }
+        }
     }
 }

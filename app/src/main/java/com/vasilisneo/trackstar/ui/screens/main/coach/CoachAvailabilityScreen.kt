@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
@@ -87,6 +88,7 @@ fun CoachAvailabilityScreen(
     var cancelling by remember { mutableStateOf<SlotResponse?>(null) }
     var deletingSeries by remember { mutableStateOf<SlotResponse?>(null) }
     var calendarMode by remember { mutableStateOf(false) }
+    var dayDetail by remember { mutableStateOf<java.time.LocalDate?>(null) } // opened day within calendar mode
 
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(viewModel.errorMessage) {
@@ -104,27 +106,43 @@ fun CoachAvailabilityScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                GlassCircleIconButton(onClick = onBack, icon = Icons.Filled.Close, contentDescription = "Close")
+                if (dayDetail != null) {
+                    GlassCircleIconButton(onClick = { dayDetail = null }, icon = Icons.Filled.ChevronLeft, contentDescription = "Back to calendar")
+                } else {
+                    GlassCircleIconButton(onClick = onBack, icon = Icons.Filled.Close, contentDescription = "Close")
+                }
                 Spacer(Modifier.weight(1f))
-                GlassCircleIconButton(
-                    onClick = { calendarMode = !calendarMode },
-                    icon = if (calendarMode) Icons.Filled.ViewWeek else Icons.Filled.CalendarMonth,
-                    contentDescription = if (calendarMode) "Week view" else "Calendar view",
-                )
-                Spacer(Modifier.width(10.dp))
+                if (dayDetail == null) {
+                    GlassCircleIconButton(
+                        onClick = { calendarMode = !calendarMode },
+                        icon = if (calendarMode) Icons.Filled.ViewWeek else Icons.Filled.CalendarMonth,
+                        contentDescription = if (calendarMode) "Week view" else "Calendar view",
+                    )
+                    Spacer(Modifier.width(10.dp))
+                }
                 GlassCircleIconButton(onClick = { showAdd = true }, icon = Icons.Filled.Add, contentDescription = "Add session")
             }
-            Text("Availability", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+            Text(
+                if (dayDetail != null) prettyDate(dayDetail.toString()) else "Availability",
+                fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+            )
 
-            if (calendarMode) {
+            // Calendar (month grid) — shown only in calendar mode before a day is opened.
+            if (calendarMode && dayDetail == null) {
                 MonthCalendar(
                     selectedDate = viewModel.selectedDate,
-                    hasSessions = viewModel::hasSessionsOn,
-                    onSelectDate = viewModel::selectDate,
+                    sessionCount = viewModel::sessionCountOn,
+                    onSelectDate = { date -> viewModel.selectDate(date); dayDetail = date },
                     modifier = Modifier.padding(vertical = 2.dp),
                 )
-            } else {
+                Text(
+                    "Tap a day to see its sessions.",
+                    fontSize = 13.sp, color = Color.White.copy(alpha = 0.35f),
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                )
+                Spacer(Modifier.weight(1f))
+            } else if (!calendarMode) {
                 // Day tabs — same expand/collapse pills as the weekly plan; a dot marks days with slots.
                 BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 8.dp)) {
                     val gap = 6.dp
@@ -145,10 +163,12 @@ fun CoachAvailabilityScreen(
                 }
             }
 
+            // Session list — week mode, or the opened day in calendar mode.
             val daySlots = viewModel.slotsForSelectedDay
             when {
+                calendarMode && dayDetail == null -> Unit // calendar fills the space above
                 viewModel.isLoading && viewModel.slots.isEmpty() ->
-                    Box(Modifier.fillMaxSize(), Alignment.Center) { CircularProgressIndicator(color = TrackstarAccent) }
+                    Box(Modifier.weight(1f).fillMaxWidth(), Alignment.Center) { CircularProgressIndicator(color = TrackstarAccent) }
                 else -> LazyColumn(
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(18.dp),

@@ -66,7 +66,7 @@ class BookSessionViewModel(
         selectedDay = date.dayOfWeek
     }
 
-    fun hasSessionsOn(date: LocalDate): Boolean = available.any { it.date == date.toString() }
+    fun sessionCountOn(date: LocalDate): Int = available.count { it.date == date.toString() }
 
     val myBookings: List<SlotResponse>
         get() = available.filter { it.bookedByMe }
