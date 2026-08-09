@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -53,19 +52,23 @@ internal fun MonthCalendar(
     val today = LocalDate.now()
 
     Column(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-        // Month header with prev/next arrows.
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Box(modifier = Modifier.size(32.dp).clip(CircleShape).clickable { month = month.minusMonths(1) }, contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous month", tint = Color.White, modifier = Modifier.size(20.dp))
+        // Month header — chevrons sit in the first/last of 7 equal columns so they line up under the
+        // Monday and Sunday day-number columns; the title fills the middle five.
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.size(34.dp).clip(CircleShape).clickable { month = month.minusMonths(1) }, contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous month", tint = Color.White, modifier = Modifier.size(22.dp))
+                }
             }
-            Spacer(Modifier.weight(1f))
             Text(
                 "${month.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${month.year}",
-                fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White,
+                fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = Color.White,
+                textAlign = TextAlign.Center, modifier = Modifier.weight(5f),
             )
-            Spacer(Modifier.weight(1f))
-            Box(modifier = Modifier.size(32.dp).clip(CircleShape).clickable { month = month.plusMonths(1) }, contentAlignment = Alignment.Center) {
-                Icon(Icons.Filled.ChevronRight, contentDescription = "Next month", tint = Color.White, modifier = Modifier.size(20.dp))
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.size(34.dp).clip(CircleShape).clickable { month = month.plusMonths(1) }, contentAlignment = Alignment.Center) {
+                    Icon(Icons.Filled.ChevronRight, contentDescription = "Next month", tint = Color.White, modifier = Modifier.size(22.dp))
+                }
             }
         }
 
@@ -109,13 +112,13 @@ private fun DayCell(date: LocalDate, selected: Boolean, isToday: Boolean, count:
         modifier = Modifier.clip(CircleShape).clickable(onClick = onClick).padding(vertical = 2.dp),
     ) {
         Box(
-            modifier = Modifier.size(30.dp).clip(CircleShape)
+            modifier = Modifier.size(38.dp).clip(CircleShape)
                 .background(if (selected) TrackstarAccent else Color.Transparent),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 "${date.dayOfMonth}",
-                fontSize = 14.sp,
+                fontSize = 15.sp,
                 fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
                 color = when {
                     selected -> Color.White
@@ -124,14 +127,11 @@ private fun DayCell(date: LocalDate, selected: Boolean, isToday: Boolean, count:
                 },
             )
         }
-        // Session dot — accent on normal days, white on the selected (accent) day so it stays visible.
-        // Row height is reserved either way so weeks stay aligned.
+        // Session dot — only on unselected days (the selected day's circle already stands out). Row
+        // height is reserved either way so weeks stay aligned.
         Box(modifier = Modifier.height(10.dp), contentAlignment = Alignment.Center) {
-            if (count > 0) {
-                Box(
-                    modifier = Modifier.size(6.dp).clip(CircleShape)
-                        .background(if (selected) Color.White else TrackstarAccent),
-                )
+            if (count > 0 && !selected) {
+                Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(TrackstarAccent))
             }
         }
     }

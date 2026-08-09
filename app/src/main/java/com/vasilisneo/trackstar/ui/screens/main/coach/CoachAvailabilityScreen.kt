@@ -115,7 +115,7 @@ fun CoachAvailabilityScreen(
                 Spacer(Modifier.width(10.dp))
                 GlassCircleIconButton(onClick = { showAdd = true }, icon = Icons.Filled.Add, contentDescription = "Add session")
             }
-            Text("Availability", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White,
+            Text("Schedule", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
 
             val daySlots = viewModel.slotsForSelectedDay

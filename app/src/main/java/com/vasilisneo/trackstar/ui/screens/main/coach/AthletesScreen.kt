@@ -138,7 +138,7 @@ fun AthletesScreen(
                     Spacer(modifier = Modifier.weight(1f))
                     // Availability (offer session booking) — only when the coach has booking enabled.
                     if (showAvailability) {
-                        GlassCircleIconButton(onClick = onShowAvailability, contentDescription = "Availability", icon = Icons.Filled.CalendarMonth)
+                        GlassCircleIconButton(onClick = onShowAvailability, contentDescription = "Schedule", icon = Icons.Filled.CalendarMonth)
                         Spacer(modifier = Modifier.size(10.dp))
                     }
                     GlassCircleIconButton(onClick = onShowTemplates, contentDescription = "Templates", icon = Icons.Filled.ContentCopy)
