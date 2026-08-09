@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -52,23 +53,21 @@ internal fun MonthCalendar(
     val today = LocalDate.now()
 
     Column(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-        // Month header — chevrons sit in the first/last of 7 equal columns so they line up under the
-        // Monday and Sunday day-number columns; the title fills the middle five.
+        // Month header — chevrons sit flush with the calendar's left/right edges so they line up with
+        // the screen's horizontal padding (cards, day grid); the title is centered between them.
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                Box(modifier = Modifier.size(34.dp).clip(CircleShape).clickable { month = month.minusMonths(1) }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous month", tint = Color.White, modifier = Modifier.size(22.dp))
-                }
+            Box(modifier = Modifier.size(34.dp).clip(CircleShape).clickable { month = month.minusMonths(1) }, contentAlignment = Alignment.CenterStart) {
+                Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous month", tint = Color.White, modifier = Modifier.size(24.dp))
             }
+            Spacer(Modifier.weight(1f))
             Text(
                 "${month.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${month.year}",
                 fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = Color.White,
-                textAlign = TextAlign.Center, modifier = Modifier.weight(5f),
+                textAlign = TextAlign.Center,
             )
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                Box(modifier = Modifier.size(34.dp).clip(CircleShape).clickable { month = month.plusMonths(1) }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.ChevronRight, contentDescription = "Next month", tint = Color.White, modifier = Modifier.size(22.dp))
-                }
+            Spacer(Modifier.weight(1f))
+            Box(modifier = Modifier.size(34.dp).clip(CircleShape).clickable { month = month.plusMonths(1) }, contentAlignment = Alignment.CenterEnd) {
+                Icon(Icons.Filled.ChevronRight, contentDescription = "Next month", tint = Color.White, modifier = Modifier.size(24.dp))
             }
         }
 
