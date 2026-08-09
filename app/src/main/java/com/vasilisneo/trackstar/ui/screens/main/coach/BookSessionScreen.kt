@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -20,7 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.MoreVert
@@ -29,7 +31,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -68,7 +72,7 @@ fun BookSessionScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var withdrawing by remember { mutableStateOf<SlotResponse?>(null) }
     var calendarMode by remember { mutableStateOf(false) }
-    var dayDetail by remember { mutableStateOf<java.time.LocalDate?>(null) } // opened day within calendar mode
+    var showDaySheet by remember { mutableStateOf(false) } // "show all" for the selected day in calendar mode
     LaunchedEffect(viewModel.errorMessage) {
         viewModel.errorMessage?.let { snackbarHostState.showSnackbar(it); viewModel.clearError() }
     }
@@ -86,41 +90,44 @@ fun BookSessionScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
-                if (dayDetail != null) {
-                    GlassCircleIconButton(onClick = { dayDetail = null }, icon = Icons.Filled.ChevronLeft, contentDescription = "Back to calendar")
-                } else {
-                    GlassCircleIconButton(onClick = onBack, icon = Icons.Filled.Close, contentDescription = "Close")
-                }
+                GlassCircleIconButton(onClick = onBack, icon = Icons.Filled.Close, contentDescription = "Close")
                 Spacer(Modifier.weight(1f))
-                if (dayDetail == null) {
-                    GlassCircleIconButton(
-                        onClick = { calendarMode = !calendarMode },
-                        icon = if (calendarMode) Icons.Filled.ViewWeek else Icons.Filled.CalendarMonth,
-                        contentDescription = if (calendarMode) "Week view" else "Calendar view",
-                    )
-                }
+                GlassCircleIconButton(
+                    onClick = { calendarMode = !calendarMode },
+                    icon = if (calendarMode) Icons.Filled.ViewWeek else Icons.Filled.CalendarMonth,
+                    contentDescription = if (calendarMode) "Week view" else "Calendar view",
+                )
             }
-            Text(
-                if (dayDetail != null) prettyBookDate(dayDetail.toString()) else "Book a Session",
-                fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-            )
+            Text("Book a Session", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
 
-            // Calendar (month grid) — shown only in calendar mode before a day is opened.
-            if (calendarMode && dayDetail == null) {
+            val daySlots = viewModel.slotsForSelectedDay
+            if (calendarMode) {
                 MonthCalendar(
                     selectedDate = viewModel.selectedDate,
                     sessionCount = viewModel::sessionCountOn,
-                    onSelectDate = { date -> viewModel.selectDate(date); dayDetail = date },
+                    onSelectDate = viewModel::selectDate,
                     modifier = Modifier.padding(vertical = 2.dp),
                 )
-                Text(
-                    "Tap a day to see its sessions.",
-                    fontSize = 13.sp, color = Color.White.copy(alpha = 0.35f),
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                )
+                // The selected day's first session below the calendar; "show all" opens the rest in a sheet.
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (daySlots.isEmpty()) {
+                        Text("No sessions on ${prettyBookDate(viewModel.selectedDate.toString())}.",
+                            fontSize = 13.sp, color = Color.White.copy(alpha = 0.4f), modifier = Modifier.padding(top = 12.dp))
+                    } else {
+                        AthleteSessionRow(
+                            slot = daySlots.first(),
+                            busy = viewModel.busySlotId == daySlots.first().id,
+                            onBook = { viewModel.book(daySlots.first().id) },
+                            onWithdraw = { withdrawing = daySlots.first() },
+                        )
+                        if (daySlots.size > 1) {
+                            ShowMoreBookButton("Show all ${daySlots.size} sessions") { showDaySheet = true }
+                        }
+                    }
+                }
                 Spacer(Modifier.weight(1f))
-            } else if (!calendarMode) {
+            } else {
                 // Day tabs — same expand/collapse pills as the weekly plan; a dot marks days with sessions.
                 BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 8.dp)) {
                     val gap = 6.dp
@@ -139,42 +146,31 @@ fun BookSessionScreen(
                         }
                     }
                 }
-            }
 
-            val daySlots = viewModel.slotsForSelectedDay
-            when {
-                calendarMode && dayDetail == null -> Unit // calendar fills the space above
-                viewModel.isLoading && viewModel.available.isEmpty() ->
-                    Box(Modifier.weight(1f).fillMaxWidth(), Alignment.Center) { CircularProgressIndicator(color = TrackstarAccent) }
-                else -> LazyColumn(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    if (daySlots.isEmpty()) {
-                        item {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(12.dp),
-                                modifier = Modifier.fillMaxWidth().padding(top = 60.dp),
-                            ) {
-                                Icon(Icons.Filled.EventBusy, contentDescription = null, tint = Color.White.copy(alpha = 0.2f), modifier = Modifier.size(46.dp))
-                                Text("No sessions", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.5f))
-                                Text("Your coach has no availability this day.", fontSize = 13.sp,
-                                    color = Color.White.copy(alpha = 0.3f), textAlign = TextAlign.Center)
+                when {
+                    viewModel.isLoading && viewModel.available.isEmpty() ->
+                        Box(Modifier.weight(1f).fillMaxWidth(), Alignment.Center) { CircularProgressIndicator(color = TrackstarAccent) }
+                    else -> LazyColumn(
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(18.dp),
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        if (daySlots.isEmpty()) {
+                            item {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                                    modifier = Modifier.fillMaxWidth().padding(top = 60.dp),
+                                ) {
+                                    Icon(Icons.Filled.EventBusy, contentDescription = null, tint = Color.White.copy(alpha = 0.2f), modifier = Modifier.size(46.dp))
+                                    Text("No sessions", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.5f))
+                                    Text("Your coach has no availability this day.", fontSize = 13.sp,
+                                        color = Color.White.copy(alpha = 0.3f), textAlign = TextAlign.Center)
+                                }
                             }
                         }
-                    }
-                    items(daySlots, key = { it.id }) { slot ->
-                        Column {
-                            // Time as a section label above the card, matching the coach screen.
-                            Text(
-                                "${displayTime(slot.startTime)} – ${displayTime(slot.endTime)}",
-                                fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                                color = Color.White.copy(alpha = 0.55f),
-                                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
-                            )
-                            AthleteSlotCard(
+                        items(daySlots, key = { it.id }) { slot ->
+                            AthleteSessionRow(
                                 slot = slot,
                                 busy = viewModel.busySlotId == slot.id,
                                 onBook = { viewModel.book(slot.id) },
@@ -194,6 +190,17 @@ fun BookSessionScreen(
             }
         }
         SnackbarHost(snackbarHostState, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 96.dp))
+    }
+
+    if (showDaySheet) {
+        AthleteDaySessionsSheet(
+            title = prettyBookDate(viewModel.selectedDate.toString()),
+            slots = viewModel.slotsForSelectedDay,
+            busySlotId = viewModel.busySlotId,
+            onBook = { viewModel.book(it.id) },
+            onWithdraw = { showDaySheet = false; withdrawing = it },
+            onDismiss = { showDaySheet = false },
+        )
     }
 
     withdrawing?.let { slot ->
@@ -224,6 +231,67 @@ fun BookSessionScreen(
 private fun prettyBookDate(iso: String): String = runCatching {
     java.time.LocalDate.parse(iso).format(java.time.format.DateTimeFormatter.ofPattern("EEE, d MMM"))
 }.getOrDefault(iso)
+
+// Time label + athlete session card — one session block, reused in the week list, the calendar
+// summary, and the "show all" day sheet.
+@Composable
+private fun AthleteSessionRow(slot: SlotResponse, busy: Boolean, onBook: () -> Unit, onWithdraw: () -> Unit) {
+    Column {
+        Text(
+            "${displayTime(slot.startTime)} – ${displayTime(slot.endTime)}",
+            fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+            color = Color.White.copy(alpha = 0.55f),
+            modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
+        )
+        AthleteSlotCard(slot = slot, busy = busy, onBook = onBook, onWithdraw = onWithdraw)
+    }
+}
+
+@Composable
+private fun ShowMoreBookButton(text: String, onClick: () -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.08f))
+            .clickable(onClick = onClick).padding(vertical = 12.dp),
+    ) {
+        Text(text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = TrackstarAccent)
+        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = TrackstarAccent, modifier = Modifier.size(18.dp))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AthleteDaySessionsSheet(
+    title: String,
+    slots: List<SlotResponse>,
+    busySlotId: String?,
+    onBook: (SlotResponse) -> Unit,
+    onWithdraw: (SlotResponse) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = com.vasilisneo.trackstar.ui.theme.TrackstarSurface) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp).navigationBarsPadding().padding(bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(start = 4.dp))
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp),
+            ) {
+                items(slots, key = { it.id }) { slot ->
+                    AthleteSessionRow(
+                        slot = slot,
+                        busy = busySlotId == slot.id,
+                        onBook = { onBook(slot) },
+                        onWithdraw = { onWithdraw(slot) },
+                    )
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun AthleteSlotCard(slot: SlotResponse, busy: Boolean, onBook: () -> Unit, onWithdraw: () -> Unit) {

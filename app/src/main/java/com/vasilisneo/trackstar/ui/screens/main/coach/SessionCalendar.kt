@@ -124,13 +124,13 @@ private fun DayCell(date: LocalDate, selected: Boolean, isToday: Boolean, count:
                 },
             )
         }
-        // Session count (reserve the row height either way so weeks stay aligned).
-        Box(modifier = Modifier.height(13.dp), contentAlignment = Alignment.Center) {
+        // Session dot — accent on normal days, white on the selected (accent) day so it stays visible.
+        // Row height is reserved either way so weeks stay aligned.
+        Box(modifier = Modifier.height(10.dp), contentAlignment = Alignment.Center) {
             if (count > 0) {
-                Text(
-                    "$count",
-                    fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                    color = if (selected) Color.White else TrackstarAccent,
+                Box(
+                    modifier = Modifier.size(6.dp).clip(CircleShape)
+                        .background(if (selected) Color.White else TrackstarAccent),
                 )
             }
         }
