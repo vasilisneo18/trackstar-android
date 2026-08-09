@@ -6,11 +6,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
@@ -52,32 +52,32 @@ internal fun MonthCalendar(
     var month by remember { mutableStateOf(YearMonth.from(selectedDate)) }
     val today = LocalDate.now()
 
+    // Fixed-width cells spaced apart (SpaceBetween) — the first/last column sit flush at the 16dp
+    // horizontal padding, matching the cards and title, instead of centered numbers being inset.
+    val cell = 40.dp
     Column(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-        // Month header — each chevron fills the first/last of 7 equal columns and centers, so it sits
-        // directly above the Monday and Sunday day-number columns; the title fills the middle five.
+        // Month header — chevrons are cell-width boxes at the row's start/end, so they line up with
+        // the first/last day column (and the left content edge); the title fills the middle.
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                Box(modifier = Modifier.size(34.dp).clip(CircleShape).clickable { month = month.minusMonths(1) }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous month", tint = Color.White, modifier = Modifier.size(24.dp))
-                }
+            Box(Modifier.width(cell).height(40.dp).clip(CircleShape).clickable { month = month.minusMonths(1) }, contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous month", tint = Color.White, modifier = Modifier.size(24.dp))
             }
             Text(
                 "${month.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${month.year}",
                 fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = Color.White,
-                textAlign = TextAlign.Center, modifier = Modifier.weight(5f),
+                textAlign = TextAlign.Center, modifier = Modifier.weight(1f),
             )
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                Box(modifier = Modifier.size(34.dp).clip(CircleShape).clickable { month = month.plusMonths(1) }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.ChevronRight, contentDescription = "Next month", tint = Color.White, modifier = Modifier.size(24.dp))
-                }
+            Box(Modifier.width(cell).height(40.dp).clip(CircleShape).clickable { month = month.plusMonths(1) }, contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.ChevronRight, contentDescription = "Next month", tint = Color.White, modifier = Modifier.size(24.dp))
             }
         }
 
-        // Weekday labels (Monday-first, matching the day tabs).
-        Row(Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 2.dp)) {
+        // Weekday labels (Monday-first) — same fixed cells + SpaceBetween as the grid, so labels sit
+        // above their day columns.
+        Row(Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 2.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             listOf("M", "T", "W", "T", "F", "S", "S").forEach { d ->
                 Text(d, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.4f),
-                    textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+                    textAlign = TextAlign.Center, modifier = Modifier.width(cell))
             }
         }
 
@@ -89,9 +89,9 @@ internal fun MonthCalendar(
             while (size % 7 != 0) add(null)
         }
         cells.chunked(7).forEach { week ->
-            Row(Modifier.fillMaxWidth()) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 week.forEach { date ->
-                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    Box(Modifier.width(cell), contentAlignment = Alignment.Center) {
                         if (date != null) DayCell(
                             date = date,
                             selected = date == selectedDate,
