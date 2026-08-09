@@ -100,7 +100,7 @@ fun BookSessionScreen(
                     selectedDate = viewModel.selectedDate,
                     hasSessions = viewModel::hasSessionsOn,
                     onSelectDate = viewModel::selectDate,
-                    modifier = Modifier.padding(vertical = 8.dp),
+                    modifier = Modifier.padding(vertical = 2.dp),
                 )
             } else {
                 // Day tabs — same expand/collapse pills as the weekly plan; a dot marks days with sessions.

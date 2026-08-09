@@ -53,23 +53,23 @@ internal fun MonthCalendar(
 
     Column(modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         // Month header with prev/next arrows.
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-            Box(modifier = Modifier.size(36.dp).clip(CircleShape).clickable { month = month.minusMonths(1) }, contentAlignment = Alignment.Center) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Box(modifier = Modifier.size(32.dp).clip(CircleShape).clickable { month = month.minusMonths(1) }, contentAlignment = Alignment.Center) {
                 Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous month", tint = Color.White, modifier = Modifier.size(20.dp))
             }
             Spacer(Modifier.weight(1f))
             Text(
                 "${month.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${month.year}",
-                fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White,
+                fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White,
             )
             Spacer(Modifier.weight(1f))
-            Box(modifier = Modifier.size(36.dp).clip(CircleShape).clickable { month = month.plusMonths(1) }, contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.size(32.dp).clip(CircleShape).clickable { month = month.plusMonths(1) }, contentAlignment = Alignment.Center) {
                 Icon(Icons.Filled.ChevronRight, contentDescription = "Next month", tint = Color.White, modifier = Modifier.size(20.dp))
             }
         }
 
         // Weekday labels (Monday-first, matching the day tabs).
-        Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp)) {
+        Row(Modifier.fillMaxWidth().padding(top = 2.dp, bottom = 2.dp)) {
             listOf("M", "T", "W", "T", "F", "S", "S").forEach { d ->
                 Text(d, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.4f),
                     textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
@@ -105,10 +105,10 @@ internal fun MonthCalendar(
 private fun DayCell(date: LocalDate, selected: Boolean, isToday: Boolean, hasSessions: Boolean, onClick: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clip(CircleShape).clickable(onClick = onClick).padding(vertical = 5.dp),
+        modifier = Modifier.clip(CircleShape).clickable(onClick = onClick).padding(vertical = 2.dp),
     ) {
         Box(
-            modifier = Modifier.size(34.dp).clip(CircleShape)
+            modifier = Modifier.size(30.dp).clip(CircleShape)
                 .background(if (selected) TrackstarAccent else Color.Transparent),
             contentAlignment = Alignment.Center,
         ) {
@@ -125,7 +125,7 @@ private fun DayCell(date: LocalDate, selected: Boolean, isToday: Boolean, hasSes
         }
         // Session dot (reserve the row height either way so weeks stay aligned).
         Box(
-            modifier = Modifier.padding(top = 2.dp).size(5.dp).clip(CircleShape)
+            modifier = Modifier.padding(top = 1.dp).size(5.dp).clip(CircleShape)
                 .background(if (hasSessions) (if (selected) Color.White else TrackstarAccent) else Color.Transparent),
         )
     }
