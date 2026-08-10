@@ -47,6 +47,7 @@ data class UpdateProfileRequest(
     val weight: Double? = null,
     val targetWeight: Double? = null,
     val country: String? = null,
+    val role: String? = null,          // "athlete" | "coach"
     val notifyOnOpenSlot: Boolean? = null,
     val bookingEnabled: Boolean? = null,
 )

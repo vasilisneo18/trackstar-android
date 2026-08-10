@@ -76,10 +76,16 @@ data class PendingBookingTap(
     val person: String?,
 )
 
+// A first-time Google/Apple sign-in, staged to seed the onboarding flow with the prefilled name.
+data class SocialSignup(val firstName: String?, val lastName: String?)
+
 class MainActivity : ComponentActivity() {
     // Held at Activity scope so onNewIntent (link tapped while already running) can push into the
     // same Compose state the initial intent seeds. AcceptInviteSheet renders when this is set.
     private val pendingInvite = androidx.compose.runtime.mutableStateOf<PendingInvite?>(null)
+
+    // Staged when a new social user needs onboarding; seeds the shared RegisterViewModel.
+    private val pendingSocialSignup = androidx.compose.runtime.mutableStateOf<SocialSignup?>(null)
 
     // A tapped booking notification, staged for the composition to show a popup / navigate.
     private val pendingBooking = androidx.compose.runtime.mutableStateOf<PendingBookingTap?>(null)
@@ -143,7 +149,11 @@ class MainActivity : ComponentActivity() {
                                     navController.navigate("main") {
                                         popUpTo("landing") { inclusive = true }
                                     }
-                                }
+                                },
+                                onGoogleNewUser = { firstName, lastName ->
+                                    pendingSocialSignup.value = SocialSignup(firstName, lastName)
+                                    navController.navigate("social_onboarding")
+                                },
                             )
                         }
                         composable("forgot_password") {
@@ -514,6 +524,54 @@ class MainActivity : ComponentActivity() {
                                             }
                                         }
                                     }
+                                )
+                            }
+                        }
+
+                        // Onboarding for a first-time social (Google/Apple) user — they're already
+                        // authenticated, so it starts at personal details (name prefilled) and ends by
+                        // saving the profile, not creating an account.
+                        navigation(startDestination = "s_personal_details", route = "social_onboarding") {
+                            composable("s_personal_details") { backStackEntry ->
+                                val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("social_onboarding") }
+                                val vm: RegisterViewModel = viewModel(parentEntry)
+                                androidx.compose.runtime.LaunchedEffect(Unit) {
+                                    vm.isSocialSignup = true
+                                    pendingSocialSignup.value?.let { s ->
+                                        if (vm.firstName.isBlank()) vm.onFirstNameChange(s.firstName.orEmpty())
+                                        if (vm.lastName.isBlank()) vm.onLastNameChange(s.lastName.orEmpty())
+                                    }
+                                }
+                                PersonalDetailsScreen(
+                                    viewModel = vm,
+                                    onBackClick = { navController.popBackStack() },
+                                    onContinue = { navController.navigate("s_body_metrics") },
+                                )
+                            }
+                            composable("s_body_metrics") { backStackEntry ->
+                                val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("social_onboarding") }
+                                val vm: RegisterViewModel = viewModel(parentEntry)
+                                BodyMetricsScreen(viewModel = vm, onBackClick = { navController.popBackStack() }, onContinue = { navController.navigate("s_fitness_profile") })
+                            }
+                            composable("s_fitness_profile") { backStackEntry ->
+                                val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("social_onboarding") }
+                                val vm: RegisterViewModel = viewModel(parentEntry)
+                                FitnessProfileScreen(viewModel = vm, onBackClick = { navController.popBackStack() }, onContinue = { navController.navigate("s_goals") })
+                            }
+                            composable("s_goals") { backStackEntry ->
+                                val parentEntry = remember(backStackEntry) { navController.getBackStackEntry("social_onboarding") }
+                                val vm: RegisterViewModel = viewModel(parentEntry)
+                                GoalsScreen(
+                                    viewModel = vm,
+                                    onBackClick = { navController.popBackStack() },
+                                    onContinue = {
+                                        vm.completeSocialProfile {
+                                            pendingSocialSignup.value = null
+                                            navController.navigate("main") {
+                                                popUpTo("landing") { inclusive = true }
+                                            }
+                                        }
+                                    },
                                 )
                             }
                         }

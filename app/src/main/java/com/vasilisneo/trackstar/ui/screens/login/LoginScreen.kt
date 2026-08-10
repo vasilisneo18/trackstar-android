@@ -40,6 +40,7 @@ fun LoginScreen(
     onBackClick: () -> Unit = {},
     onForgotPassword: () -> Unit = {},
     onLoginSuccess: () -> Unit = {},
+    onGoogleNewUser: (firstName: String?, lastName: String?) -> Unit = { _, _ -> },
     initialEmail: String = "",
 ) {
     // Matches iOS's navigateToLogin(email:) — pre-fills the email field when arriving
@@ -100,7 +101,7 @@ fun LoginScreen(
         GoogleSignInButton(
             isLoading = viewModel.isGoogleLoading,
             enabled = !viewModel.isLoading,
-            onClick = { viewModel.loginWithGoogle(context, onLoginSuccess) }
+            onClick = { viewModel.loginWithGoogle(context, onExisting = onLoginSuccess, onNewUser = onGoogleNewUser) }
         )
 
         viewModel.errorMessage?.let { error -> AuthErrorText(error) }

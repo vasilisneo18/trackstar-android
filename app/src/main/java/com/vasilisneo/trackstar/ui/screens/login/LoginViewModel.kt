@@ -118,7 +118,11 @@ class LoginViewModel(app: Application) : AndroidViewModel(app) {
     /** Sign in with Google: launch the account chooser, then exchange the Google ID token for our
      *  JWT via POST /api/auth/social. `context` must be the hosting Activity (Credential Manager
      *  shows its UI from it). Cancelling the chooser is silent; other failures surface a message. */
-    fun loginWithGoogle(context: Context, onSuccess: () -> Unit = {}) {
+    fun loginWithGoogle(
+        context: Context,
+        onExisting: () -> Unit = {},
+        onNewUser: (firstName: String?, lastName: String?) -> Unit = { _, _ -> },
+    ) {
         if (isLoading || isGoogleLoading) return
         viewModelScope.launch {
             isGoogleLoading = true
@@ -149,8 +153,13 @@ class LoginViewModel(app: Application) : AndroidViewModel(app) {
             )) {
                 is ApiResult.Success -> {
                     isGoogleLoading = false
-                    cachedEmail = tokenStore.lastEmail
-                    onSuccess()
+                    if (result.data.isNewUser) {
+                        // First-time social user — go through onboarding with the name prefilled.
+                        onNewUser(credential.givenName, credential.familyName)
+                    } else {
+                        cachedEmail = tokenStore.lastEmail
+                        onExisting()
+                    }
                 }
                 is ApiResult.Error -> {
                     isGoogleLoading = false

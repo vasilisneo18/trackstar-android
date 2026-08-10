@@ -7,8 +7,10 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.vasilisneo.trackstar.data.api.RegisterRequest
+import com.vasilisneo.trackstar.data.api.UpdateProfileRequest
 import com.vasilisneo.trackstar.data.auth.ApiResult
 import com.vasilisneo.trackstar.data.auth.AuthRepository
+import com.vasilisneo.trackstar.data.auth.ProfileRepository
 import com.vasilisneo.trackstar.data.auth.TokenStore
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -50,6 +52,11 @@ enum class UserGoal(val label: String, val subtitle: String, val isCoachGoal: Bo
  */
 class RegisterViewModel(app: Application) : AndroidViewModel(app) {
     private val repository = AuthRepository(TokenStore(app))
+    private val profileRepository = ProfileRepository()
+
+    // True when a new Google/Apple user is completing onboarding: the account already exists (created
+    // by /auth/social) and they're authenticated, so the flow ends with a profile PUT, not register().
+    var isSocialSignup by mutableStateOf(false)
 
     var isRegistering by mutableStateOf(false)
         private set
@@ -183,6 +190,30 @@ class RegisterViewModel(app: Application) : AndroidViewModel(app) {
      *  inferred from goals (monitorAthletes -> coach), matching iOS. targetWeight, goals,
      *  fitnessLevel, and trainingDaysPerWeek aren't part of the register payload (iOS keeps
      *  those client-side too). */
+    // Finish onboarding for a new social user by saving the collected profile (they're already authed
+    // and the account exists). Mirrors the fields register() persists.
+    fun completeSocialProfile(onSuccess: () -> Unit) {
+        if (isRegistering) return
+        isRegistering = true
+        errorMessage = null
+        val request = UpdateProfileRequest(
+            firstName = firstName.trim().ifBlank { null },
+            lastName = lastName.trim().ifBlank { null },
+            age = Period.between(dateOfBirth, LocalDate.now()).years.takeIf { it > 0 },
+            role = if (goals.contains(UserGoal.MONITOR_ATHLETES)) "coach" else "athlete",
+            gender = (gender ?: UserGender.MALE).name.lowercase(),
+            height = heightCm.toDoubleOrNull(),
+            weight = weightKg.toDoubleOrNull(),
+            targetWeight = targetWeightKg.toDoubleOrNull(),
+            country = country.trim().ifBlank { null },
+        )
+        viewModelScope.launch {
+            profileRepository.updateProfile(request) // best-effort; proceed regardless
+            isRegistering = false
+            onSuccess()
+        }
+    }
+
     fun register(onSuccess: () -> Unit) {
         if (isRegistering) return
         isRegistering = true
