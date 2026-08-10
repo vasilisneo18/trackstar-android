@@ -152,14 +152,15 @@ fun ExerciseData.isConfigured(): Boolean {
     if (sets.isEmpty()) return false
     return sets.any { set ->
         val resistance = set.resistanceValue
-        val resistanceIsNone = resistance?.weight.isNullOrBlank() && resistance?.bandLevel.isNullOrBlank()
-        if (resistanceIsNone && resistanceType == "None") return@any true
+        // A weight OR a band level both count as resistance being set.
+        val hasResistance = !resistance?.weight.isNullOrBlank() || !resistance?.bandLevel.isNullOrBlank()
+        if (!hasResistance && resistanceType == "None") return@any true
         val freq = set.frequencyValue
         when {
-            freq?.reps != null -> freq.reps > 0 || !resistance?.weight.isNullOrBlank()
+            freq?.reps != null -> freq.reps > 0 || hasResistance
             freq?.duration != null -> freq.duration.isNotBlank()
             freq?.distance != null -> freq.distance.isNotBlank()
-            else -> false
+            else -> hasResistance
         }
     }
 }
