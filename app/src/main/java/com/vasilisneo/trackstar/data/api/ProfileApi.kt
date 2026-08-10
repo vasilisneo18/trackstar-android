@@ -36,8 +36,17 @@ data class ProfileResponse(
     val coachBookingEnabled: Boolean? = null,   // whether this user's linked coach offers booking
 )
 
-// Partial profile update — mirrors com.fitnessbook.dto.UpdateProfileRequest (only the fields we send).
+// Partial profile update — mirrors com.fitnessbook.dto.UpdateProfileRequest. Only non-null fields are
+// serialized (Gson omits nulls) and applied server-side, so this doubles as a per-field patch.
 data class UpdateProfileRequest(
+    val firstName: String? = null,
+    val lastName: String? = null,
+    val age: Int? = null,
+    val gender: String? = null,
+    val height: Double? = null,
+    val weight: Double? = null,
+    val targetWeight: Double? = null,
+    val country: String? = null,
     val notifyOnOpenSlot: Boolean? = null,
     val bookingEnabled: Boolean? = null,
 )

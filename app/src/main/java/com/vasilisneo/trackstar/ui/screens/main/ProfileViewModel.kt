@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.vasilisneo.trackstar.data.api.ProfileResponse
+import com.vasilisneo.trackstar.data.api.UpdateProfileRequest
 import com.vasilisneo.trackstar.data.auth.ApiResult
 import com.vasilisneo.trackstar.data.auth.ProfileRepository
 import com.vasilisneo.trackstar.data.auth.TokenStore
@@ -41,6 +42,16 @@ class ProfileViewModel(
             when (val result = repository.getProfile()) {
                 is ApiResult.Success -> profile = result.data
                 is ApiResult.Error -> Unit // keep cached values on failure
+            }
+        }
+    }
+
+    // Persist a partial profile edit (Personal Info screen) and reflect the server's response locally.
+    fun save(request: UpdateProfileRequest) {
+        viewModelScope.launch {
+            when (val r = repository.updateProfile(request)) {
+                is ApiResult.Success -> profile = r.data
+                is ApiResult.Error -> Unit
             }
         }
     }

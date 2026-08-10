@@ -1,5 +1,7 @@
 package com.vasilisneo.trackstar.ui.screens.main
 
+import com.vasilisneo.trackstar.data.api.UpdateProfileRequest
+
 // Visual replica of PersonalInfoView (Trackstar/UI/View/MainApp/Profile/PersonalInfoView.swift)
 // on iOS: an ACCOUNT group (email static, country editable) and a BODY group (gender, age,
 // height, weight, target weight — each opening an edit sheet). Edits are held in local state
@@ -61,15 +63,31 @@ private enum class EditField { GENDER, AGE, HEIGHT, WEIGHT, TARGET_WEIGHT }
 private val GroupSurface = Color.White.copy(alpha = 0.07f)
 
 @Composable
-fun PersonalInfoScreen(onBackClick: () -> Unit = {}) {
-    // Local edit state, seeded from the same placeholder as the Profile screen.
-    var country by remember { mutableStateOf("Cyprus") }
-    var gender by remember { mutableStateOf("Male") }
-    var age by remember { mutableStateOf("25") }
-    var heightCm by remember { mutableStateOf("178") }
-    var weightKg by remember { mutableStateOf("82.0") }
-    var targetWeightKg by remember { mutableStateOf("75.0") }
-    val email = "vasilis@example.com"
+fun PersonalInfoScreen(
+    onBackClick: () -> Unit = {},
+    viewModel: ProfileViewModel = androidx.lifecycle.viewmodel.compose.viewModel(),
+) {
+    val profile = viewModel.profile
+
+    // Edit state seeded from the real profile (GET /api/profile); each edit persists via PUT.
+    var country by remember { mutableStateOf("") }
+    var gender by remember { mutableStateOf("") }
+    var age by remember { mutableStateOf("") }
+    var heightCm by remember { mutableStateOf("") }
+    var weightKg by remember { mutableStateOf("") }
+    var targetWeightKg by remember { mutableStateOf("") }
+    val email = profile?.email ?: viewModel.cachedEmail
+
+    androidx.compose.runtime.LaunchedEffect(profile) {
+        profile?.let { p ->
+            country = p.country.orEmpty()
+            gender = p.gender?.replaceFirstChar { it.uppercase() }.orEmpty()
+            age = p.age?.toString().orEmpty()
+            heightCm = p.height?.toInt()?.toString().orEmpty()
+            weightKg = p.weight?.toString().orEmpty()
+            targetWeightKg = p.targetWeight?.toString().orEmpty()
+        }
+    }
 
     var editing by remember { mutableStateOf<EditField?>(null) }
     var showCountryPicker by remember { mutableStateOf(false) }
@@ -112,18 +130,18 @@ fun PersonalInfoScreen(onBackClick: () -> Unit = {}) {
     }
 
     when (editing) {
-        EditField.GENDER -> GenderSheet(current = gender, onSelect = { gender = it }, onDismiss = { editing = null })
-        EditField.AGE -> AgeSheet(currentAge = age, onSave = { age = it }, onDismiss = { editing = null })
-        EditField.HEIGHT -> HeightSheet(currentCm = heightCm, onSave = { heightCm = it }, onDismiss = { editing = null })
-        EditField.WEIGHT -> WeightSheet(title = "Weight", currentKg = weightKg, onSave = { weightKg = it }, onDismiss = { editing = null })
-        EditField.TARGET_WEIGHT -> WeightSheet(title = "Target Weight", currentKg = targetWeightKg, onSave = { targetWeightKg = it }, onDismiss = { editing = null })
+        EditField.GENDER -> GenderSheet(current = gender, onSelect = { gender = it; viewModel.save(UpdateProfileRequest(gender = it.lowercase())) }, onDismiss = { editing = null })
+        EditField.AGE -> AgeSheet(currentAge = age, onSave = { age = it; it.toIntOrNull()?.let { v -> viewModel.save(UpdateProfileRequest(age = v)) } }, onDismiss = { editing = null })
+        EditField.HEIGHT -> HeightSheet(currentCm = heightCm, onSave = { heightCm = it; it.toDoubleOrNull()?.let { v -> viewModel.save(UpdateProfileRequest(height = v)) } }, onDismiss = { editing = null })
+        EditField.WEIGHT -> WeightSheet(title = "Weight", currentKg = weightKg, onSave = { weightKg = it; it.toDoubleOrNull()?.let { v -> viewModel.save(UpdateProfileRequest(weight = v)) } }, onDismiss = { editing = null })
+        EditField.TARGET_WEIGHT -> WeightSheet(title = "Target Weight", currentKg = targetWeightKg, onSave = { targetWeightKg = it; it.toDoubleOrNull()?.let { v -> viewModel.save(UpdateProfileRequest(targetWeight = v)) } }, onDismiss = { editing = null })
         null -> Unit
     }
 
     if (showCountryPicker) {
         CountryPickerSheet(
             selectedCountry = country,
-            onSelect = { country = it },
+            onSelect = { country = it; viewModel.save(UpdateProfileRequest(country = it)) },
             onDismiss = { showCountryPicker = false }
         )
     }
