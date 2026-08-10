@@ -2,6 +2,8 @@ package com.vasilisneo.trackstar.ui.screens.main.coach
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -127,8 +129,13 @@ fun CoachAvailabilityScreen(
                     onSelectDate = viewModel::selectDate,
                     modifier = Modifier.padding(vertical = 2.dp),
                 )
-                // The selected day's first session below the calendar; "show all" opens the rest in a sheet.
-                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                // The selected day's first sessions below the calendar; scrolls if they don't all fit,
+                // and "show all" opens the rest in a sheet.
+                Column(
+                    Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
                     if (daySlots.isEmpty()) {
                         Text("No sessions on ${prettyDate(viewModel.selectedDate.toString())}.",
                             fontSize = 13.sp, color = Color.White.copy(alpha = 0.4f), modifier = Modifier.padding(top = 12.dp))
@@ -146,7 +153,6 @@ fun CoachAvailabilityScreen(
                         }
                     }
                 }
-                Spacer(Modifier.weight(1f))
             } else {
                 // Day tabs — same expand/collapse pills as the weekly plan; a dot marks days with slots.
                 BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 15.dp, vertical = 8.dp)) {
