@@ -60,10 +60,14 @@ private val SheetSurface = Color(0xFF1A1A24)
 @Composable
 fun EmailEntryScreen(
     viewModel: RegisterViewModel = viewModel(),
+    loginViewModel: com.vasilisneo.trackstar.ui.screens.login.LoginViewModel = viewModel(),
     onBackClick: () -> Unit = {},
     onNewEmail: () -> Unit = {},
     onExistingEmail: (String) -> Unit = {},
+    onGoogleExisting: () -> Unit = {},
+    onGoogleNewUser: (firstName: String?, lastName: String?) -> Unit = { _, _ -> },
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val showSheet = viewModel.emailCheckStatus == EmailCheckStatus.EXISTS
 
     LaunchedEffect(viewModel.emailCheckStatus) {
@@ -94,6 +98,17 @@ fun EmailEntryScreen(
                 enabled = viewModel.isValidEmail,
                 modifier = Modifier.padding(top = 20.dp)
             )
+
+            com.vasilisneo.trackstar.ui.components.OrDivider(modifier = Modifier.padding(top = 20.dp, bottom = 16.dp))
+
+            // Social sign-up — Google only on Android. New users route through onboarding with the
+            // name prefilled; existing accounts go straight in.
+            com.vasilisneo.trackstar.ui.components.GoogleSignInButton(
+                isLoading = loginViewModel.isGoogleLoading,
+                enabled = !loginViewModel.isGoogleLoading,
+                onClick = { loginViewModel.loginWithGoogle(context, onExisting = onGoogleExisting, onNewUser = onGoogleNewUser) },
+            )
+            loginViewModel.errorMessage?.let { error -> AuthErrorText(error) }
         }
 
         AnimatedVisibility(

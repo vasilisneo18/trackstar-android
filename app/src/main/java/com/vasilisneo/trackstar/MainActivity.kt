@@ -472,7 +472,14 @@ class MainActivity : ComponentActivity() {
                                     onNewEmail = { navController.navigate("create_password") },
                                     onExistingEmail = { email ->
                                         navController.navigate("login?email=${Uri.encode(email)}")
-                                    }
+                                    },
+                                    onGoogleExisting = {
+                                        navController.navigate("main") { popUpTo("landing") { inclusive = true } }
+                                    },
+                                    onGoogleNewUser = { firstName, lastName ->
+                                        pendingSocialSignup.value = SocialSignup(firstName, lastName)
+                                        navController.navigate("social_onboarding")
+                                    },
                                 )
                             }
                             composable("create_password") { backStackEntry ->
