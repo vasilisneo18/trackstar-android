@@ -117,7 +117,9 @@ class WeeklyPlanViewModel @JvmOverloads constructor(app: Application, private va
     fun fetch() {
         val week = weekIdentifierFor(weekStart)
         viewModelScope.launch {
-            isLoading = true
+            // Paint from cache first so the week shows instantly, then refresh from the network.
+            if (weekSessions.isEmpty()) planRepository.cachedPlan(week, athleteId)?.let { weekSessions = it }
+            isLoading = weekSessions.isEmpty()
             loadError = false
             when (val result = planRepository.getPlan(week, athleteId)) {
                 is ApiResult.Success -> weekSessions = result.data

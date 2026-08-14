@@ -39,16 +39,22 @@ class TemplatesViewModel : ViewModel() {
 
     fun fetch() {
         viewModelScope.launch {
+            // Paint from cache first (stale-while-revalidate) so the list is on screen from frame one.
+            if (templates.isEmpty()) {
+                repo.cachedTemplates()?.let { cached ->
+                    templates = cached.map { t ->
+                        val sessions = repo.cachedTemplateSessions(t.id).orEmpty()
+                        summaryFor(t.id, t.name, sessions)
+                    }
+                }
+            }
             isLoading = templates.isEmpty()
             when (val r = repo.getTemplates()) {
                 is ApiResult.Success -> {
                     templates = r.data.map { t ->
                         async {
                             val sessions = (repo.getTemplateSessions(t.id) as? ApiResult.Success)?.data.orEmpty()
-                            val activeDays = sessions.filter { it.exercises.isNotEmpty() }.map { it.day }.distinct()
-                                .sortedBy { weekdayOrder.indexOf(it).let { i -> if (i < 0) Int.MAX_VALUE else i } }
-                            val exerciseCount = sessions.sumOf { it.exercises.size }
-                            TemplateSummary(t.id, t.name, activeDays, exerciseCount)
+                            summaryFor(t.id, t.name, sessions)
                         }
                     }.awaitAll()
                 }
@@ -56,6 +62,12 @@ class TemplatesViewModel : ViewModel() {
             }
             isLoading = false
         }
+    }
+
+    private fun summaryFor(id: String, name: String, sessions: List<com.vasilisneo.trackstar.data.api.TemplateSessionDto>): TemplateSummary {
+        val activeDays = sessions.filter { it.exercises.isNotEmpty() }.map { it.day }.distinct()
+            .sortedBy { weekdayOrder.indexOf(it).let { i -> if (i < 0) Int.MAX_VALUE else i } }
+        return TemplateSummary(id, name, activeDays, sessions.sumOf { it.exercises.size })
     }
 
     fun create(name: String, onCreated: (String) -> Unit = {}) {

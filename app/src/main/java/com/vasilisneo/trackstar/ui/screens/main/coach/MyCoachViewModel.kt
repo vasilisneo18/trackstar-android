@@ -28,6 +28,8 @@ class MyCoachViewModel : ViewModel() {
 
     fun fetch() {
         viewModelScope.launch {
+            // Paint the cached coach first (if linked) so the card renders instantly, then refresh.
+            if (coach == null) repo.cachedMyCoach()?.let { coach = it; loaded = true }
             when (val r = repo.getMyCoach()) {
                 is ApiResult.Success -> coach = r.data
                 // The backend 400s ("No coach linked") when unlinked — that's the empty state, not

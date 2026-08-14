@@ -36,12 +36,15 @@ class AthleteDetailViewModel(private val athleteId: String) : ViewModel() {
 
     fun fetchProfile() {
         viewModelScope.launch {
+            if (athlete == null) repo.cachedAthlete(athleteId)?.let { athlete = it }
             (repo.getAthlete(athleteId) as? ApiResult.Success)?.let { athlete = it.data }
         }
     }
 
     fun fetchSessions() {
         viewModelScope.launch {
+            // Paint cached sessions first so the tab renders instantly, then refresh from the network.
+            if (sessions.isEmpty()) repo.cachedAthleteSessions(athleteId)?.let { sessions = it }
             isLoadingSessions = sessions.isEmpty()
             (repo.getAthleteSessions(athleteId) as? ApiResult.Success)?.let { sessions = it.data }
             isLoadingSessions = false
@@ -50,6 +53,7 @@ class AthleteDetailViewModel(private val athleteId: String) : ViewModel() {
 
     fun fetchNotes() {
         viewModelScope.launch {
+            repo.cachedAthleteNotes(athleteId)?.let { notes = it }
             (repo.getAthleteNotes(athleteId) as? ApiResult.Success)?.let { notes = it.data }
         }
     }

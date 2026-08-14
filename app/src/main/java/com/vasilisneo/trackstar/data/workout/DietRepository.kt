@@ -9,6 +9,7 @@ import com.vasilisneo.trackstar.data.auth.apiCall
 import com.vasilisneo.trackstar.data.local.CacheEntry
 import com.vasilisneo.trackstar.data.local.LocalStore
 import com.vasilisneo.trackstar.data.local.Outbox
+import com.vasilisneo.trackstar.data.local.cachePeek
 import com.vasilisneo.trackstar.data.local.cachedRead
 
 // Weekly diet plan (GET/POST /api/diet). API-first like the plan/session repos — the ViewModel
@@ -21,14 +22,18 @@ open class DietRepository {
     private val coachApi = NetworkClient.athleteApi
 
     open suspend fun getDiet(athleteId: String? = null): ApiResult<WeeklyDietPlanDto> {
-        val key = athleteId?.let { "diet:athlete:$it" } ?: "diet"
-        return cachedRead(key) {
+        return cachedRead(dietKey(athleteId)) {
             when (val r = apiCall { if (athleteId == null) api.getDiet() else coachApi.getAthleteDiet(athleteId) }) {
                 is ApiResult.Success -> ApiResult.Success(r.data.planData)
                 is ApiResult.Error -> r // preserve the offline flag so cache fallback works
             }
         }
     }
+
+    // Cache-only peek (no network) for painting the Diet tab instantly on open.
+    open suspend fun cachedDiet(athleteId: String? = null): WeeklyDietPlanDto? = cachePeek(dietKey(athleteId))
+
+    private fun dietKey(athleteId: String?) = athleteId?.let { "diet:athlete:$it" } ?: "diet"
 
     // Saves the diet plan; if offline, queues it (replayed on reconnect) and optimistically
     // overwrites the cached plan so the change shows on a cold reload, returning Success.

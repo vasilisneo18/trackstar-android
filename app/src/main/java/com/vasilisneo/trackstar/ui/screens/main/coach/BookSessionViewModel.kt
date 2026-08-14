@@ -75,7 +75,9 @@ class BookSessionViewModel(
 
     fun fetch() {
         viewModelScope.launch {
-            isLoading = true
+            // Paint cached slots first so the week renders instantly, then refresh from the network.
+            if (available.isEmpty()) repo.cachedAvailableSlots()?.let { available = it }
+            isLoading = available.isEmpty()
             when (val r = repo.availableSlots()) {
                 is ApiResult.Success -> available = r.data
                 is ApiResult.Error -> errorMessage = r.message

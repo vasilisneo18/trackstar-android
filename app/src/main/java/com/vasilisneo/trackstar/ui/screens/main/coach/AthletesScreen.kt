@@ -38,10 +38,15 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.EventAvailable
+import androidx.compose.material.icons.filled.PersonAddAlt1
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.PersonRemove
@@ -67,6 +72,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
@@ -75,6 +81,7 @@ import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vasilisneo.trackstar.data.api.ProfileResponse
+import com.vasilisneo.trackstar.data.api.SlotResponse
 import com.vasilisneo.trackstar.ui.components.GlassCircleIconButton
 import com.vasilisneo.trackstar.ui.components.ProfileAvatarButton
 import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
@@ -96,6 +103,8 @@ fun AthletesScreen(
     onAddAthlete: () -> Unit = {},
     onShowTemplates: () -> Unit = {},
     onShowAvailability: () -> Unit = {},
+    onSeeAll: () -> Unit = {},
+    onOpenBookingSettings: () -> Unit = {},
     showAvailability: Boolean = false,
     viewModel: AthletesViewModel = viewModel(),
 ) {
@@ -114,6 +123,9 @@ fun AthletesScreen(
 
     val athletes = viewModel.athletes
     var athleteToRemove by remember { mutableStateOf<ProfileResponse?>(null) }
+    val bookingBannerDismissed = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("bookingBannerDismissed", false)
+    // Quick info occupies a fixed slice of the screen height regardless of how little it contains.
+    val quickInfoHeight = (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp * 0.28f).dp
 
     // Re-fetch when returning to the roster (e.g. after adding an athlete), so a new athlete shows.
     var skipFirstResume by remember { mutableStateOf(true) }
@@ -134,16 +146,8 @@ fun AthletesScreen(
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp)) {
                     ProfileAvatarButton(initials = viewModel.userInitials, onClick = onProfileClick)
                     Spacer(modifier = Modifier.size(12.dp))
-                    Text("MyTeam", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White, modifier = Modifier.alpha(frostProgress))
+                    Text("Team", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White, modifier = Modifier.alpha(frostProgress))
                     Spacer(modifier = Modifier.weight(1f))
-                    // Availability (offer session booking) — only when the coach has booking enabled.
-                    if (showAvailability) {
-                        GlassCircleIconButton(onClick = onShowAvailability, contentDescription = "Schedule", icon = Icons.Filled.CalendarMonth)
-                        Spacer(modifier = Modifier.size(10.dp))
-                    }
-                    GlassCircleIconButton(onClick = onShowTemplates, contentDescription = "Templates", icon = Icons.Filled.ContentCopy)
-                    Spacer(modifier = Modifier.size(10.dp))
-                    GlassCircleIconButton(onClick = onAddAthlete, contentDescription = "Add athlete", icon = Icons.Filled.Add)
                 }
             }
 
@@ -154,16 +158,76 @@ fun AthletesScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxWidth().weight(1f),
                 ) {
+                    // Top block: the "coming up" booking card when booking is on, otherwise a two-line
+                    // team-stats summary. Extra vertical space is baked into these composables.
                     item {
-                        Column(modifier = Modifier.padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 16.dp).alpha(1f - collapse)) {
-                            Text(
-                                if (viewModel.isLoading && athletes.isEmpty()) "" else "${athletes.size} active",
-                                fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f),
-                            )
-                            Text("MyTeam", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Box(modifier = Modifier.fillMaxWidth().height(quickInfoHeight), contentAlignment = Alignment.Center) {
+                            if (athletes.isEmpty()) {
+                                // No roster to page through — show the standalone block.
+                                if (showAvailability) {
+                                    CoachQuickInfoCard(
+                                        next = viewModel.nextUpcomingSession,
+                                        finishedCount = viewModel.finishedSessionsCount,
+                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                    )
+                                } else {
+                                    CoachTeamStatsBlock(
+                                        athletesToday = viewModel.athletesWithSessionTodayCount,
+                                        planned = viewModel.plannedSessionsCount,
+                                        done = viewModel.finishedSessionsCount,
+                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                    )
+                                }
+                            } else {
+                                // Most useful first: athletes with a finished session, then those with
+                                // a session planned today, then everyone else (stable within groups).
+                                val summaries = viewModel.weeklySummaries
+                                val pagerAthletes = athletes.sortedBy { a ->
+                                    val s = a.id?.let { summaries[it] }
+                                    when {
+                                        (s?.completedCount ?: 0) > 0 -> 0
+                                        s?.hasSessionToday == true -> 1
+                                        else -> 2
+                                    }
+                                }
+                                CoachAthletePager(
+                                    leadingComingUp = if (showAvailability) {
+                                        {
+                                            CoachQuickInfoCard(
+                                                next = viewModel.nextUpcomingSession,
+                                                finishedCount = viewModel.finishedSessionsCount,
+                                            )
+                                        }
+                                    } else null,
+                                    athletes = pagerAthletes,
+                                    summaries = summaries,
+                                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                                )
+                            }
                         }
                     }
-                    item { com.vasilisneo.trackstar.ui.components.OfflineBanner() }
+
+                    // Action circles (moved out of the nav bar), kept close to the list below.
+                    item {
+                        CoachActionRow(
+                            showSchedule = showAvailability,
+                            onSchedule = onShowAvailability,
+                            onTemplates = onShowTemplates,
+                            onAdd = onAddAthlete,
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                        )
+                    }
+
+                    // Booking promo below the buttons — only when booking is off and not dismissed.
+                    if (!showAvailability && !bookingBannerDismissed.value) {
+                        item {
+                            BookingBanner(
+                                onOpen = onOpenBookingSettings,
+                                onDismiss = { bookingBannerDismissed.value = true },
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                            )
+                        }
+                    }
 
                     if (viewModel.isLoading && athletes.isEmpty()) {
                         item {
@@ -172,15 +236,26 @@ fun AthletesScreen(
                             }
                         }
                     } else if (athletes.isEmpty()) {
+                        item { com.vasilisneo.trackstar.ui.components.OfflineBanner() }
                         item { EmptyState() }
                     } else {
-                        items(athletes, key = { it.id ?: it.hashCode().toString() }) { athlete ->
-                            SwipeRevealAthleteRow(
-                                athlete = athlete,
-                                summary = athlete.id?.let { viewModel.weeklySummaries[it] },
-                                onOpen = { onAthleteClick(athlete) },
-                                onRemoveTap = { athleteToRemove = athlete },
-                                modifier = Modifier.padding(horizontal = 16.dp).animateItem(),
+                        item {
+                            Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 0.dp, bottom = 4.dp)) {
+                                com.vasilisneo.trackstar.ui.components.OfflineBanner()
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text("Team", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    Text("· ${athletes.size} active", fontSize = 16.sp, color = Color.White.copy(alpha = 0.5f))
+                                }
+                            }
+                        }
+                        item {
+                            TeamCard(
+                                athletes = athletes,
+                                summaries = viewModel.weeklySummaries,
+                                onSeeAll = onSeeAll,
+                                onAthleteClick = onAthleteClick,
+                                onAthleteLongClick = { athleteToRemove = it },
+                                modifier = Modifier.padding(horizontal = 16.dp),
                             )
                         }
                     }
@@ -206,118 +281,342 @@ fun AthletesScreen(
     }
 }
 
+// Full roster, pushed from the MyTeam "Show all" button — every athlete in one scrolling card.
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AthleteCard(athlete: ProfileResponse, summary: AthleteWeeklySummary?, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun AllAthletesScreen(
+    onBack: () -> Unit = {},
+    onAthleteClick: (ProfileResponse) -> Unit = {},
+    viewModel: AthletesViewModel = viewModel(),
+) {
+    val athletes = viewModel.athletes
+    var athleteToRemove by remember { mutableStateOf<ProfileResponse?>(null) }
+
+    Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Column(modifier = Modifier.fillMaxWidth().statusBarsPadding()) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp)) {
+                    androidx.compose.material3.IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Back", tint = Color.White)
+                    }
+                    Spacer(modifier = Modifier.size(4.dp))
+                    Text("Team", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+
+            CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
+                LazyColumn(
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 40.dp),
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    item {
+                        Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(CardFill)) {
+                            athletes.forEach { athlete ->
+                                AthleteRow(
+                                    athlete = athlete,
+                                    summary = athlete.id?.let { viewModel.weeklySummaries[it] },
+                                    onClick = { onAthleteClick(athlete) },
+                                    onLongClick = { athleteToRemove = athlete },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    athleteToRemove?.let { athlete ->
+        AlertDialog(
+            onDismissRequest = { athleteToRemove = null },
+            containerColor = Color(0xFF1A1A26),
+            title = { Text("Remove athlete?", color = Color.White) },
+            text = { Text("${athlete.fullName} will be removed from your team.", color = Color.White.copy(alpha = 0.7f)) },
+            confirmButton = {
+                TextButton(onClick = { athlete.id?.let { viewModel.removeAthlete(it) }; athleteToRemove = null }) {
+                    Text("Remove", color = Color(0xFFFF453A))
+                }
+            },
+            dismissButton = { TextButton(onClick = { athleteToRemove = null }) { Text("Cancel", color = Color.White) } },
+        )
+    }
+}
+
+// Coach "at a glance": next booked session + finished-sessions count.
+// Card-less, centred "at a glance": the next booked session on top, finished-sessions count below.
+@Composable
+private fun CoachQuickInfoCard(next: SlotResponse?, finishedCount: Int, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Text("COMING UP", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp, color = Color.White.copy(alpha = 0.45f))
+        if (next != null) {
+            Text(
+                "${relativeDay(next.date)} · ${displayTime(next.startTime)}",
+                fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White, textAlign = TextAlign.Center,
+            )
+            val who = next.attendees?.mapNotNull { it.name?.ifBlank { null } }?.firstOrNull()
+            Text(
+                listOfNotNull(next.title?.ifBlank { null } ?: "Session", who?.let { "with $it" }).joinToString(" · "),
+                fontSize = 14.sp, color = Color.White.copy(alpha = 0.55f), textAlign = TextAlign.Center,
+            )
+        } else {
+            Text("No upcoming booked sessions", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White, textAlign = TextAlign.Center)
+        }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
+            Icon(Icons.Filled.CheckCircle, null, tint = Color(0xFF34C759), modifier = Modifier.size(15.dp))
+            Text(
+                "$finishedCount finished session${if (finishedCount == 1) "" else "s"} this week",
+                fontSize = 14.sp, color = Color.White.copy(alpha = 0.7f),
+            )
+        }
+    }
+}
+
+// Shown instead of the "coming up" card when the coach has booking disabled — two centred lines: how
+// many athletes train today, then the week's planned/done totals.
+@Composable
+private fun CoachTeamStatsBlock(athletesToday: Int, planned: Int, done: Int, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            if (athletesToday == 1) "1 athlete has a session today" else "$athletesToday athletes have sessions today",
+            fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White, textAlign = TextAlign.Center,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Planned $planned", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.6f))
+            Text("|", fontSize = 14.sp, color = Color.White.copy(alpha = 0.25f))
+            Text("Done $done", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.6f))
+        }
+    }
+}
+
+// Swipeable carousel in the quick-info area: an optional leading "coming up" page (shown when booking
+// is on) followed by one page per athlete (avatar, name, today indicator, week's planned/done), with
+// a dot indicator below.
+@Composable
+private fun CoachAthletePager(
+    leadingComingUp: (@Composable () -> Unit)?,
+    athletes: List<ProfileResponse>,
+    summaries: Map<String, AthleteWeeklySummary>,
+    modifier: Modifier = Modifier,
+) {
+    val hasLead = leadingComingUp != null
+    val leadCount = if (hasLead) 1 else 0
+    val realCount = athletes.size + leadCount
+    // Loop past the last page back to the first: with >1 page, run a huge virtual count and map each
+    // virtual page to a real one by modulo, starting in the middle so it wraps both directions.
+    val infinite = realCount > 1
+    val startPage = remember(realCount) { if (infinite) (Int.MAX_VALUE / 2).let { it - it % realCount } else 0 }
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState(
+        initialPage = startPage,
+        pageCount = { if (infinite) Int.MAX_VALUE else realCount },
+    )
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        androidx.compose.foundation.pager.HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxWidth().weight(1f),
+        ) { page ->
+            val real = page % realCount
+            if (hasLead && real == 0) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { leadingComingUp!!() }
+            } else {
+                val athlete = athletes[real - leadCount]
+                AthletePagerPage(athlete, athlete.id?.let { summaries[it] })
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        val current = pagerState.currentPage % realCount
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 14.dp)) {
+            repeat(realCount) { i ->
+                val selected = i == current
+                Box(
+                    Modifier.size(if (selected) 7.dp else 6.dp).clip(CircleShape)
+                        .background(if (selected) Color.White else Color.White.copy(alpha = 0.3f))
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AthletePagerPage(athlete: ProfileResponse, summary: AthleteWeeklySummary?) {
+    val name = athlete.fullName
+    val color = remember(name) { AvatarPalette[(name.sumOf { it.code }).mod(AvatarPalette.size)] }
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Box(Modifier.size(52.dp).clip(CircleShape).background(color.copy(alpha = 0.25f)), contentAlignment = Alignment.Center) {
+            Text(athlete.athleteInitials, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = color)
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(name, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White, textAlign = TextAlign.Center)
+        if (summary?.hasSessionToday == true) {
+            Spacer(Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Icon(Icons.Filled.EventAvailable, null, tint = Color(0xFF34C759), modifier = Modifier.size(13.dp))
+                Text("Session today", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color(0xFF34C759))
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "${summary?.plannedCount ?: 0} planned · ${summary?.completedCount ?: 0} done",
+            fontSize = 14.sp, color = Color.White.copy(alpha = 0.6f),
+        )
+    }
+}
+
+// Booking promo — shown to a coach who has Session Booking off. Tapping opens Settings; the X dismisses.
+@Composable
+private fun BookingBanner(onOpen: () -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
+    Box(modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Color.White.copy(alpha = 0.06f)).clickable(onClick = onOpen)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 20.dp)) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Session Booking", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                Text(
+                    "Let your athletes book sessions with you. Turn it on in Settings.",
+                    fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f), lineHeight = 17.sp,
+                )
+            }
+            Spacer(Modifier.size(12.dp))
+            Icon(Icons.Filled.CalendarMonth, null, tint = TrackstarAccent, modifier = Modifier.size(34.dp))
+        }
+        Box(
+            modifier = Modifier.align(Alignment.TopEnd).clip(CircleShape).clickable(onClick = onDismiss).padding(10.dp),
+        ) {
+            Icon(Icons.Filled.Close, contentDescription = "Dismiss", tint = Color.White.copy(alpha = 0.55f), modifier = Modifier.size(14.dp))
+        }
+    }
+}
+
+private fun relativeDay(iso: String): String {
+    val d = runCatching { java.time.LocalDate.parse(iso) }.getOrNull() ?: return iso
+    val today = java.time.LocalDate.now()
+    return when (d) {
+        today -> "Today"
+        today.plusDays(1) -> "Tomorrow"
+        else -> d.format(java.time.format.DateTimeFormatter.ofPattern("EEE, d MMM"))
+    }
+}
+
+@Composable
+private fun CoachActionRow(showSchedule: Boolean, onSchedule: () -> Unit, onTemplates: () -> Unit, onAdd: () -> Unit, modifier: Modifier = Modifier) {
+    Row(modifier = modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        CircleAction(Icons.Filled.PersonAddAlt1, "Add", onAdd, Modifier.weight(1f))
+        CircleAction(Icons.Filled.ContentCopy, "Templates", onTemplates, Modifier.weight(1f))
+        if (showSchedule) CircleAction(Icons.Filled.CalendarMonth, "Schedule", onSchedule, Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun CircleAction(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    // clickable lives on the clipped circle so the press ripple is round (clip before clickable),
+    // not a square flash spanning the whole icon+label column.
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
+        Box(
+            Modifier.size(56.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)).clickable(onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = label, tint = Color.White, modifier = Modifier.size(22.dp))
+        }
+        Spacer(Modifier.size(8.dp))
+        Text(label, fontSize = 13.sp, color = Color.White.copy(alpha = 0.9f))
+    }
+}
+
+// The whole roster in one rounded card (Revolut-style list): up to 3 rows visible, the rest behind
+// a "Show all" toggle at the bottom. Tap a row to open the athlete; long-press to remove.
+// "Show all" toggle at the bottom. Tap a row to open the athlete; long-press to remove.
+@Composable
+private fun TeamCard(
+    athletes: List<ProfileResponse>,
+    summaries: Map<String, AthleteWeeklySummary>,
+    onSeeAll: () -> Unit,
+    onAthleteClick: (ProfileResponse) -> Unit,
+    onAthleteLongClick: (ProfileResponse) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(CardFill)) {
+        athletes.take(3).forEach { athlete ->
+            AthleteRow(
+                athlete = athlete,
+                summary = athlete.id?.let { summaries[it] },
+                onClick = { onAthleteClick(athlete) },
+                onLongClick = { onAthleteLongClick(athlete) },
+            )
+        }
+        if (athletes.size > 3) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onSeeAll).padding(vertical = 15.dp),
+            ) {
+                Text(
+                    "Show all",
+                    fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TrackstarAccent,
+                )
+            }
+        }
+    }
+}
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun AthleteRow(
+    athlete: ProfileResponse,
+    summary: AthleteWeeklySummary?,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+) {
     val name = athlete.fullName
     val color = remember(name) { AvatarPalette[(name.sumOf { it.code }).mod(AvatarPalette.size)] }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(CardFill)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 11.dp)
+        modifier = Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = onLongClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp)
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.size(46.dp).clip(CircleShape).background(color.copy(alpha = 0.25f))) {
             Text(athlete.athleteInitials, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = color)
         }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(name, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1)
-            athlete.email?.takeIf { it.isNotBlank() }?.let {
-                Text(it, fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f), maxLines = 1)
-            }
             if (summary != null) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    SummaryPill(Icons.Filled.CalendarMonth, "${summary.plannedCount} planned", Color.White.copy(alpha = 0.6f))
-                    SummaryPill(
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SummaryStat(Icons.Filled.CalendarMonth, "${summary.plannedCount} planned", Color.White.copy(alpha = 0.55f))
+                    SummaryStat(
                         Icons.Filled.CheckCircle, "${summary.completedCount} done",
                         if (summary.completedCount > 0) Color(0xFF34C759) else Color.White.copy(alpha = 0.35f),
                     )
                 }
             } else {
+                // Reserve the pills' height while summaries load, so the row doesn't grow (and shove
+                // everything below it) when the counts arrive.
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Box(modifier = Modifier.size(width = 72.dp, height = 18.dp).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.07f)))
-                    Box(modifier = Modifier.size(width = 56.dp, height = 18.dp).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.07f)))
+                    Box(Modifier.size(width = 64.dp, height = 15.dp).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.06f)))
+                    Box(Modifier.size(width = 48.dp, height = 15.dp).clip(RoundedCornerShape(4.dp)).background(Color.White.copy(alpha = 0.06f)))
                 }
             }
         }
-        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Color.White.copy(alpha = 0.25f), modifier = Modifier.size(18.dp))
     }
 }
 
-// iOS-style swipe-to-reveal: swipe the card left to expose a red Remove button, tap it to confirm.
-// The card snaps open/closed; tapping an open card closes it, tapping a closed card opens the detail.
+// Plain inline stat (icon + text) — no chip background.
 @Composable
-private fun SwipeRevealAthleteRow(
-    athlete: ProfileResponse,
-    summary: AthleteWeeklySummary?,
-    onOpen: () -> Unit,
-    onRemoveTap: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val density = LocalDensity.current
-    // Matches iOS SwipeAction: the action reserves 80pt of slide, the button is a 68×68 rounded
-    // square (corner 20) centred in it (≈6pt gap each side).
-    val actionWidth = 80.dp
-    val buttonSize = 68.dp
-    val actionWidthPx = with(density) { actionWidth.toPx() }
-    var offsetX by remember(athlete.id) { mutableFloatStateOf(0f) }
-    val scope = rememberCoroutineScope()
-    // draggable updates offsetX SYNCHRONOUSLY on each delta (unlike a launched snapTo, whose value is
-    // stale at drag-end on a fast fling), so the open/closed snap decision is always correct.
-    val draggableState = rememberDraggableState { delta -> offsetX = (offsetX + delta).coerceIn(-actionWidthPx, 0f) }
-    fun settle(target: Float) { scope.launch { animate(offsetX, target, animationSpec = spring(dampingRatio = 0.85f)) { v, _ -> offsetX = v } } }
-
-    Box(modifier = modifier.fillMaxWidth()) {
-        // Remove button — a floating rounded-square action revealed on the right as the card slides
-        // left (matches iOS's swipe action: a gap from the card + slight vertical inset). matchParentSize
-        // gives it the card's height to inset from. Hidden when fully closed so it can't bleed through
-        // the translucent card at rest.
-        if (offsetX < 0f) {
-            Box(modifier = Modifier.matchParentSize(), contentAlignment = Alignment.CenterEnd) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.padding(end = 6.dp).size(buttonSize)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(Color(0xFFEF4A40))
-                        .clickable { settle(0f); onRemoveTap() },
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Icon(Icons.Filled.PersonRemove, contentDescription = "Remove", tint = Color.White, modifier = Modifier.size(20.dp))
-                        Text("Remove", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                    }
-                }
-            }
-        }
-
-        Box(
-            modifier = Modifier
-                .offset { IntOffset(offsetX.roundToInt(), 0) }
-                .draggable(
-                    state = draggableState,
-                    orientation = Orientation.Horizontal,
-                    onDragStopped = { settle(if (offsetX < -actionWidthPx * 0.4f) -actionWidthPx else 0f) },
-                )
-        ) {
-            AthleteCard(
-                athlete = athlete,
-                summary = summary,
-                onClick = { if (offsetX != 0f) settle(0f) else onOpen() },
-            )
-        }
+private fun SummaryStat(icon: ImageVector, value: String, color: Color) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(12.dp))
+        Text(value, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = color)
     }
 }
 
-@Composable
-private fun SummaryPill(icon: ImageVector, value: String, color: Color) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.07f)).padding(horizontal = 7.dp, vertical = 3.dp)
-    ) {
-        Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(10.dp))
-        Text(value, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = color)
-    }
-}
 
 @Composable
 private fun EmptyState() {

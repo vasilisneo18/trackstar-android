@@ -39,6 +39,8 @@ class ProfileViewModel(
 
     fun fetch() {
         viewModelScope.launch {
+            // Paint the cached profile first so body stats render instantly, then refresh.
+            if (profile == null) repository.cachedProfile()?.let { profile = it }
             when (val result = repository.getProfile()) {
                 is ApiResult.Success -> profile = result.data
                 is ApiResult.Error -> Unit // keep cached values on failure

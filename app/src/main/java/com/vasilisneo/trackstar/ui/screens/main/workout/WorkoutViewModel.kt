@@ -122,8 +122,12 @@ class WorkoutViewModel(
 
     fun fetch() {
         viewModelScope.launch {
-            isLoading = true
             val weekId = weekIdentifierFor(selectedDate)
+            // Paint from cache first (stale-while-revalidate) so the day's sessions are on screen from
+            // the first frame — no empty flash, no reflow when the network lands.
+            if (weekSessions.isEmpty()) planRepository.cachedPlan(weekId)?.let { weekSessions = it }
+            if (completedSessions.isEmpty()) sessionRepository.cachedSessions()?.let { completedSessions = it }
+            isLoading = weekSessions.isEmpty()
             when (val result = planRepository.getPlan(weekId)) {
                 is ApiResult.Success -> weekSessions = result.data
                 is ApiResult.Error -> Unit // keep stale data on failure

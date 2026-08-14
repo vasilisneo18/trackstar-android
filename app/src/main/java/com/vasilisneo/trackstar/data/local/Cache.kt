@@ -13,6 +13,19 @@ import com.vasilisneo.trackstar.data.auth.AuthTokenHolder
 //
 // The block must preserve the offline flag on errors (return the ApiResult.Error unchanged rather
 // than rebuilding it), so mapping wrappers should do `is ApiResult.Error -> r`.
+// Reads the last cached value for `cacheKey` without any network call — for stale-while-revalidate:
+// paint the cached data immediately, then refresh via cachedRead in the background. Returns null when
+// there's no cache, the store isn't ready, or no user is signed in.
+suspend inline fun <reified T> cachePeek(cacheKey: String): T? {
+    val userId = AuthTokenHolder.userId ?: return null
+    if (!LocalStore.isReady) return null
+    return runCatching {
+        LocalStore.db.cacheDao().get(userId, cacheKey)?.let { json ->
+            LocalStore.gson.fromJson<T>(json, object : TypeToken<T>() {}.type)
+        }
+    }.getOrNull()
+}
+
 suspend inline fun <reified T> cachedRead(
     cacheKey: String,
     fetch: suspend () -> ApiResult<T>,

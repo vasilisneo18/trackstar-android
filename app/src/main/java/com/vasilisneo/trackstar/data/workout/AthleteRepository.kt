@@ -11,6 +11,7 @@ import com.vasilisneo.trackstar.data.api.ProfileResponse
 import com.vasilisneo.trackstar.data.api.WorkoutSessionResponse
 import com.vasilisneo.trackstar.data.auth.ApiResult
 import com.vasilisneo.trackstar.data.auth.apiCall
+import com.vasilisneo.trackstar.data.local.cachePeek
 import com.vasilisneo.trackstar.data.local.cachedRead
 
 // Coach-side reads over /api/coach/... — the roster plus each athlete's plan and sessions. Reads are
@@ -32,6 +33,21 @@ open class AthleteRepository {
 
     open suspend fun getAthleteSessions(athleteId: String): ApiResult<List<WorkoutSessionResponse>> =
         cachedRead("athleteSessions:$athleteId") { apiCall { api.getAthleteSessions(athleteId) } }
+
+    // Cache-only peeks (no network) for painting the roster + weekly pills + athlete detail instantly.
+    open suspend fun cachedRoster(): List<ProfileResponse>? = cachePeek("roster")
+
+    open suspend fun cachedAthlete(athleteId: String): ProfileResponse? = cachePeek("athlete:$athleteId")
+
+    open suspend fun cachedAthletePlan(athleteId: String, weekIdentifier: String): List<PlannedSessionResponse>? =
+        cachePeek("athletePlan:$athleteId:$weekIdentifier")
+
+    open suspend fun cachedAthleteSessions(athleteId: String): List<WorkoutSessionResponse>? =
+        cachePeek("athleteSessions:$athleteId")
+
+    open suspend fun cachedAthleteNotes(athleteId: String): AthleteNotesDto? = cachePeek("athleteNotes:$athleteId")
+
+    open suspend fun cachedMyCoach(): ProfileResponse? = cachePeek("myCoach")
 
     suspend fun getAthleteNotes(athleteId: String): ApiResult<AthleteNotesDto> =
         cachedRead("athleteNotes:$athleteId") { apiCall { api.getAthleteNotes(athleteId) } }

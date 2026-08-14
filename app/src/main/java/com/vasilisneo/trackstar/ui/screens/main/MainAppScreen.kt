@@ -47,6 +47,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -104,6 +105,8 @@ fun MainAppScreen(
     onOpenAddAthlete: () -> Unit = {},
     onOpenTemplates: () -> Unit = {},
     onOpenAvailability: () -> Unit = {},
+    onOpenAllAthletes: () -> Unit = {},
+    onOpenBookingSettings: () -> Unit = {},
     onOpenAiDietPlanner: () -> Unit = {},
     onOpenSubscription: () -> Unit = {},
 ) {
@@ -120,8 +123,11 @@ fun MainAppScreen(
     // their Availability entry; an athlete's coachBookingEnabled (their linked coach's flag) gates the
     // Book entry. Fetched here and refreshed on resume so a coach's Settings change reflects on return.
     val profileRepo = remember { com.vasilisneo.trackstar.data.auth.ProfileRepository() }
-    var myBookingEnabled by remember { mutableStateOf(false) }      // coach: do I offer booking?
-    var coachBookingEnabled by remember { mutableStateOf(false) }   // athlete: does my coach offer it?
+    // rememberSaveable so the values survive MainAppScreen leaving composition (e.g. navigating to
+    // Profile and back). Plain remember would reset these to false on return, hiding the Schedule
+    // button for a frame until the async refetch completes — a visible flicker.
+    var myBookingEnabled by rememberSaveable { mutableStateOf(false) }      // coach: do I offer booking?
+    var coachBookingEnabled by rememberSaveable { mutableStateOf(false) }   // athlete: does my coach offer it?
     var bookingResumeTick by remember { androidx.compose.runtime.mutableIntStateOf(0) }
     androidx.lifecycle.compose.LifecycleResumeEffect(Unit) { bookingResumeTick++; onPauseOrDispose { } }
     androidx.compose.runtime.LaunchedEffect(bookingResumeTick) {
@@ -187,6 +193,8 @@ fun MainAppScreen(
                     onAddAthlete = onOpenAddAthlete,
                     onShowTemplates = onOpenTemplates,
                     onShowAvailability = onOpenAvailability,
+                    onSeeAll = onOpenAllAthletes,
+                    onOpenBookingSettings = onOpenBookingSettings,
                     showAvailability = showAvailabilityEntry,
                 )
             }

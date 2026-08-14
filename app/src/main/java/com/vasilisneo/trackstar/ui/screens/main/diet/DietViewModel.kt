@@ -59,7 +59,9 @@ class DietViewModel(
 
     fun fetch() {
         viewModelScope.launch {
-            isLoading = true
+            // Paint cached diet first so the tab renders instantly, then refresh from the network.
+            if (weeklyPlan.isEmpty()) repo.cachedDiet(athleteId)?.let { weeklyPlan = it.meals }
+            isLoading = weeklyPlan.isEmpty()
             when (val r = repo.getDiet(athleteId)) {
                 is ApiResult.Success -> weeklyPlan = r.data.meals
                 is ApiResult.Error -> Unit // keep stale data on failure

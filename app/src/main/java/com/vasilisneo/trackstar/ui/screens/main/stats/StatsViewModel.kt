@@ -47,7 +47,9 @@ class StatsViewModel(
 
     fun fetch() {
         viewModelScope.launch {
-            isLoading = true
+            // Paint cached sessions first so the stats render instantly, then refresh from the network.
+            if (sessions.isEmpty()) sessionRepository.cachedSessions()?.let { sessions = it }
+            isLoading = sessions.isEmpty()
             when (val r = sessionRepository.getSessions()) {
                 is ApiResult.Success -> sessions = r.data
                 is ApiResult.Error -> Unit // keep stale data on failure

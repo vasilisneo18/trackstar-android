@@ -176,6 +176,8 @@ class MainActivity : ComponentActivity() {
                                 onOpenAddAthlete = { navController.navigate("add_athlete") },
                                 onOpenTemplates = { navController.navigate("templates") },
                                 onOpenAvailability = { navController.navigate("coach_availability") },
+                                onOpenAllAthletes = { navController.navigate("all_athletes") },
+                                onOpenBookingSettings = { navController.navigate("settings_app_settings") },
                                 onOpenAiDietPlanner = { navController.navigate("ai_diet_planner") },
                                 onOpenSubscription = { navController.navigate("subscription") },
                             )
@@ -203,6 +205,7 @@ class MainActivity : ComponentActivity() {
                             // Horizontal push over the Templates modal, like the athlete detail.
                             exitTransition = { ExitTransition.None },
                             popEnterTransition = { EnterTransition.None },
+                            popExitTransition = { slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth }) },
                         ) { backStackEntry ->
                             TemplateEditorScreen(
                                 templateId = backStackEntry.arguments?.getString("templateId") ?: "",
@@ -227,12 +230,27 @@ class MainActivity : ComponentActivity() {
                             route = "athlete/{athleteId}",
                             arguments = listOf(navArgument("athleteId") { type = NavType.StringType }),
                             // Horizontal push like weekly_plan (iOS pushes AthleteDetailView), not a modal.
+                            // popExitTransition defaults to exitTransition (here None), so it must be set
+                            // explicitly or back-press would jump-cut instead of sliding out to the right.
                             exitTransition = { ExitTransition.None },
                             popEnterTransition = { EnterTransition.None },
+                            popExitTransition = { slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth }) },
                         ) { backStackEntry ->
                             AthleteDetailScreen(
                                 athleteId = backStackEntry.arguments?.getString("athleteId") ?: "",
                                 onBack = { navController.popBackStack() },
+                            )
+                        }
+                        composable(
+                            "all_athletes",
+                            // Horizontal push over the MyTeam tab (from "Show all").
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                            popExitTransition = { slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth }) },
+                        ) {
+                            com.vasilisneo.trackstar.ui.screens.main.coach.AllAthletesScreen(
+                                onBack = { navController.popBackStack() },
+                                onAthleteClick = { athlete -> athlete.id?.let { navController.navigate("athlete/${Uri.encode(it)}") } },
                             )
                         }
                         composable(
@@ -243,6 +261,7 @@ class MainActivity : ComponentActivity() {
                             // the vertical slide used for subscription/active_session.
                             exitTransition = { ExitTransition.None },
                             popEnterTransition = { EnterTransition.None },
+                            popExitTransition = { slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth }) },
                         ) {
                             WeeklyPlanScreen(
                                 onBackClick = { navController.popBackStack() },
@@ -312,6 +331,7 @@ class MainActivity : ComponentActivity() {
                             // Info) — horizontal push, holds still under further pushes.
                             exitTransition = { ExitTransition.None },
                             popEnterTransition = { EnterTransition.None },
+                            popExitTransition = { slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth }) },
                         ) {
                             com.vasilisneo.trackstar.ui.screens.main.coach.MyCoachScreen(
                                 onBack = { navController.popBackStack() },
@@ -406,6 +426,7 @@ class MainActivity : ComponentActivity() {
                             "history",
                             exitTransition = { ExitTransition.None },
                             popEnterTransition = { EnterTransition.None },
+                            popExitTransition = { slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth }) },
                         ) {
                             HistoryScreen(onBack = { navController.popBackStack() })
                         }
@@ -413,6 +434,7 @@ class MainActivity : ComponentActivity() {
                             "progress",
                             exitTransition = { ExitTransition.None },
                             popEnterTransition = { EnterTransition.None },
+                            popExitTransition = { slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth }) },
                         ) {
                             ExerciseProgressScreen(onBack = { navController.popBackStack() })
                         }
@@ -430,9 +452,11 @@ class MainActivity : ComponentActivity() {
                         }
                         composable(
                             "settings_appearance",
-                            // Hold still while the Subscription modal slides up over it.
+                            // Hold still while the Subscription modal slides up over it (forward exit),
+                            // but slide out to the right when backing out of Appearance itself.
                             exitTransition = { ExitTransition.None },
                             popEnterTransition = { EnterTransition.None },
+                            popExitTransition = { slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth }) },
                         ) {
                             AppearanceScreen(
                                 onBackClick = { navController.popBackStack() },

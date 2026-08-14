@@ -73,7 +73,9 @@ class CoachAvailabilityViewModel(
 
     fun fetch() {
         viewModelScope.launch {
-            isLoading = true
+            // Paint cached slots first so the schedule renders instantly, then refresh from the network.
+            if (slots.isEmpty()) repo.cachedMySlots()?.let { slots = it }
+            isLoading = slots.isEmpty()
             when (val r = repo.mySlots()) {
                 is ApiResult.Success -> slots = r.data
                 is ApiResult.Error -> errorMessage = r.message

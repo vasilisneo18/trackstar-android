@@ -11,6 +11,7 @@ import com.vasilisneo.trackstar.data.auth.apiCall
 import com.vasilisneo.trackstar.data.local.CacheEntry
 import com.vasilisneo.trackstar.data.local.LocalStore
 import com.vasilisneo.trackstar.data.local.Outbox
+import com.vasilisneo.trackstar.data.local.cachePeek
 import com.vasilisneo.trackstar.data.local.cachedRead
 
 // Fetches, upserts, and deletes planned sessions (/api/plan). Pass an `athleteId` to operate on an
@@ -28,6 +29,10 @@ open class PlanRepository {
             apiCall { if (athleteId == null) api.getPlan(weekIdentifier) else coachApi.getAthletePlan(athleteId, weekIdentifier) }
         }
     }
+
+    // Cache-only peek (no network) for painting the week instantly on open.
+    open suspend fun cachedPlan(weekIdentifier: String, athleteId: String? = null): List<PlannedSessionResponse>? =
+        cachePeek(planKey(weekIdentifier, athleteId))
 
     suspend fun upsertSession(request: PlannedSessionRequest, athleteId: String? = null): ApiResult<PlannedSessionResponse> {
         val result = apiCall { if (athleteId == null) api.upsertSession(request) else coachApi.upsertAthleteSession(athleteId, request) }

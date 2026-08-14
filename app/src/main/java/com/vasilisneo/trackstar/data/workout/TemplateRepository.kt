@@ -8,6 +8,7 @@ import com.vasilisneo.trackstar.data.api.TemplateSessionSyncRequest
 import com.vasilisneo.trackstar.data.api.TemplateSyncRequest
 import com.vasilisneo.trackstar.data.auth.ApiResult
 import com.vasilisneo.trackstar.data.auth.apiCall
+import com.vasilisneo.trackstar.data.local.cachePeek
 import com.vasilisneo.trackstar.data.local.cachedRead
 
 // Coach workout-plan templates (/api/coach/templates). Reads are cache-then-network so the
@@ -20,6 +21,11 @@ class TemplateRepository {
 
     suspend fun getTemplateSessions(id: String): ApiResult<List<TemplateSessionDto>> =
         cachedRead("templateSessions:$id") { apiCall { api.getTemplateSessions(id) } }
+
+    // Cache-only peeks (no network) for painting the template list + a template's sessions instantly.
+    suspend fun cachedTemplates(): List<TemplateDto>? = cachePeek("templates")
+
+    suspend fun cachedTemplateSessions(id: String): List<TemplateSessionDto>? = cachePeek("templateSessions:$id")
 
     suspend fun createTemplate(id: String, name: String): ApiResult<TemplateDto> =
         apiCall { api.createTemplate(TemplateSyncRequest(id, name)) }

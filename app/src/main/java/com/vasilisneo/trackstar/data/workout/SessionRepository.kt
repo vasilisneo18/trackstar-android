@@ -101,4 +101,9 @@ open class SessionRepository {
                 .mapNotNull { runCatching { gson.fromJson(it, WorkoutSessionResponse::class.java) }.getOrNull() }
         }.getOrDefault(emptyList())
     }
+
+    // Cache-only peek (no network) of the locally stored sessions — for instant paint of the
+    // workout/history/stats screens before the network refresh lands. Null when nothing is cached.
+    open suspend fun cachedSessions(): List<WorkoutSessionResponse>? =
+        AuthTokenHolder.userId?.let { loadCached(it).ifEmpty { null } }
 }
