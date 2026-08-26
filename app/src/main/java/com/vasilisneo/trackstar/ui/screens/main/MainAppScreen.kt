@@ -37,11 +37,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.annotation.DrawableRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -80,13 +82,16 @@ private data class MainTab(
     val label: String,
     val icon: ImageVector? = null,
     @DrawableRes val iconRes: Int? = null,
+    // Per-icon optical size: the workout figure and the 3-person Groups glyph render smaller within
+    // their box than the solid Stats/Diet glyphs, so they get bumped to look the same weight.
+    val iconSize: androidx.compose.ui.unit.Dp = 26.dp,
 )
 
 private val MainTabs = listOf(
-    MainTab("workout", "Workout", iconRes = R.drawable.ic_workout_figure),
-    MainTab("stats", "Stats", icon = Icons.Filled.BarChart),
-    MainTab("myteam", "MyTeam", icon = Icons.Filled.Groups),
-    MainTab("diet", "Diet", icon = Icons.Filled.Restaurant),
+    MainTab("workout", "Workout", icon = Icons.Filled.FitnessCenter, iconSize = 25.dp),
+    MainTab("stats", "Stats", icon = Icons.Filled.BarChart, iconSize = 24.dp),
+    MainTab("myteam", "MyTeam", icon = Icons.Filled.Groups, iconSize = 28.dp),
+    MainTab("diet", "Diet", icon = Icons.Filled.Restaurant, iconSize = 24.dp),
 )
 
 // Lighter, translucent "liquid glass" capsule (was a near-black #17171F that vanished on the dark
@@ -123,13 +128,19 @@ fun MainAppScreen(
     // their Availability entry; an athlete's coachBookingEnabled (their linked coach's flag) gates the
     // Book entry. Fetched here and refreshed on resume so a coach's Settings change reflects on return.
     val profileRepo = remember { com.vasilisneo.trackstar.data.auth.ProfileRepository() }
+    val bookingScope = androidx.compose.runtime.rememberCoroutineScope()
     // rememberSaveable so the values survive MainAppScreen leaving composition (e.g. navigating to
     // Profile and back). Plain remember would reset these to false on return, hiding the Schedule
     // button for a frame until the async refetch completes — a visible flicker.
     var myBookingEnabled by rememberSaveable { mutableStateOf(false) }      // coach: do I offer booking?
     var coachBookingEnabled by rememberSaveable { mutableStateOf(false) }   // athlete: does my coach offer it?
     var bookingResumeTick by remember { androidx.compose.runtime.mutableIntStateOf(0) }
-    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) { bookingResumeTick++; onPauseOrDispose { } }
+    androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
+        bookingResumeTick++
+        // Pick up a plan grant/change (e.g. a coach comped an upgrade) without needing an app relaunch.
+        com.vasilisneo.trackstar.data.billing.BillingManager.refreshEntitlements()
+        onPauseOrDispose { }
+    }
     androidx.compose.runtime.LaunchedEffect(bookingResumeTick) {
         (profileRepo.getProfile() as? com.vasilisneo.trackstar.data.auth.ApiResult.Success)?.let {
             myBookingEnabled = it.data.bookingEnabled != false
@@ -195,6 +206,12 @@ fun MainAppScreen(
                     onShowAvailability = onOpenAvailability,
                     onSeeAll = onOpenAllAthletes,
                     onOpenBookingSettings = onOpenBookingSettings,
+                    onSetBookingEnabled = { enabled ->
+                        myBookingEnabled = enabled // instant: hides the promo banner
+                        bookingScope.launch {
+                            profileRepo.updateProfile(com.vasilisneo.trackstar.data.api.UpdateProfileRequest(bookingEnabled = enabled))
+                        }
+                    },
                     showAvailability = showAvailabilityEntry,
                 )
             }
@@ -293,6 +310,15 @@ private fun FloatingTabBar(
     val backStackEntry by tabNavController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination
 
+    // Per-tab width: a comfortable 96dp when it fits, but shrink to fit the screen so 4 tabs never
+    // overflow and clip the edge pills (the "Diet looks shorter" bug on narrower/denser phones).
+    val screenWidth = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
+    val sideMargin = 12.dp                    // breathing room each side of the capsule
+    val capsuleOverhead = 8.dp + 2.dp         // inner padding (4+4) + border (1+1)
+    val spacing = 4.dp * (tabs.size - 1)      // gaps between tabs
+    val available = screenWidth - sideMargin * 2 - capsuleOverhead - spacing
+    val tabWidth = minOf(96.dp, available / tabs.size)
+
     // The pill hugs its tabs and centers, so it narrows with fewer tabs (3 for athletes, 4 for a
     // Gold coach), matching iOS's content-sized floating tab bar rather than stretching edge to
     // edge. The full-width Box just provides the centering + bottom inset.
@@ -319,6 +345,7 @@ private fun FloatingTabBar(
                 TabBarItem(
                     tab = tab,
                     selected = selected,
+                    width = tabWidth,
                     onClick = {
                         tabNavController.navigate(tab.route) {
                             popUpTo(tabNavController.graph.findStartDestination().id) { saveState = true }
@@ -336,37 +363,42 @@ private fun FloatingTabBar(
 private fun TabBarItem(
     tab: MainTab,
     selected: Boolean,
+    width: androidx.compose.ui.unit.Dp,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val contentColor = if (selected) Color.White else Color.White.copy(alpha = 0.5f)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(1.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
         modifier = modifier
             // Every tab is the same fixed width, so the bar sizes to (tab count × width) and all
             // slots (and the selected stadium filling one) match — narrower for 3 tabs, wider for
             // 4, always centered (see FloatingTabBar). background(color, shape) draws the
             // antialiased fill; clip() is applied only afterward to bound the tap ripple (hardware
             // clip is not antialiased, so it must NOT be what shapes the visible fill).
-            .width(96.dp)
+            .width(width)
             .background(
                 if (selected) Color.White.copy(alpha = 0.15f) else Color.Transparent,
                 RoundedCornerShape(percent = 50)
             )
             .clip(RoundedCornerShape(percent = 50))
             .clickable(onClick = onClick)
-            .padding(vertical = 6.dp)
+            .padding(vertical = 4.dp)
     ) {
-        if (tab.iconRes != null) {
-            Icon(
-                painter = painterResource(tab.iconRes),
-                contentDescription = tab.label,
-                tint = contentColor,
-                modifier = Modifier.size(24.dp)
-            )
-        } else {
-            Icon(tab.icon!!, contentDescription = tab.label, tint = contentColor, modifier = Modifier.size(24.dp))
+        // Fixed-height icon slot so every tab is the same height even though the optically-small
+        // Workout/MyTeam glyphs render at a larger size than the solid Stats/Diet ones.
+        Box(modifier = Modifier.height(28.dp), contentAlignment = Alignment.Center) {
+            if (tab.iconRes != null) {
+                Icon(
+                    painter = painterResource(tab.iconRes),
+                    contentDescription = tab.label,
+                    tint = contentColor,
+                    modifier = Modifier.size(tab.iconSize)
+                )
+            } else {
+                Icon(tab.icon!!, contentDescription = tab.label, tint = contentColor, modifier = Modifier.size(tab.iconSize))
+            }
         }
         Text(tab.label, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = contentColor)
     }

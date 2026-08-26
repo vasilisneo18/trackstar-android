@@ -2,6 +2,8 @@ package com.vasilisneo.trackstar.data.auth
 
 import com.vasilisneo.trackstar.data.api.MessageResponse
 import com.vasilisneo.trackstar.data.api.NetworkClient
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import retrofit2.Response
 import java.io.IOException
 
@@ -37,6 +39,13 @@ object AuthTokenHolder {
      *  login. Invoked from a background thread — implementations must hop to the main thread. */
     @Volatile
     var onSessionExpired: (() -> Unit)? = null
+
+    /** Emitted whenever the session becomes invalid (a token refresh failed — e.g. the account was
+     *  signed in on another device). The UI collects this to force-logout to Landing, so the app
+     *  never keeps running against a dead session (matches iOS's .sessionExpired handling). */
+    private val _sessionExpired = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val sessionExpired: SharedFlow<Unit> = _sessionExpired
+    fun notifySessionExpired() { _sessionExpired.tryEmit(Unit) }
 }
 
 /** Runs a Retrofit call and maps HTTP/network failures to a user-facing message. Shared by

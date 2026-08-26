@@ -29,11 +29,11 @@ class LoginViewModel(app: Application) : AndroidViewModel(app) {
      *  card is reflected without a recomposition trigger. Landing calls refreshCachedEmail()
      *  on every fresh appearance — mirrors iOS's InitialView.onAppear re-checking
      *  canQuickLogin from Keychain each time the screen is shown, not just once. */
-    var cachedEmail by mutableStateOf(if (tokenStore.hasCachedCredentials) tokenStore.lastEmail else null)
+    var cachedEmail by mutableStateOf(if (tokenStore.hasRememberedSession) tokenStore.lastEmail else null)
         private set
 
     fun refreshCachedEmail() {
-        cachedEmail = if (tokenStore.hasCachedCredentials) tokenStore.lastEmail else null
+        cachedEmail = if (tokenStore.hasRememberedSession) tokenStore.lastEmail else null
     }
 
     var email by mutableStateOf("")
@@ -85,15 +85,14 @@ class LoginViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** One-tap re-login using the cached credentials (Landing's "Continue as" card). */
+    /** One-tap re-login (Landing's "Continue as" card) — re-auths via the kept refresh token,
+     *  no stored password. If the refresh token is gone/expired, the user logs in normally. */
     fun quickLogin(onSuccess: () -> Unit = {}) {
-        val loginPassword = tokenStore.lastPassword ?: return
-        val loginEmail = tokenStore.lastEmail ?: return
-        if (isLoading) return
+        if (!tokenStore.hasRememberedSession || isLoading) return
         viewModelScope.launch {
             isLoading = true
             errorMessage = null
-            when (val result = repository.login(loginEmail, loginPassword)) {
+            when (val result = repository.refreshSession()) {
                 is ApiResult.Success -> {
                     isLoading = false
                     onSuccess()

@@ -75,14 +75,14 @@ class AthletesViewModel(
             if (athletes.isEmpty()) {
                 repo.cachedRoster()?.let { cached ->
                     athletes = cached
-                    seedSummariesFromCache(cached)
+                    seedSummariesFromCache()
                 }
             }
             isLoading = athletes.isEmpty()
             when (val r = repo.getAthletes()) {
                 is ApiResult.Success -> {
                     athletes = r.data
-                    fetchSummaries(r.data)
+                    fetchSummaries()
                 }
                 is ApiResult.Error -> Unit // keep stale roster on failure
             }
@@ -108,27 +108,19 @@ class AthletesViewModel(
         val today = now.toLocalDate().toString()
         val nowHHmm = "%02d:%02d".format(now.hour, now.minute)
         return slots
-            .filter { (it.capacity - it.remaining) > 0 }
+            // "Has a booking" = an athlete attends. Use attendees OR a decremented remaining, since
+            // the backend doesn't always keep both in sync.
+            .filter { (it.capacity - it.remaining) > 0 || !it.attendees.isNullOrEmpty() }
             .filter { it.date > today || (it.date == today && it.startTime >= nowHHmm) }
             .minByOrNull { it.date + it.startTime }
     }
 
-    // Computes this week's planned/completed pills straight from the cache (no network).
-    private suspend fun seedSummariesFromCache(roster: List<ProfileResponse>) {
-        val weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-        val weekEnd = weekStart.plusWeeks(1)
-        val weekId = weekIdentifierFor(weekStart)
-        val todayName = LocalDate.now().dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH)
-        val cached = roster.mapNotNull { athlete ->
-            val id = athlete.id ?: return@mapNotNull null
-            val planned = repo.cachedAthletePlan(id, weekId) ?: return@mapNotNull null
-            val completed = (repo.cachedAthleteSessions(id).orEmpty()).count { s ->
-                val d = s.localDate
-                d != null && !d.isBefore(weekStart) && d.isBefore(weekEnd)
-            }
-            id to AthleteWeeklySummary(planned.size, completed, planned.any { it.day == todayName })
-        }.toMap()
-        if (cached.isNotEmpty()) weeklySummaries = cached
+    // Paints this week's planned/completed pills from the cached batch summary (no network).
+    private suspend fun seedSummariesFromCache() {
+        val weekId = weekIdentifierFor(LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)))
+        repo.cachedAthleteSummaries(weekId)?.let { cached ->
+            if (cached.isNotEmpty()) weeklySummaries = cached.toSummaryMap()
+        }
     }
 
     // Removes the athlete (optimistically off the roster, then DELETE on the backend). Called after
@@ -138,27 +130,20 @@ class AthletesViewModel(
         viewModelScope.launch { repo.removeAthlete(id) }
     }
 
-    private fun fetchSummaries(roster: List<ProfileResponse>) {
+    // One call for the whole roster's week totals (was two calls per athlete).
+    private fun fetchSummaries() {
         val weekStart = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-        val weekEnd = weekStart.plusWeeks(1)
         val weekId = weekIdentifierFor(weekStart)
-        val todayName = LocalDate.now().dayOfWeek.getDisplayName(java.time.format.TextStyle.FULL, java.util.Locale.ENGLISH)
         viewModelScope.launch {
-            val results = roster.mapNotNull { athlete ->
-                val id = athlete.id ?: return@mapNotNull null
-                async {
-                    val planned = (repo.getAthletePlan(id, weekId) as? ApiResult.Success)?.data.orEmpty()
-                    val completed = (repo.getAthleteSessions(id) as? ApiResult.Success)?.data.orEmpty().count { s ->
-                        val d = s.localDate
-                        d != null && !d.isBefore(weekStart) && d.isBefore(weekEnd)
-                    }
-                    id to AthleteWeeklySummary(planned.size, completed, planned.any { it.day == todayName })
-                }
-            }.awaitAll().toMap()
-            weeklySummaries = results
+            (repo.getAthleteSummaries(weekId, weekStart.toString()) as? ApiResult.Success)?.let {
+                weeklySummaries = it.data.toSummaryMap()
+            }
         }
     }
 }
+
+private fun List<com.vasilisneo.trackstar.data.api.AthleteSummaryResponse>.toSummaryMap(): Map<String, AthleteWeeklySummary> =
+    mapNotNull { s -> s.athleteId?.let { it to AthleteWeeklySummary(s.plannedCount, s.completedCount, s.hasSessionToday) } }.toMap()
 
 // iOS UserProfile.fullName / initials, computed from the profile DTO.
 val ProfileResponse.fullName: String

@@ -112,6 +112,20 @@ class MainActivity : ComponentActivity() {
                     // (.resetStack root), Login/Create-Account are pushed from it with a
                     // back button.
                     val navController = rememberNavController()
+                    // Session expired (a token refresh failed — e.g. signed in on another device):
+                    // force-logout to Landing so the app never runs on a dead session (like iOS).
+                    androidx.compose.runtime.LaunchedEffect(navController) {
+                        com.vasilisneo.trackstar.data.auth.AuthTokenHolder.sessionExpired.collect {
+                            // Already at Landing (a prior expiry signal handled it) — don't navigate
+                            // again, which would replay the transition and stack extra entries.
+                            if (navController.currentDestination?.route != "landing") {
+                                navController.navigate("landing") {
+                                    popUpTo(navController.graph.id) { inclusive = true }
+                                    launchSingleTop = true
+                                }
+                            }
+                        }
+                    }
                     NavHost(
                         navController = navController,
                         startDestination = startDestination,
@@ -321,9 +335,18 @@ class MainActivity : ComponentActivity() {
                                 onPersonalInfo = { navController.navigate("personal_info") },
                                 onSettings = { navController.navigate("settings") },
                                 onUpgrade = { navController.navigate("subscription") },
+                                onOpenBronzeGrants = { navController.navigate("bronze_grants") },
                                 onQrCode = { navController.navigate("qr") },
                                 onMyCoach = { navController.navigate("my_coach") },
                             )
+                        }
+                        composable(
+                            "bronze_grants",
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                            popExitTransition = { slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth }) },
+                        ) {
+                            com.vasilisneo.trackstar.ui.screens.main.coach.BronzeGrantsScreen(onBack = { navController.popBackStack() })
                         }
                         composable(
                             "my_coach",
@@ -352,14 +375,17 @@ class MainActivity : ComponentActivity() {
                         }
                         composable(
                             // Coach manages the availability slots athletes can book. Modal slide-up.
-                            "coach_availability",
+                            // Optional ?date=yyyy-MM-dd opens straight to that day (e.g. a booking push).
+                            "coach_availability?date={date}",
+                            arguments = listOf(navArgument("date") { type = NavType.StringType; nullable = true; defaultValue = null }),
                             enterTransition = { slideInVertically(initialOffsetY = { it }) },
                             exitTransition = { ExitTransition.None },
                             popEnterTransition = { EnterTransition.None },
                             popExitTransition = { slideOutVertically(targetOffsetY = { it }) },
-                        ) {
+                        ) { backStackEntry ->
                             com.vasilisneo.trackstar.ui.screens.main.coach.CoachAvailabilityScreen(
                                 onBack = { navController.popBackStack() },
+                                initialDate = backStackEntry.arguments?.getString("date"),
                             )
                         }
                         composable(
@@ -629,7 +655,9 @@ class MainActivity : ComponentActivity() {
                                 navController.navigate("book_session"); pendingBooking.value = null
                             }
                             "booked", "withdrawn" -> androidx.compose.runtime.LaunchedEffect(tap) {
-                                navController.navigate("coach_availability"); pendingBooking.value = null
+                                // Open straight to the booked day so the booking is visible, not today.
+                                val route = tap.date?.let { "coach_availability?date=$it" } ?: "coach_availability"
+                                navController.navigate(route); pendingBooking.value = null
                             }
                             else -> androidx.compose.runtime.LaunchedEffect(tap) { pendingBooking.value = null }
                         }

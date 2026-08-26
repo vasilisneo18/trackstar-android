@@ -83,8 +83,13 @@ private val CardFill = Color.White.copy(alpha = 0.06f)
 @Composable
 fun CoachAvailabilityScreen(
     onBack: () -> Unit = {},
+    initialDate: String? = null,
     viewModel: CoachAvailabilityViewModel = viewModel(),
 ) {
+    // Opened from a booking notification (?date=yyyy-MM-dd): jump to that day so the booking shows.
+    LaunchedEffect(initialDate) {
+        initialDate?.let { iso -> runCatching { java.time.LocalDate.parse(iso) }.getOrNull()?.let(viewModel::selectDate) }
+    }
     var showAdd by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<SlotResponse?>(null) }
     var cancelling by remember { mutableStateOf<SlotResponse?>(null) }

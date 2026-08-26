@@ -26,7 +26,6 @@ class AuthRepository(private val tokenStore: TokenStore) {
         val result = apiCall { api.login(LoginRequest(cleanEmail, password)) }
         if (result is ApiResult.Success) {
             tokenStore.save(result.data)
-            tokenStore.saveCredentials(cleanEmail, password)
             com.vasilisneo.trackstar.data.billing.BillingManager.logIn(result.data.userId)
             com.vasilisneo.trackstar.data.push.PushTokenRegistrar.register()
         }
@@ -37,7 +36,19 @@ class AuthRepository(private val tokenStore: TokenStore) {
         val result = apiCall { api.register(request) }
         if (result is ApiResult.Success) {
             tokenStore.save(result.data)
-            tokenStore.saveCredentials(request.email, request.password)
+            com.vasilisneo.trackstar.data.billing.BillingManager.logIn(result.data.userId)
+            com.vasilisneo.trackstar.data.push.PushTokenRegistrar.register()
+        }
+        return result
+    }
+
+    // One-tap "Continue as": exchange the kept refresh token for a fresh session (no stored
+    // password). Fails when the refresh token is missing/expired — caller then routes to login.
+    suspend fun refreshSession(): ApiResult<AuthResponse> {
+        val refreshToken = tokenStore.refreshToken ?: return ApiResult.Error("No saved session", offline = false)
+        val result = apiCall { api.refresh(com.vasilisneo.trackstar.data.api.RefreshRequest(refreshToken)) }
+        if (result is ApiResult.Success) {
+            tokenStore.save(result.data)
             com.vasilisneo.trackstar.data.billing.BillingManager.logIn(result.data.userId)
             com.vasilisneo.trackstar.data.push.PushTokenRegistrar.register()
         }

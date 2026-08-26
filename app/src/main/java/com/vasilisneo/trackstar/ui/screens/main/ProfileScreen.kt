@@ -90,6 +90,7 @@ fun ProfileScreen(
     onPersonalInfo: () -> Unit = {},
     onSettings: () -> Unit = {},
     onUpgrade: () -> Unit = {},
+    onOpenBronzeGrants: () -> Unit = {},
     onQrCode: () -> Unit = {},
     onMyCoach: () -> Unit = {},
     viewModel: ProfileViewModel = viewModel(),
@@ -97,7 +98,6 @@ fun ProfileScreen(
     // Athletes get a "My Coach" row here (they have no MyTeam tab — that's Gold-coach-only, matching
     // iOS, which surfaces the coach relationship in Profile). Coaches manage their own roster tab.
     val ctx = androidx.compose.ui.platform.LocalContext.current
-    val isAthlete = remember { com.vasilisneo.trackstar.data.auth.TokenStore(ctx).role != "coach" }
     // Real profile from GET /api/profile, falling back to the cached session name/email
     // (and "—" for body stats) while the fetch is in flight or if it fails offline.
     val remote = viewModel.profile
@@ -143,13 +143,17 @@ fun ProfileScreen(
 
                 ProfileHeader(profile)
 
-                PersonalSection(profile, onUpgrade = onUpgrade)
+                PersonalSection(profile, onUpgrade = onUpgrade, bronzeGrants = remote?.bronzeGrantsRemaining ?: 0, onOpenBronzeGrants = onOpenBronzeGrants)
+
+                // A linked coach shows an inline coach card (no separate screen). Gated on coachName
+                // being present — matches iOS; coaches have no coachName so it never shows for them.
+                remote?.coachName?.takeIf { it.isNotBlank() }?.let { coachName ->
+                    CoachCard(name = coachName, coachingSince = remote.coachingSince)
+                }
 
                 AppSection(
                     onPersonalInfo = onPersonalInfo,
                     onSettings = onSettings,
-                    showMyCoach = isAthlete,
-                    onMyCoach = onMyCoach,
                 )
 
                 LogoutSection(onLogout = { viewModel.logout(); onLogout() })
@@ -213,7 +217,7 @@ private fun ProfileHeader(profile: ProfileData) {
 }
 
 @Composable
-private fun PersonalSection(profile: ProfileData, onUpgrade: () -> Unit) {
+private fun PersonalSection(profile: ProfileData, onUpgrade: () -> Unit, bronzeGrants: Int = 0, onOpenBronzeGrants: () -> Unit = {}) {
     val plan by com.vasilisneo.trackstar.data.billing.BillingManager.currentPlan.collectAsState()
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -225,6 +229,9 @@ private fun PersonalSection(profile: ProfileData, onUpgrade: () -> Unit) {
         } else {
             MembershipCard(plan = plan, onClick = onUpgrade)
         }
+
+        // Coaches with free Bronze grants see them right below the plan card (matches iOS).
+        if (bronzeGrants > 0) BronzeCreditsCard(bronzeGrants, onClick = onOpenBronzeGrants)
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatCard(icon = Icons.Filled.Person, title = "Gender", value = profile.gender, unit = "", modifier = Modifier.weight(1f))
@@ -241,7 +248,7 @@ private fun PersonalSection(profile: ProfileData, onUpgrade: () -> Unit) {
 private fun LevelUpCard(onClick: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier
             .fillMaxWidth()
             .height(60.dp)
@@ -258,12 +265,13 @@ private fun LevelUpCard(onClick: () -> Unit) {
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp)
     ) {
-        Icon(Icons.Filled.MilitaryTech, contentDescription = null, tint = Color(0xFFE6B325), modifier = Modifier.size(20.dp))
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        // 24dp box so the medal (which has internal padding) reads at the same optical size as iOS's.
+        Icon(Icons.Filled.MilitaryTech, contentDescription = null, tint = Color(0xFFE6B325), modifier = Modifier.size(24.dp))
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text("Level Up", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Text("Start your 7-day free trial", fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f))
         }
-        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(16.dp))
+        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Color.White.copy(alpha = 0.35f), modifier = Modifier.size(20.dp))
     }
 }
 
@@ -376,18 +384,62 @@ private fun StatFace(icon: ImageVector, iconTint: Color, value: String, unit: St
 private fun AppSection(
     onPersonalInfo: () -> Unit,
     onSettings: () -> Unit,
-    showMyCoach: Boolean,
-    onMyCoach: () -> Unit,
 ) {
     ProfileGroup {
-        if (showMyCoach) {
-            ProfileRow(icon = Icons.Filled.Groups, label = "My Coach", onClick = onMyCoach)
-            HorizontalDivider(color = Color.White.copy(alpha = 0.08f), modifier = Modifier.padding(start = 62.dp))
-        }
         ProfileRow(icon = Icons.Outlined.Badge, label = "Personal Info", onClick = onPersonalInfo)
         HorizontalDivider(color = Color.White.copy(alpha = 0.08f), modifier = Modifier.padding(start = 62.dp))
         ProfileRow(icon = Icons.Filled.Settings, label = "Settings", onClick = onSettings)
     }
+}
+
+// Inline "My Coach" card for athletes (replaces the old full-screen My Coach). Uses the coach name +
+// "coaching since" from the athlete's own profile.
+@Composable
+private fun BronzeCreditsCard(credits: Int, onClick: () -> Unit) {
+    val bronze = Color(0xFFCD7F32)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp)).background(bronze.copy(alpha = 0.08f))
+            .clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
+    ) {
+        Icon(Icons.Filled.MilitaryTech, contentDescription = null, tint = bronze, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.width(12.dp))
+        Text("Bronze Credits", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.weight(1f))
+        Text(
+            "$credits left", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = bronze,
+            modifier = Modifier.clip(RoundedCornerShape(50)).background(bronze.copy(alpha = 0.2f)).padding(horizontal = 10.dp, vertical = 5.dp),
+        )
+        Spacer(Modifier.width(8.dp))
+        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(20.dp))
+    }
+}
+
+@Composable
+private fun CoachCard(name: String, coachingSince: String?) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(20.dp)).background(Color.White.copy(alpha = 0.10f)).padding(16.dp),
+    ) {
+        Box(Modifier.size(52.dp).clip(CircleShape).background(TrackstarAccent.copy(alpha = 0.25f)), contentAlignment = Alignment.Center) {
+            Text(initialsFrom(name), fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TrackstarAccent)
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text("MY COACH", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.5.sp, color = Color.White.copy(alpha = 0.45f))
+            Text(name, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1)
+            coachSinceLabel(coachingSince)?.let {
+                Text(it, fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f))
+            }
+        }
+    }
+}
+
+// "2025-06-01" -> "Coaching since June 2025".
+private fun coachSinceLabel(iso: String?): String? {
+    val d = iso?.let { runCatching { java.time.LocalDate.parse(it) }.getOrNull() } ?: return null
+    return "Coaching since " + d.format(java.time.format.DateTimeFormatter.ofPattern("LLLL yyyy"))
 }
 
 @Composable

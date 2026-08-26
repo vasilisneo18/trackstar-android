@@ -25,25 +25,25 @@
     <!-- Head -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M12,4.55 A1.85,1.85 0 1 1 12,8.25 A1.85,1.85 0 1 1 12,4.55 Z" />
+        android:pathData="M12,4.3 A2.15,2.15 0 1 1 12,8.6 A2.15,2.15 0 1 1 12,4.3 Z" />
 
     <!-- Arms: bar-end -> left shoulder -> right shoulder -> bar-end -->
     <path
         android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="1.9"
+        android:strokeWidth="2.7"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:pathData="M4.6,3 L9.4,9.2 L14.6,9.2 L19.4,3" />
     <!-- Torso -->
     <path
         android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="1.9"
+        android:strokeWidth="2.7"
         android:strokeLineCap="round"
         android:pathData="M12,9.2 L12,15" />
     <!-- Legs -->
     <path
         android:strokeColor="#FFFFFFFF"
-        android:strokeWidth="1.9"
+        android:strokeWidth="2.7"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:pathData="M8,21.8 L12,15 L16,21.8" />

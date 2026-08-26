@@ -2,6 +2,7 @@ package com.vasilisneo.trackstar.data.workout
 
 import com.vasilisneo.trackstar.data.api.AddAthleteRequest
 import com.vasilisneo.trackstar.data.api.AthleteNotesDto
+import com.vasilisneo.trackstar.data.api.AthleteSummaryResponse
 import com.vasilisneo.trackstar.data.api.CoachInviteResponse
 import com.vasilisneo.trackstar.data.api.InviteValidationResponse
 import com.vasilisneo.trackstar.data.api.MessageResponse
@@ -24,6 +25,12 @@ open class AthleteRepository {
 
     open suspend fun getAthletes(): ApiResult<List<ProfileResponse>> =
         cachedRead("roster") { apiCall { api.getAthletes() } }
+
+    open suspend fun getAthleteSummaries(weekIdentifier: String, weekStart: String): ApiResult<List<AthleteSummaryResponse>> =
+        cachedRead("athleteSummaries:$weekIdentifier") { apiCall { api.getAthleteSummaries(weekIdentifier, weekStart) } }
+
+    open suspend fun cachedAthleteSummaries(weekIdentifier: String): List<AthleteSummaryResponse>? =
+        cachePeek("athleteSummaries:$weekIdentifier")
 
     suspend fun getAthlete(athleteId: String): ApiResult<ProfileResponse> =
         cachedRead("athlete:$athleteId") { apiCall { api.getAthlete(athleteId) } }
@@ -58,11 +65,20 @@ open class AthleteRepository {
     open suspend fun removeAthlete(athleteId: String): ApiResult<MessageResponse> =
         apiCall { api.removeAthlete(athleteId) }
 
-    suspend fun addAthlete(email: String): ApiResult<ProfileResponse> =
-        apiCall { api.addAthlete(AddAthleteRequest(email = email)) }
+    suspend fun addAthlete(email: String, useBronzeGrant: Boolean = false): ApiResult<ProfileResponse> =
+        apiCall { api.addAthlete(AddAthleteRequest(email = email, useBronzeGrant = useBronzeGrant)) }
+
+    suspend fun getBronzeGrants(): ApiResult<List<com.vasilisneo.trackstar.data.api.BronzeGrantResponse>> =
+        apiCall { api.getBronzeGrants() }
+
+    suspend fun revokeBronzeGrant(athleteId: String): ApiResult<MessageResponse> =
+        apiCall { api.revokeBronzeGrant(athleteId) }
 
     suspend fun createInvite(): ApiResult<CoachInviteResponse> =
         apiCall { api.createInvite() }
+
+    suspend fun updateInviteGrantBronze(token: String, grant: Boolean): ApiResult<Map<String, Boolean>> =
+        apiCall { api.updateInviteGrantBronze(token, mapOf("grantBronze" to grant)) }
 
     // Athlete side: the linked coach's profile. Errors (400 "No coach linked") when unlinked —
     // callers treat that as the empty state rather than a failure. Cache-then-network, but the 400

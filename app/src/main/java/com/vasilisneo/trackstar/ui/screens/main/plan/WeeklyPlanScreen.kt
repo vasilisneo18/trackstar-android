@@ -123,7 +123,8 @@ fun WeeklyPlanScreen(
     var skipFirstResume by remember { mutableStateOf(true) }
     LifecycleResumeEffect(Unit) {
         if (skipFirstResume) skipFirstResume = false else viewModel.fetch()
-        onPauseOrDispose { }
+        // Leaving or backgrounding flushes edits as a single "plan updated" push to the coach.
+        onPauseOrDispose { viewModel.flushNotify() }
     }
 
     Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {

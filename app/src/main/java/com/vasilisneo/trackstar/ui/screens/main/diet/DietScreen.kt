@@ -17,6 +17,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalOverscrollConfiguration
+import androidx.compose.foundation.OverscrollConfiguration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -100,7 +101,9 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val CardFill = Color.White.copy(alpha = 0.08f)
+// Translucent white — picks up the blue gradient for the elevated card look (matches MyTeam).
+// Safe now that the bleed-through wordmark is gone.
+private val CardFill = Color.White.copy(alpha = 0.10f)
 private val HeaderTint = Color(0xFF3B3B46)
 private val dayNames = listOf("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 
@@ -124,8 +127,11 @@ fun DietScreen(
     // while the day bar is still floating up; the day bar's frost extends upward to keep it seamless.
     val collapse by remember {
         derivedStateOf {
-            val title = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == 0 }
-                ?: return@derivedStateOf 1f
+            val info = listState.layoutInfo.visibleItemsInfo
+            val title = info.firstOrNull { it.index == 0 }
+                // Empty = not laid out yet → expanded (no frost flash on recomposition); non-empty
+                // without item 0 = title scrolled off → collapsed.
+                ?: return@derivedStateOf if (info.isEmpty()) 0f else 1f
             val h = title.size.toFloat()
             if (h <= 0f) 0f else ((-title.offset).toFloat() / h).coerceIn(0f, 1f)
         }
@@ -154,10 +160,6 @@ fun DietScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
-        Text(
-            "Trackstar", fontSize = 30.sp, fontWeight = FontWeight.Black, color = Color.White.copy(alpha = 0.05f),
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = com.vasilisneo.trackstar.ui.components.tabWatermarkBottomPadding())
-        )
 
         // iOS structure: a fixed nav bar ABOVE the scroll view. The day bar is a pinned section header
         // inside the list, so it docks directly below the nav bar (flush, no overlap). Both carry the
@@ -178,7 +180,7 @@ fun DietScreen(
             // Disable the Android overscroll stretch: at the ends it drags the whole content layer
             // (including the pinned day bar) up under the nav bar. iOS's rubber-band keeps pinned
             // headers put; nulling the config gives the same "day bar stays docked" behavior.
-            CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
+            CompositionLocalProvider(LocalOverscrollConfiguration provides OverscrollConfiguration()) {
             LazyColumn(
                 state = listState,
                 contentPadding = PaddingValues(bottom = com.vasilisneo.trackstar.ui.components.tabBarContentBottomPadding()),

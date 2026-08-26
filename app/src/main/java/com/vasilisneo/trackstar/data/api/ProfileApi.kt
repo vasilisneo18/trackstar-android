@@ -29,11 +29,16 @@ data class ProfileResponse(
     val weight: Double?,
     val targetWeight: Double?,
     val country: String?,
+    val coachId: String? = null,
     val coachName: String?,
     val coachingSince: String?,
     val notifyOnOpenSlot: Boolean? = null,
     val bookingEnabled: Boolean? = null,        // this user's own coach setting
     val coachBookingEnabled: Boolean? = null,   // whether this user's linked coach offers booking
+    val notifyPlanUpdates: Boolean? = null,
+    val notifyComments: Boolean? = null,
+    val notifySessionCompletions: Boolean? = null,
+    val bronzeGrantsRemaining: Int? = null,   // coach: free Bronze grants left to give athletes
 )
 
 // Partial profile update — mirrors com.fitnessbook.dto.UpdateProfileRequest. Only non-null fields are
@@ -50,4 +55,7 @@ data class UpdateProfileRequest(
     val role: String? = null,          // "athlete" | "coach"
     val notifyOnOpenSlot: Boolean? = null,
     val bookingEnabled: Boolean? = null,
+    val notifyPlanUpdates: Boolean? = null,
+    val notifyComments: Boolean? = null,
+    val notifySessionCompletions: Boolean? = null,
 )

@@ -17,7 +17,9 @@ import kotlinx.coroutines.launch
 // Seeds the in-memory JWT (AuthTokenHolder) from persisted prefs on launch, so the network
 // auth interceptor has the token available before any screen constructs a TokenStore.
 class TrackstarApplication : Application() {
-    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    // App-scoped so fire-and-forget work (e.g. a plan's final sync) survives the screen/VM being
+    // torn down as the user navigates away.
+    val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     // Count of started (visible) activities. Drops to 0 exactly when the app goes to the
     // background — our cue to apply any queued launcher-icon change (see AppIconManager).

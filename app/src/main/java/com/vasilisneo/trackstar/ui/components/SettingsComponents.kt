@@ -110,7 +110,7 @@ fun SettingsRowDivider() {
 }
 
 @Composable
-fun SettingsToggleRow(icon: ImageVector, label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+fun SettingsToggleRow(icon: ImageVector, label: String, checked: Boolean, subtitle: String? = null, onCheckedChange: (Boolean) -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
@@ -119,7 +119,12 @@ fun SettingsToggleRow(icon: ImageVector, label: String, checked: Boolean, onChec
         Box(modifier = Modifier.width(32.dp), contentAlignment = Alignment.CenterStart) {
             Icon(icon, contentDescription = null, tint = Color.White.copy(alpha = 0.7f))
         }
-        Text(label, fontSize = 16.sp, color = Color.White, modifier = Modifier.weight(1f))
+        androidx.compose.foundation.layout.Column(modifier = Modifier.weight(1f)) {
+            Text(label, fontSize = 16.sp, color = Color.White)
+            subtitle?.let {
+                Text(it, fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f), modifier = Modifier.padding(top = 2.dp))
+            }
+        }
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,

@@ -3,6 +3,7 @@ package com.vasilisneo.trackstar.data.api
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.vasilisneo.trackstar.data.auth.AuthTokenHolder
+import okhttp3.Dispatcher
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -31,6 +32,13 @@ object NetworkClient {
     private val okHttp: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
+        // The coach roster fires ~2 calls per athlete (plan + sessions) at once; OkHttp's default
+        // cap of 5 requests/host would queue the single "coming up" (mySlots) call behind them,
+        // making it feel slow. Raise the ceiling so independent screen fetches run in parallel.
+        .dispatcher(Dispatcher().apply {
+            maxRequests = 64
+            maxRequestsPerHost = 20
+        })
         // Attach the JWT to every request that doesn't already carry one. Public /auth
         // routes simply ignore it; protected routes (profile, plans, sessions) require it.
         .addInterceptor { chain ->
@@ -43,7 +51,10 @@ object NetworkClient {
             }
             chain.proceed(authed)
         }
-        .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
+        .addInterceptor(HttpLoggingInterceptor().apply {
+            // Only log in debug builds — release shouldn't write request URLs to logcat.
+            level = if (com.vasilisneo.trackstar.BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BASIC else HttpLoggingInterceptor.Level.NONE
+        })
         // Silently refresh an expired access token on 401 and retry, like iOS's AuthInterceptor.
         .authenticator(TokenAuthenticator())
         .build()

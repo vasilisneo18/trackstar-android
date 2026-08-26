@@ -43,6 +43,10 @@ class TokenAuthenticator : Authenticator {
         if (priorResponseCount(response) >= 2) return null
 
         synchronized(this) {
+            // Re-read under the lock. A prior thread that lost the race may have already given up
+            // and cleared the session — if so, bail WITHOUT re-signalling expiry. Otherwise every
+            // concurrent 401 fires its own onSessionExpired → the app navigates to login N times.
+            val currentRefresh = AuthTokenHolder.refreshToken ?: return null
             val current = AuthTokenHolder.token
             val usedToken = response.request.header("Authorization")?.removePrefix("Bearer ")?.trim()
 
@@ -54,7 +58,7 @@ class TokenAuthenticator : Authenticator {
                     .build()
             }
 
-            val newAuth = runCatching { refreshApi.refresh(RefreshRequest(refreshToken)).execute() }
+            val newAuth = runCatching { refreshApi.refresh(RefreshRequest(currentRefresh)).execute() }
                 .getOrNull()
                 ?.takeIf { it.isSuccessful }
                 ?.body()
@@ -68,7 +72,7 @@ class TokenAuthenticator : Authenticator {
             }
 
             AuthTokenHolder.token = newAuth.token
-            AuthTokenHolder.refreshToken = newAuth.refreshToken ?: refreshToken
+            AuthTokenHolder.refreshToken = newAuth.refreshToken ?: currentRefresh
             AuthTokenHolder.onTokensRefreshed?.invoke(newAuth.token, AuthTokenHolder.refreshToken)
 
             return response.request.newBuilder()

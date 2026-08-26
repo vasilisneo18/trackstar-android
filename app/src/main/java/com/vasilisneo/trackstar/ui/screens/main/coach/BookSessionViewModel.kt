@@ -45,11 +45,19 @@ class BookSessionViewModel(
     val selectedDate: LocalDate
         get() = weekStart.plusDays((selectedDay.value - DayOfWeek.MONDAY.value).toLong())
 
-    // Slots on the selected day, earliest start first.
+    // A slot is in the past once its start time has passed — still shown, but faded and not bookable.
+    fun isPast(slot: SlotResponse): Boolean {
+        val now = java.time.LocalDateTime.now()
+        val today = now.toLocalDate().toString()
+        val nowHHmm = "%02d:%02d".format(now.hour, now.minute)
+        return slot.date < today || (slot.date == today && slot.startTime <= nowHHmm)
+    }
+
+    // Slots on the selected day, earliest start first (past ones sink to the top as they're earliest).
     val slotsForSelectedDay: List<SlotResponse>
         get() = available.filter { it.date == selectedDate.toString() }.sortedBy { it.startTime }
 
-    // Does the given weekday (in the current week) have any available slots? Drives the day-tab dot.
+    // Does the given weekday (in the current week) have any slots? Drives the day-tab dot.
     fun hasSlots(day: DayOfWeek): Boolean {
         val date = weekStart.plusDays((day.value - DayOfWeek.MONDAY.value).toLong()).toString()
         return available.any { it.date == date }

@@ -66,6 +66,11 @@ fun AthletePlanTab(viewModel: WeeklyPlanViewModel, modifier: Modifier = Modifier
     var deletingExerciseId by remember { mutableStateOf<String?>(null) }
     var deletingPairIds by remember { mutableStateOf<Pair<String, String>?>(null) }
 
+    // Leaving the athlete's plan (tab switch or back) flushes any edits as one "plan updated" push.
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        onDispose { viewModel.flushNotify() }
+    }
+
     val singleSession = viewModel.sessionsForSelectedDay.singleOrNull()
 
     Column(modifier = modifier.fillMaxSize()) {

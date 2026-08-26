@@ -16,6 +16,7 @@ import com.revenuecat.purchases.awaitLogOut
 import com.revenuecat.purchases.awaitOfferings
 import com.revenuecat.purchases.awaitPurchase
 import com.revenuecat.purchases.awaitRestore
+import com.revenuecat.purchases.interfaces.UpdatedCustomerInfoListener
 import com.revenuecat.purchases.Package
 import com.revenuecat.purchases.PurchaseParams
 import kotlinx.coroutines.CoroutineScope
@@ -81,6 +82,12 @@ object BillingManager {
         }.isSuccess
         if (!configured) return
         isConfigured = true
+        // Live entitlement updates: RevenueCat refetches CustomerInfo when the app returns to the
+        // foreground and fires this whenever entitlements change (e.g. a dashboard-granted upgrade),
+        // so the plan updates without needing to kill/relaunch the app (mirrors iOS's PurchasesDelegate).
+        Purchases.sharedInstance.updatedCustomerInfoListener = UpdatedCustomerInfoListener { info ->
+            applyCustomerInfo(info)
+        }
         scope.launch {
             refresh()
             fetchOfferings()
@@ -112,6 +119,16 @@ object BillingManager {
         if (!isConfigured) return
         runCatching { Purchases.sharedInstance.awaitCustomerInfo() }
             .onSuccess { info -> applyCustomerInfo(info) }
+    }
+
+    // Force a fresh entitlement fetch from the network — call on app foreground so a just-granted
+    // upgrade (or an expiry) is reflected immediately, without waiting for RevenueCat's own refresh.
+    fun refreshEntitlements() {
+        if (!isConfigured) return
+        scope.launch {
+            runCatching { Purchases.sharedInstance.invalidateCustomerInfoCache() }
+            refresh()
+        }
     }
 
     // Push the plan, its store-management URL, and its expiry from a CustomerInfo into the flows.

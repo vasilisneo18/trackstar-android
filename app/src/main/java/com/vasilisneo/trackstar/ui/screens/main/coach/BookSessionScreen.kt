@@ -50,6 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -126,6 +127,7 @@ fun BookSessionScreen(
                             AthleteSessionRow(
                                 slot = slot,
                                 busy = viewModel.busySlotId == slot.id,
+                                past = viewModel.isPast(slot),
                                 onBook = { viewModel.book(slot.id) },
                                 onWithdraw = { withdrawing = slot },
                             )
@@ -181,6 +183,7 @@ fun BookSessionScreen(
                             AthleteSessionRow(
                                 slot = slot,
                                 busy = viewModel.busySlotId == slot.id,
+                                past = viewModel.isPast(slot),
                                 onBook = { viewModel.book(slot.id) },
                                 onWithdraw = { withdrawing = slot },
                             )
@@ -205,6 +208,7 @@ fun BookSessionScreen(
             title = prettyBookDate(viewModel.selectedDate.toString()),
             slots = viewModel.slotsForSelectedDay,
             busySlotId = viewModel.busySlotId,
+            isPast = viewModel::isPast,
             onBook = { viewModel.book(it.id) },
             onWithdraw = { showDaySheet = false; withdrawing = it },
             onDismiss = { showDaySheet = false },
@@ -243,15 +247,16 @@ private fun prettyBookDate(iso: String): String = runCatching {
 // Time label + athlete session card — one session block, reused in the week list, the calendar
 // summary, and the "show all" day sheet.
 @Composable
-private fun AthleteSessionRow(slot: SlotResponse, busy: Boolean, onBook: () -> Unit, onWithdraw: () -> Unit) {
-    Column {
+private fun AthleteSessionRow(slot: SlotResponse, busy: Boolean, past: Boolean = false, onBook: () -> Unit, onWithdraw: () -> Unit) {
+    // Past slots stay visible but dimmed and un-bookable.
+    Column(modifier = if (past) Modifier.alpha(0.45f) else Modifier) {
         Text(
             "${displayTime(slot.startTime)} – ${displayTime(slot.endTime)}",
             fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
             color = Color.White.copy(alpha = 0.55f),
             modifier = Modifier.padding(start = 4.dp, bottom = 8.dp),
         )
-        AthleteSlotCard(slot = slot, busy = busy, onBook = onBook, onWithdraw = onWithdraw)
+        AthleteSlotCard(slot = slot, busy = busy, past = past, onBook = onBook, onWithdraw = onWithdraw)
     }
 }
 
@@ -271,6 +276,7 @@ private fun AthleteDaySessionsSheet(
     title: String,
     slots: List<SlotResponse>,
     busySlotId: String?,
+    isPast: (SlotResponse) -> Boolean = { false },
     onBook: (SlotResponse) -> Unit,
     onWithdraw: (SlotResponse) -> Unit,
     onDismiss: () -> Unit,
@@ -294,6 +300,7 @@ private fun AthleteDaySessionsSheet(
                     AthleteSessionRow(
                         slot = slot,
                         busy = busySlotId == slot.id,
+                        past = isPast(slot),
                         onBook = { onBook(slot) },
                         onWithdraw = { onWithdraw(slot) },
                     )
@@ -304,7 +311,7 @@ private fun AthleteDaySessionsSheet(
 }
 
 @Composable
-private fun AthleteSlotCard(slot: SlotResponse, busy: Boolean, onBook: () -> Unit, onWithdraw: () -> Unit) {
+private fun AthleteSlotCard(slot: SlotResponse, busy: Boolean, past: Boolean = false, onBook: () -> Unit, onWithdraw: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardFill).padding(16.dp)
@@ -312,13 +319,15 @@ private fun AthleteSlotCard(slot: SlotResponse, busy: Boolean, onBook: () -> Uni
         Column(Modifier.weight(1f)) {
             Text(slot.title?.takeIf { it.isNotBlank() } ?: "Session", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Color.White)
             slot.coachName?.takeIf { it.isNotBlank() }?.let { Text("with $it", fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f), modifier = Modifier.padding(top = 2.dp)) }
-            if (slot.capacity > 1) {
+            if (!past && slot.capacity > 1) {
                 Text("${slot.remaining} spot${if (slot.remaining == 1) "" else "s"} left", fontSize = 12.sp, color = TrackstarAccent, modifier = Modifier.padding(top = 4.dp))
             }
         }
         Spacer(Modifier.size(12.dp))
         when {
             busy -> CircularProgressIndicator(color = Color.White.copy(alpha = 0.7f), strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+            // A passed slot can't be booked or withdrawn from — just show its state.
+            past -> Text(if (slot.bookedByMe) "Booked" else "Passed", color = Color.White.copy(alpha = 0.4f), fontWeight = FontWeight.SemiBold)
             // Booked: a status pill (not a hidden toggle) + a ⋮ menu with an explicit "Withdraw".
             slot.bookedByMe -> Row(verticalAlignment = Alignment.CenterVertically) {
                 BookedPill()

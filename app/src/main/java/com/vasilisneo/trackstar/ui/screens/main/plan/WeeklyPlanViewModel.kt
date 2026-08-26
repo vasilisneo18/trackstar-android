@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.vasilisneo.trackstar.TrackstarApplication
 import com.vasilisneo.trackstar.data.api.ExerciseComment
 import com.vasilisneo.trackstar.data.api.ExerciseData
 import com.vasilisneo.trackstar.data.api.PlannedSessionRequest
@@ -73,6 +74,11 @@ class WeeklyPlanViewModel @JvmOverloads constructor(app: Application, private va
 
     private var weekSessions by mutableStateOf<List<PlannedSessionResponse>>(emptyList())
 
+    // Set by any edit. Per-edit upserts persist silently; this drives the single "plan updated" push,
+    // sent via one batch call when the coach/athlete finishes (leaves the screen or changes week) —
+    // matching iOS. Without it the athlete would get a notification for every individual change.
+    private var dirty = false
+
     val selectedDayName: String
         get() = selectedDay.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
 
@@ -99,19 +105,35 @@ class WeeklyPlanViewModel @JvmOverloads constructor(app: Application, private va
         // The whole week is already loaded — switching days just re-filters in-memory state, so
         // only refetch when actually crossing into a different week (no spinner flash on tab taps).
         if (newWeekStart != weekStart) {
+            flushNotify() // send one notification for the week we're leaving before loading another
             weekStart = newWeekStart
             fetch()
         }
     }
 
     fun goToPreviousWeek() {
+        flushNotify()
         weekStart = weekStart.minusWeeks(1)
         fetch()
     }
 
     fun goToNextWeek() {
+        flushNotify()
         weekStart = weekStart.plusWeeks(1)
         fetch()
+    }
+
+    // Fires one batch upsert — and thus one "plan updated" push — if there are unsent edits. Runs on
+    // the app scope so it still completes when called as the screen/VM is torn down on navigation.
+    fun flushNotify() {
+        if (!dirty) return
+        dirty = false
+        val requests = weekSessions.map { it.toRequest() }
+        if (requests.isEmpty()) return // nothing to batch (e.g. week emptied) — no notification
+        val id = athleteId
+        (getApplication() as TrackstarApplication).appScope.launch {
+            planRepository.upsertBatch(requests, id)
+        }
     }
 
     fun fetch() {
@@ -166,6 +188,7 @@ class WeeklyPlanViewModel @JvmOverloads constructor(app: Application, private va
         val reindexed = newOrder.mapIndexed { index, session -> session.copy(orderIndex = index) }
         val otherDays = weekSessions.filterNot { s -> reindexed.any { it.id == s.id } }
         weekSessions = otherDays + reindexed
+        dirty = true
 
         viewModelScope.launch {
             isSaving = true
@@ -188,6 +211,7 @@ class WeeklyPlanViewModel @JvmOverloads constructor(app: Application, private va
             exercises = emptyList(),
         )
         weekSessions = weekSessions + newSession
+        dirty = true
         viewModelScope.launch {
             isSaving = true
             planRepository.upsertSession(newSession.toRequest(), athleteId)
@@ -242,6 +266,7 @@ class WeeklyPlanViewModel @JvmOverloads constructor(app: Application, private va
 
     private fun persist(session: PlannedSessionResponse) {
         weekSessions = weekSessions.map { if (it.id == session.id) session else it }
+        dirty = true
         viewModelScope.launch {
             isSaving = true
             planRepository.upsertSession(session.toRequest(), athleteId)

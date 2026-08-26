@@ -13,6 +13,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.LocalOverscrollConfiguration
+import androidx.compose.foundation.OverscrollConfiguration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
@@ -42,6 +43,11 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -89,7 +95,7 @@ import com.vasilisneo.trackstar.ui.theme.currentAppTheme
 import com.vasilisneo.trackstar.ui.theme.trackstarBackground
 
 private val HeaderTint = Color(0xFF3B3B46)
-private val CardFill = Color.White.copy(alpha = 0.06f)
+private val CardFill = Color.White.copy(alpha = 0.10f)
 private val AvatarPalette = listOf(
     Color(0xFF0A84FF), Color(0xFFAF52DE), Color(0xFF34C759), Color(0xFFFF9F0A),
     Color(0xFFFF375F), Color(0xFF30B0C7), Color(0xFF5E5CE6), Color(0xFF64D2FF),
@@ -105,14 +111,19 @@ fun AthletesScreen(
     onShowAvailability: () -> Unit = {},
     onSeeAll: () -> Unit = {},
     onOpenBookingSettings: () -> Unit = {},
+    onSetBookingEnabled: (Boolean) -> Unit = {},
     showAvailability: Boolean = false,
     viewModel: AthletesViewModel = viewModel(),
 ) {
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     val collapse by remember {
         derivedStateOf {
-            val title = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == 0 }
-                ?: return@derivedStateOf 1f
+            val info = listState.layoutInfo.visibleItemsInfo
+            val title = info.firstOrNull { it.index == 0 }
+                // No item 0 visible: if the list has laid out (non-empty) the title has scrolled off
+                // → fully collapsed; if it's empty we haven't laid out yet → treat as expanded so the
+                // frosted header doesn't flash in for a frame on (re)composition.
+                ?: return@derivedStateOf if (info.isEmpty()) 0f else 1f
             val h = title.size.toFloat()
             if (h <= 0f) 0f else ((-title.offset).toFloat() / h).coerceIn(0f, 1f)
         }
@@ -123,7 +134,12 @@ fun AthletesScreen(
 
     val athletes = viewModel.athletes
     var athleteToRemove by remember { mutableStateOf<ProfileResponse?>(null) }
+    var showBookingInfo by remember { mutableStateOf(false) }
     val bookingBannerDismissed = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("bookingBannerDismissed", false)
+    // Re-arm the booking promo whenever booking is (re-)enabled, so a later disable shows it again.
+    androidx.compose.runtime.LaunchedEffect(showAvailability) {
+        if (showAvailability) bookingBannerDismissed.value = false
+    }
     // Quick info occupies a fixed slice of the screen height regardless of how little it contains.
     val quickInfoHeight = (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp * 0.28f).dp
 
@@ -135,10 +151,6 @@ fun AthletesScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
-        Text(
-            "Trackstar", fontSize = 30.sp, fontWeight = FontWeight.Black, color = Color.White.copy(alpha = 0.05f),
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = com.vasilisneo.trackstar.ui.components.tabWatermarkBottomPadding())
-        )
 
         Column(modifier = Modifier.fillMaxSize()) {
             // Fixed nav bar above the list; frost fades in once the title has scrolled off.
@@ -151,7 +163,7 @@ fun AthletesScreen(
                 }
             }
 
-            CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
+            CompositionLocalProvider(LocalOverscrollConfiguration provides OverscrollConfiguration()) {
                 LazyColumn(
                     state = listState,
                     contentPadding = PaddingValues(bottom = com.vasilisneo.trackstar.ui.components.tabBarContentBottomPadding()),
@@ -222,7 +234,7 @@ fun AthletesScreen(
                     if (!showAvailability && !bookingBannerDismissed.value) {
                         item {
                             BookingBanner(
-                                onOpen = onOpenBookingSettings,
+                                onOpen = { showBookingInfo = true },
                                 onDismiss = { bookingBannerDismissed.value = true },
                                 modifier = Modifier.padding(horizontal = 16.dp),
                             )
@@ -279,6 +291,14 @@ fun AthletesScreen(
             dismissButton = { TextButton(onClick = { athleteToRemove = null }) { Text("Cancel", color = Color.White) } },
         )
     }
+
+    if (showBookingInfo) {
+        BookingInfoSheet(
+            enabled = showAvailability,
+            onSetEnabled = onSetBookingEnabled,
+            onDismiss = { showBookingInfo = false },
+        )
+    }
 }
 
 // Full roster, pushed from the MyTeam "Show all" button — every athlete in one scrolling card.
@@ -295,17 +315,15 @@ fun AllAthletesScreen(
     Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
         Column(modifier = Modifier.fillMaxSize()) {
             Column(modifier = Modifier.fillMaxWidth().statusBarsPadding()) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp)) {
-                    androidx.compose.material3.IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Back", tint = Color.White)
-                    }
-                    Spacer(modifier = Modifier.size(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 16.dp)) {
+                    GlassCircleIconButton(onClick = onBack, contentDescription = "Back", icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft)
+                    Spacer(modifier = Modifier.size(12.dp))
                     Text("Team", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     Spacer(modifier = Modifier.weight(1f))
                 }
             }
 
-            CompositionLocalProvider(LocalOverscrollConfiguration provides null) {
+            CompositionLocalProvider(LocalOverscrollConfiguration provides OverscrollConfiguration()) {
                 LazyColumn(
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 40.dp),
                     modifier = Modifier.fillMaxSize(),
@@ -340,6 +358,100 @@ fun AllAthletesScreen(
             },
             dismissButton = { TextButton(onClick = { athleteToRemove = null }) { Text("Cancel", color = Color.White) } },
         )
+    }
+}
+
+// Explains Session Booking and lets the coach enable it in place (mirrors iOS's BookingInfoSheet).
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun BookingInfoSheet(enabled: Boolean, onSetEnabled: (Boolean) -> Unit, onDismiss: () -> Unit) {
+    val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        // Transparent container + our own gradient/grabber so one continuous theme gradient fills the
+        // whole sheet (no solid drag-handle strip reading as a band above the content).
+        containerColor = Color.Transparent,
+        dragHandle = null,
+    ) {
+        androidx.compose.foundation.layout.Column(
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.92f).trackstarBackground(), // .large-sized like iOS
+        ) {
+            // Grabber
+            Box(modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 4.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(width = 36.dp, height = 4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.3f)))
+            }
+            androidx.compose.foundation.layout.Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(androidx.compose.foundation.rememberScrollState())
+                    .padding(horizontal = 24.dp)
+                    .padding(top = 8.dp)
+                    .navigationBarsPadding()
+                    .padding(bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+            ) {
+            androidx.compose.foundation.layout.Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(
+                    modifier = Modifier.size(56.dp).clip(CircleShape).background(TrackstarAccent.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Filled.CalendarMonth, null, tint = TrackstarAccent, modifier = Modifier.size(26.dp)) }
+                Text("Session Booking", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text(
+                    "Let your athletes book sessions and group classes with you — right inside the app.",
+                    fontSize = 15.sp, color = Color.White.copy(alpha = 0.6f), lineHeight = 20.sp,
+                )
+            }
+
+            androidx.compose.foundation.layout.Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("HOW IT WORKS", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.5.sp, color = Color.White.copy(alpha = 0.4f))
+                InfoStep(Icons.Filled.Schedule, "Set your availability",
+                    "Open time slots from your Schedule. Set the capacity: 1 for a one-on-one session, or more for a group class.")
+                InfoStep(Icons.Filled.PersonAddAlt1, "Athletes book a spot",
+                    "Your athletes see your open times and reserve a session or class — a group fills up until it's full.")
+                InfoStep(Icons.Filled.NotificationsActive, "Stay in sync",
+                    "You're notified on every booking, and can edit or cancel any session or class from your Schedule.")
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.06f)).padding(16.dp),
+            ) {
+                androidx.compose.foundation.layout.Column(modifier = Modifier.weight(1f)) {
+                    Text("Enable Session Booking", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                    Text("Turn it on to let athletes book sessions and classes with you.", fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f))
+                }
+                Spacer(Modifier.size(12.dp))
+                androidx.compose.material3.Switch(
+                    checked = enabled,
+                    onCheckedChange = onSetEnabled,
+                    colors = androidx.compose.material3.SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = TrackstarAccent,
+                        checkedBorderColor = Color.Transparent,
+                        uncheckedThumbColor = Color.White.copy(alpha = 0.8f),
+                        uncheckedTrackColor = Color.White.copy(alpha = 0.12f),
+                        uncheckedBorderColor = Color.Transparent,
+                    ),
+                )
+            }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InfoStep(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, detail: String) {
+    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        Box(
+            modifier = Modifier.size(36.dp).clip(CircleShape).background(TrackstarAccent.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center,
+        ) { Icon(icon, null, tint = TrackstarAccent, modifier = Modifier.size(16.dp)) }
+        androidx.compose.foundation.layout.Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+            Text(detail, fontSize = 13.sp, color = Color.White.copy(alpha = 0.55f), lineHeight = 18.sp)
+        }
     }
 }
 
@@ -477,12 +589,12 @@ private fun AthletePagerPage(athlete: ProfileResponse, summary: AthleteWeeklySum
 // Booking promo — shown to a coach who has Session Booking off. Tapping opens Settings; the X dismisses.
 @Composable
 private fun BookingBanner(onOpen: () -> Unit, onDismiss: () -> Unit, modifier: Modifier = Modifier) {
-    Box(modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Color.White.copy(alpha = 0.06f)).clickable(onClick = onOpen)) {
+    Box(modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(CardFill).clickable(onClick = onOpen)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 20.dp)) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("Session Booking", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                 Text(
-                    "Let your athletes book sessions with you. Turn it on in Settings.",
+                    "Let your athletes book sessions and classes with you. Tap to learn more.",
                     fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f), lineHeight = 17.sp,
                 )
             }
@@ -490,9 +602,9 @@ private fun BookingBanner(onOpen: () -> Unit, onDismiss: () -> Unit, modifier: M
             Icon(Icons.Filled.CalendarMonth, null, tint = TrackstarAccent, modifier = Modifier.size(34.dp))
         }
         Box(
-            modifier = Modifier.align(Alignment.TopEnd).clip(CircleShape).clickable(onClick = onDismiss).padding(10.dp),
+            modifier = Modifier.align(Alignment.TopEnd).padding(3.dp).clip(CircleShape).clickable(onClick = onDismiss).padding(10.dp),
         ) {
-            Icon(Icons.Filled.Close, contentDescription = "Dismiss", tint = Color.White.copy(alpha = 0.55f), modifier = Modifier.size(14.dp))
+            Icon(Icons.Filled.Close, contentDescription = "Dismiss", tint = Color.White.copy(alpha = 0.55f), modifier = Modifier.size(11.dp))
         }
     }
 }
@@ -560,7 +672,7 @@ private fun TeamCard(
             ) {
                 Text(
                     "Show all",
-                    fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = TrackstarAccent,
+                    fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White,
                 )
             }
         }

@@ -40,6 +40,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -74,35 +75,89 @@ import com.vasilisneo.trackstar.ui.util.rememberBooleanPref
 
 @Composable
 fun NotificationsScreen(onBackClick: () -> Unit = {}) {
-    var planUpdates by rememberBooleanPref("notifyPlanUpdates", true)
-    var comments by rememberBooleanPref("notifyComments", true)
-    var completions by rememberBooleanPref("notifySessionCompletions", true)
-
-    // "Open spot alerts" is server-side (the backend decides who to notify), so it loads from and
-    // persists to the profile endpoint rather than SharedPreferences.
+    // All notification prefs are server-side now (enforced in the backend PushService so they work
+    // whether the app is open or not) — load from the profile, persist each change via updateProfile.
     val scope = rememberCoroutineScope()
     val profileRepo = remember { ProfileRepository() }
+    var planUpdates by remember { mutableStateOf(true) }
+    var comments by remember { mutableStateOf(true) }
+    var completions by remember { mutableStateOf(true) }
     var openSpotAlerts by remember { mutableStateOf(false) }
+    var isCoach by remember { mutableStateOf(false) }
+    var hasCoach by remember { mutableStateOf(false) }
+    var loaded by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
-        (profileRepo.getProfile() as? ApiResult.Success)?.let { openSpotAlerts = it.data.notifyOnOpenSlot == true }
+        (profileRepo.getProfile() as? ApiResult.Success)?.data?.let { p ->
+            planUpdates = p.notifyPlanUpdates != false
+            comments = p.notifyComments != false
+            completions = p.notifySessionCompletions != false
+            openSpotAlerts = p.notifyOnOpenSlot == true
+            isCoach = p.role.equals("coach", ignoreCase = true)
+            hasCoach = !p.coachId.isNullOrBlank()
+            loaded = true
+        }
     }
 
     SettingsScaffold(title = "Notifications", onBack = onBackClick) {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            SettingsSectionHeader("Push Notifications")
-            SettingsGroup {
-                SettingsToggleRow(Icons.Filled.CalendarMonth, "Plan Updates", planUpdates) { planUpdates = it }
-                SettingsRowDivider()
-                SettingsToggleRow(Icons.Filled.ChatBubble, "Comments", comments) { comments = it }
-                SettingsRowDivider()
-                SettingsToggleRow(Icons.Filled.CheckCircle, "Session Completions", completions) { completions = it }
+            // These notifications are all coach↔athlete activity — only relevant to a coach or to an
+            // athlete linked to one. A solo athlete would never receive any, so we hide them.
+            if (isCoach || hasCoach) {
+                SettingsSectionHeader("Push Notifications")
+                SettingsGroup {
+                    SettingsToggleRow(
+                        Icons.Filled.CalendarMonth, "Plan Updates", planUpdates,
+                        subtitle = if (isCoach) "When an athlete changes their plan" else "When your coach changes your plan",
+                    ) { checked ->
+                        planUpdates = checked
+                        scope.launch { profileRepo.updateProfile(UpdateProfileRequest(notifyPlanUpdates = checked)) }
+                    }
+                    SettingsRowDivider()
+                    SettingsToggleRow(
+                        Icons.Filled.ChatBubble, "Comments", comments,
+                        subtitle = "New comments on an exercise",
+                    ) { checked ->
+                        comments = checked
+                        scope.launch { profileRepo.updateProfile(UpdateProfileRequest(notifyComments = checked)) }
+                    }
+                    // Session completions only fire for coaches (an athlete finishing their own workout
+                    // notifies their coach), so there's nothing here for an athlete to toggle.
+                    if (isCoach) {
+                        SettingsRowDivider()
+                        SettingsToggleRow(
+                            Icons.Filled.CheckCircle, "Session Completions", completions,
+                            subtitle = "When an athlete finishes a workout",
+                        ) { checked ->
+                            completions = checked
+                            scope.launch { profileRepo.updateProfile(UpdateProfileRequest(notifySessionCompletions = checked)) }
+                        }
+                    }
+                }
             }
 
-            SettingsSectionHeader("Session Bookings")
-            SettingsGroup {
-                SettingsToggleRow(Icons.Filled.NotificationsActive, "Alert me when a spot opens up", openSpotAlerts) { checked ->
-                    openSpotAlerts = checked
-                    scope.launch { profileRepo.updateProfile(UpdateProfileRequest(notifyOnOpenSlot = checked)) }
+            if (!isCoach && hasCoach) {
+                SettingsSectionHeader("Session Bookings")
+                SettingsGroup {
+                    SettingsToggleRow(
+                        Icons.Filled.NotificationsActive, "Alert me when a spot opens up", openSpotAlerts,
+                        subtitle = "When a spot frees up in a full session",
+                    ) { checked ->
+                        openSpotAlerts = checked
+                        scope.launch { profileRepo.updateProfile(UpdateProfileRequest(notifyOnOpenSlot = checked)) }
+                    }
+                }
+            }
+
+            // Solo athlete (no coach): nothing above applies yet.
+            if (loaded && !isCoach && !hasCoach) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 80.dp, start = 32.dp, end = 32.dp),
+                ) {
+                    Icon(Icons.Filled.NotificationsOff, contentDescription = null, tint = Color.White.copy(alpha = 0.25f), modifier = Modifier.size(40.dp))
+                    Text("Notifications appear once you connect with a coach.",
+                        fontSize = 14.sp, color = Color.White.copy(alpha = 0.45f), textAlign = TextAlign.Center)
                 }
             }
         }

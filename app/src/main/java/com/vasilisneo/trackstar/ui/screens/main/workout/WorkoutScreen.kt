@@ -30,6 +30,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ListAlt
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Check
@@ -50,8 +51,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
@@ -142,6 +145,25 @@ fun WorkoutScreen(
     val dayLabel = if (selectedDate == today) "Today" else selectedDate.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())
     val dateLabel = "${selectedDate.dayOfMonth} ${selectedDate.format(monthFmt)}"
 
+    // Horizontal swipe changes the day (left = next, right = previous), matching iOS's MyWorkoutView.
+    // detectHorizontalDragGestures waits for horizontal slop, so vertical list scrolling still works.
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val swipeDays = Modifier.pointerInput(Unit) {
+        var dx = 0f
+        val threshold = 40.dp.toPx()
+        detectHorizontalDragGestures(
+            onDragStart = { dx = 0f },
+            onDragEnd = {
+                if (dx <= -threshold) {
+                    viewModel.goToDate(viewModel.selectedDate.plusDays(1)); haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                } else if (dx >= threshold) {
+                    viewModel.goToDate(viewModel.selectedDate.minusDays(1)); haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                }
+            },
+            onHorizontalDrag = { _, delta -> dx += delta },
+        )
+    }
+
     Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
         // Wordmark only on the empty rest-day state — with sessions present the cards are now
         // translucent, so a background wordmark would faintly bleed through the bottom card.
@@ -157,7 +179,10 @@ fun WorkoutScreen(
 
         // Content — scrolls beneath the header (padded down by the header's full height).
         if (displaySessions.isEmpty()) {
-            RestDayEmptyState(onScheduleWorkout = onScheduleWorkout)
+            // Wrap so a rest day is swipeable between days too.
+            Box(modifier = Modifier.fillMaxSize().then(swipeDays)) {
+                RestDayEmptyState(onScheduleWorkout = onScheduleWorkout)
+            }
         } else {
             LazyColumn(
                 state = listState,
@@ -169,7 +194,7 @@ fun WorkoutScreen(
                     bottom = com.vasilisneo.trackstar.ui.components.tabBarContentBottomPadding(),
                 ),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxSize().haze(hazeState)
+                modifier = Modifier.fillMaxSize().haze(hazeState).then(swipeDays)
             ) {
                     item { com.vasilisneo.trackstar.ui.components.OfflineBanner() }
                     displaySessions.forEach { display ->
@@ -306,6 +331,31 @@ fun WorkoutScreen(
                 dateLabel = dateLabel,
                 onSelect = { viewModel.goToDate(it) },
             )
+        }
+
+        // "Today" pill — appears when viewing another day, jumps back to today (matches iOS).
+        androidx.compose.animation.AnimatedVisibility(
+            visible = selectedDate != today,
+            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically { it / 2 },
+            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically { it / 2 },
+            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
+                .padding(bottom = if (activeSession != null) 150.dp else 92.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.15f))
+                    .clickable {
+                        viewModel.goToDate(today)
+                        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                    }
+                    .padding(horizontal = 18.dp, vertical = 10.dp),
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Text("Today", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+            }
         }
     }
 
