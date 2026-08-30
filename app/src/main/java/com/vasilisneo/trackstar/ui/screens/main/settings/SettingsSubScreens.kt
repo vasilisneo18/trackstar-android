@@ -6,6 +6,7 @@ package com.vasilisneo.trackstar.ui.screens.main.settings
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -58,7 +59,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import com.vasilisneo.trackstar.R
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -230,12 +234,12 @@ fun AboutScreen(onBackClick: () -> Unit = {}) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxWidth().padding(bottom = 28.dp)
         ) {
-            Box(
-                modifier = Modifier.size(72.dp).clip(RoundedCornerShape(16.dp)).background(TrackstarAccent),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("T", fontSize = 36.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            }
+            Image(
+                painter = painterResource(R.drawable.trackstar_logo),
+                contentDescription = "Trackstar logo",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.size(72.dp).clip(RoundedCornerShape(16.dp)),
+            )
             Text("Trackstar", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Text("Version 1.0.0", fontSize = 14.sp, color = Color.White.copy(alpha = 0.4f))
         }
