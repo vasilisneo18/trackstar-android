@@ -145,9 +145,14 @@ object BillingManager {
         val offering = currentOffering(offerings) ?: return
         val map = mutableMapOf<AppPlan, PlanPricing>()
         for (plan in listOf(AppPlan.BRONZE, AppPlan.SILVER, AppPlan.GOLD)) {
-            val monthlyPrice = packageFor(offering, plan, BillingPeriod.MONTHLY)?.product?.price
+            val monthlyPkg = packageFor(offering, plan, BillingPeriod.MONTHLY)
+            val monthlyPrice = monthlyPkg?.product?.price
             val annualPrice = packageFor(offering, plan, BillingPeriod.ANNUAL)?.product?.price
             if (monthlyPrice == null && annualPrice == null) continue
+
+            // Real free-trial length from the product's free-trial offer (ISO-8601 period like "P7D").
+            val trialDays = monthlyPkg?.product?.subscriptionOptions?.freeTrial
+                ?.freePhase?.billingPeriod?.let { isoPeriodToDays(it.iso8601) } ?: 0
 
             // Derive the "/month" equivalent and savings % from the raw store amounts (amountMicros)
             // rather than the display strings, so they're exact and carry the store's own currency.
@@ -164,10 +169,21 @@ object BillingManager {
                 annualPrice = annualPrice?.formatted,
                 annualMonthlyEquivalent = annualMonthly,
                 savings = savings,
+                trialDays = trialDays,
             )
         }
         _pricing.value = map
     }
+
+    // Rough ISO-8601 billing period → days ("P7D" → 7, "P1W" → 7, "P1M" → 30). Enough to show the
+    // trial length; the store enforces the exact period.
+    private fun isoPeriodToDays(iso: String): Int = runCatching {
+        val m = Regex("P(?:(\\d+)W)?(?:(\\d+)D)?(?:(\\d+)M)?").find(iso)?.groupValues ?: return 0
+        val weeks = m.getOrNull(1)?.toIntOrNull() ?: 0
+        val days = m.getOrNull(2)?.toIntOrNull() ?: 0
+        val months = m.getOrNull(3)?.toIntOrNull() ?: 0
+        weeks * 7 + days + months * 30
+    }.getOrDefault(0)
 
     // Formats a micro-denominated amount in the store's currency (e.g. 5_830_000 in "EUR" → "€5.83"),
     // matching how the store itself formats its prices. Null if we don't know the currency.
@@ -193,7 +209,16 @@ object BillingManager {
 
         _isPurchasing.value = true
         return try {
-            val result = Purchases.sharedInstance.awaitPurchase(PurchaseParams.Builder(activity, pkg).build())
+            // Prefer the free-trial offer explicitly. Purchasing a Package can resolve to the base
+            // plan (charges immediately); selecting the free-trial SubscriptionOption ensures the
+            // trial is applied when the product has one and the user is eligible.
+            val trialOption = pkg.product.subscriptionOptions?.freeTrial
+            val params = if (trialOption != null) {
+                PurchaseParams.Builder(activity, trialOption).build()
+            } else {
+                PurchaseParams.Builder(activity, pkg).build()
+            }
+            val result = Purchases.sharedInstance.awaitPurchase(params)
             applyCustomerInfo(result.customerInfo)
             Result.success(true)
         } catch (e: PurchasesException) {

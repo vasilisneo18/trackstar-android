@@ -307,6 +307,7 @@ fun SubscriptionScreen(
             annual = livePrice?.annualPrice ?: selectedTier.annual,
             annualMonthly = livePrice?.annualMonthlyEquivalent ?: selectedTier.annualMonthly,
             savings = livePrice?.savings ?: selectedTier.savings,
+            trialDays = livePrice?.trialDays ?: 0,
             onDismiss = { showBilling = false },
             onSubscribe = { billing ->
                 val activity = context.findActivity()
@@ -394,6 +395,7 @@ private fun BillingSheet(
     annual: String,
     annualMonthly: String,
     savings: String,
+    trialDays: Int,
     onDismiss: () -> Unit,
     onSubscribe: (BillingPeriod) -> Unit,
     onRestore: () -> Unit,
@@ -424,18 +426,20 @@ private fun BillingSheet(
 
             Spacer(modifier = Modifier.height(12.dp))
             PillButton(
-                text = "Start Free Trial · $priceLabel",
+                text = if (trialDays > 0) "Start Free Trial · $priceLabel" else "Subscribe · $priceLabel",
                 foreground = Color.Black,
                 background = Color.White,
                 enabled = !isPurchasing,
                 loading = isPurchasing,
                 onClick = { onSubscribe(if (isAnnual) BillingPeriod.ANNUAL else BillingPeriod.MONTHLY) }
             )
-            Text(
-                "7-day free trial, then $priceLabel",
-                fontSize = 11.sp, color = Color.White.copy(alpha = 0.3f), textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-            )
+            if (trialDays > 0) {
+                Text(
+                    "$trialDays-day free trial, then $priceLabel",
+                    fontSize = 11.sp, color = Color.White.copy(alpha = 0.3f), textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                )
+            }
             Text(
                 "Restore Purchases",
                 fontSize = 13.sp, color = Color.White.copy(alpha = 0.3f), textAlign = TextAlign.Center,

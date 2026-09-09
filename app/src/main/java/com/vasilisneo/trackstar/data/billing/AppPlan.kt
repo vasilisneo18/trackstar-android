@@ -36,4 +36,7 @@ data class PlanPricing(
     val annualPrice: String? = null,
     val annualMonthlyEquivalent: String? = null,
     val savings: String? = null,
+    // Free-trial length in days when the product offers one (else 0). Drives whether the UI
+    // advertises a trial, so we never claim a trial the store won't actually grant.
+    val trialDays: Int = 0,
 )
