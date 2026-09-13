@@ -19,6 +19,9 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -61,12 +64,15 @@ fun PdfPreviewScreen(file: File, onClose: () -> Unit) {
     }
 
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0D0D17))) {
+        // Header = status-bar inset + 12dp + 40dp control + 12dp; clear exactly that so the PDF's
+        // own title isn't tucked under it.
+        val topInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
         val bitmaps = pages
         if (bitmaps == null) {
             CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.align(Alignment.Center).size(28.dp))
         } else {
             LazyColumn(
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 76.dp, start = 16.dp, end = 16.dp, bottom = 32.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(top = topInset + 76.dp, start = 16.dp, end = 16.dp, bottom = 32.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
