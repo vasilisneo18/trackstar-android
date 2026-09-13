@@ -58,7 +58,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
-import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Inbox
@@ -537,20 +536,19 @@ private fun SessionDashboardCard(
     val units = session.exercises.orEmpty().groupedForDisplay()
     val exerciseCount = session.exercises.orEmpty().size
     val chevronAngle by androidx.compose.animation.core.animateFloatAsState(if (expanded) 180f else 0f, label = "chevron")
+    // Animate the container (border/tint/inset) alongside the exercises' expand/collapse so nothing
+    // snaps — border and padding fade/grow in step with the list rather than toggling instantly.
+    val pad by androidx.compose.animation.core.animateDpAsState(if (expanded) 8.dp else 0.dp, label = "pad")
+    val borderAlpha by androidx.compose.animation.core.animateFloatAsState(if (expanded) 0.35f else 0f, label = "border")
+    val bgAlpha by androidx.compose.animation.core.animateFloatAsState(if (expanded) 0.06f else 0f, label = "bg")
 
     Column(
-        verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .animateContentSize(animationSpec = androidx.compose.animation.core.spring(stiffness = 400f))
-            .clip(RoundedCornerShape(if (expanded) 26.dp else 22.dp))
-            .then(
-                if (expanded) Modifier
-                    .background(accent.copy(alpha = 0.06f))
-                    .border(1.dp, accent.copy(alpha = 0.35f), RoundedCornerShape(26.dp))
-                    .padding(8.dp)
-                else Modifier
-            )
+            .clip(RoundedCornerShape(26.dp))
+            .background(accent.copy(alpha = bgAlpha))
+            .border(1.dp, accent.copy(alpha = borderAlpha), RoundedCornerShape(26.dp))
+            .padding(pad)
     ) {
         // The session "start" card.
         Column(
@@ -601,21 +599,30 @@ private fun SessionDashboardCard(
             }
         }
 
-        if (expanded) {
-            units.forEach { unit ->
-                when (unit) {
-                    is ExerciseDisplayUnit.Single -> ExercisePlanCard(
-                        exercise = unit.exercise,
-                        comments = comments[unit.exercise.id] ?: emptyList(),
-                        onCommentsTap = { onCommentsTap(unit.exercise) },
-                    )
-                    is ExerciseDisplayUnit.Pair -> ExercisePlanPairCard(
-                        a = unit.a, b = unit.b,
-                        commentsA = comments[unit.a.id] ?: emptyList(),
-                        commentsB = comments[unit.b.id] ?: emptyList(),
-                        onCommentsTapA = { onCommentsTap(unit.a) },
-                        onCommentsTapB = { onCommentsTap(unit.b) },
-                    )
+        androidx.compose.animation.AnimatedVisibility(
+            visible = expanded,
+            enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut(),
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier.padding(top = 10.dp)
+            ) {
+                units.forEach { unit ->
+                    when (unit) {
+                        is ExerciseDisplayUnit.Single -> ExercisePlanCard(
+                            exercise = unit.exercise,
+                            comments = comments[unit.exercise.id] ?: emptyList(),
+                            onCommentsTap = { onCommentsTap(unit.exercise) },
+                        )
+                        is ExerciseDisplayUnit.Pair -> ExercisePlanPairCard(
+                            a = unit.a, b = unit.b,
+                            commentsA = comments[unit.a.id] ?: emptyList(),
+                            commentsB = comments[unit.b.id] ?: emptyList(),
+                            onCommentsTapA = { onCommentsTap(unit.a) },
+                            onCommentsTapB = { onCommentsTap(unit.b) },
+                        )
+                    }
                 }
             }
         }
