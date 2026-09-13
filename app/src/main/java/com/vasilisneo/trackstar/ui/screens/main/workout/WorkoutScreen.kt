@@ -186,7 +186,13 @@ fun WorkoutScreen(
         }
 
         // Content — scrolls beneath the header (padded down by the header's full height).
-        if (displaySessions.isEmpty()) {
+        if (displaySessions.isEmpty() && viewModel.isLoading) {
+            // Loading a (usually just-swiped-to) week — don't flash the plan/no-data state before
+            // the real sessions land.
+            Box(modifier = Modifier.fillMaxSize().then(swipeDays), contentAlignment = Alignment.Center) {
+                androidx.compose.material3.CircularProgressIndicator(color = TrackstarAccent, strokeWidth = 2.dp)
+            }
+        } else if (displaySessions.isEmpty()) {
             val isPast = selectedDate.isBefore(today)
             Column(
                 modifier = Modifier.fillMaxSize().then(swipeDays).padding(

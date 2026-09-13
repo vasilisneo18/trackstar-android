@@ -160,16 +160,26 @@ class WorkoutViewModel(
         }
     }
 
+    // The week weekSessions currently holds, so a day-swipe that crosses a week boundary can tell
+    // it's showing the wrong week and repaint — otherwise last week's sessions (and their completed
+    // matches) bleed onto the new week, e.g. a "report" appearing on a future date.
+    private var loadedWeekId: String? = null
+
     fun fetch() {
         viewModelScope.launch {
             val weekId = weekIdentifierFor(selectedDate)
-            // Paint from cache first (stale-while-revalidate) so the day's sessions are on screen from
-            // the first frame — no empty flash, no reflow when the network lands.
-            if (weekSessions.isEmpty()) planRepository.cachedPlan(weekId)?.let { weekSessions = it }
+            // If we crossed into a different week, the sessions on screen belong to the old week.
+            // Repaint from THIS week's cache immediately (or clear) so we never render another
+            // week's data; only keep stale-while-revalidate within the same week.
+            if (loadedWeekId != weekId) {
+                weekSessions = planRepository.cachedPlan(weekId) ?: emptyList()
+            } else if (weekSessions.isEmpty()) {
+                planRepository.cachedPlan(weekId)?.let { weekSessions = it }
+            }
             if (completedSessions.isEmpty()) sessionRepository.cachedSessions()?.let { completedSessions = it }
             isLoading = weekSessions.isEmpty()
             when (val result = planRepository.getPlan(weekId)) {
-                is ApiResult.Success -> weekSessions = result.data
+                is ApiResult.Success -> { weekSessions = result.data; loadedWeekId = weekId }
                 is ApiResult.Error -> Unit // keep stale data on failure
             }
             when (val result = sessionRepository.getSessions()) {
