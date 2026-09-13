@@ -58,6 +58,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
+import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Inbox
@@ -519,8 +520,6 @@ private fun CollapsingDayStrip(
     }
 }
 
-// Mirrors iOS's startSessionButton in MyWorkoutView+Cards.swift: title above a translucent
-// white "Start Session" pill + a square Quick Log (clipboard) button beside it.
 @Composable
 // Ports iOS's startSessionButton + expandable session group (MyWorkoutView): one big card per
 // planned session (title + Start + quick-log + an expand toggle). When expanded, the exercises
@@ -543,6 +542,7 @@ private fun SessionDashboardCard(
         verticalArrangement = Arrangement.spacedBy(10.dp),
         modifier = Modifier
             .fillMaxWidth()
+            .animateContentSize(animationSpec = androidx.compose.animation.core.spring(stiffness = 400f))
             .clip(RoundedCornerShape(if (expanded) 26.dp else 22.dp))
             .then(
                 if (expanded) Modifier
@@ -580,10 +580,14 @@ private fun SessionDashboardCard(
                     Icon(Icons.AutoMirrored.Filled.ListAlt, "Quick log", tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(20.dp))
                 }
             }
-            // Expand/collapse toggle — whole row tappable.
+            // Expand/collapse toggle — whole row tappable, no ripple flash (matches iOS).
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().clickable(onClick = onToggleExpand)
+                modifier = Modifier.fillMaxWidth().clickable(
+                    interactionSource = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                    indication = null,
+                    onClick = onToggleExpand,
+                )
             ) {
                 Text(
                     "$exerciseCount exercise${if (exerciseCount == 1) "" else "s"}",
