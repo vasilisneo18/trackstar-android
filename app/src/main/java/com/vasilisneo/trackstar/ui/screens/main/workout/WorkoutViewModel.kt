@@ -182,24 +182,37 @@ class WorkoutViewModel(
         }
     }
 
-    /** Copy last week's same-weekday sessions onto the current day (fresh ids), then refresh. */
+    private var isCopyingLastWeek = false
+
+    /** Replace the current day's sessions with copies of last week's same-weekday sessions (fresh
+     *  ids), then refresh. Guarded + replace-not-append so a double-tap can't duplicate. */
     fun copyLastWeekPlan(onDone: (Boolean) -> Unit = {}) {
         val source = lastWeekSessions
-        if (source.isEmpty()) { onDone(false); return }
+        if (source.isEmpty() || isCopyingLastWeek) { onDone(false); return }
+        isCopyingLastWeek = true
         viewModelScope.launch {
-            val requests = source.mapIndexed { idx, s ->
-                com.vasilisneo.trackstar.data.api.PlannedSessionRequest(
-                    id = java.util.UUID.randomUUID().toString(),
-                    weekIdentifier = weekId,
-                    day = selectedDayName,
-                    orderIndex = s.orderIndex ?: idx,
-                    title = s.title?.takeIf { it.isNotBlank() } ?: "Workout",
-                    exercises = s.exercises.orEmpty().map { it.copy(id = java.util.UUID.randomUUID().toString()) },
-                )
-            }
-            when (planRepository.upsertBatch(requests)) {
-                is ApiResult.Success -> { fetch(); onDone(true) }
-                is ApiResult.Error -> onDone(false)
+            try {
+                // Clear anything already on this day so re-invoking can't append duplicates (iOS
+                // replaces the whole day).
+                weekSessions.filter { it.day == selectedDayName }.forEach { existing ->
+                    existing.id?.let { planRepository.deleteSession(it) }
+                }
+                val requests = source.mapIndexed { idx, s ->
+                    com.vasilisneo.trackstar.data.api.PlannedSessionRequest(
+                        id = java.util.UUID.randomUUID().toString(),
+                        weekIdentifier = weekId,
+                        day = selectedDayName,
+                        orderIndex = s.orderIndex ?: idx,
+                        title = s.title?.takeIf { it.isNotBlank() } ?: "Workout",
+                        exercises = s.exercises.orEmpty().map { it.copy(id = java.util.UUID.randomUUID().toString()) },
+                    )
+                }
+                when (planRepository.upsertBatch(requests)) {
+                    is ApiResult.Success -> { fetch(); onDone(true) }
+                    is ApiResult.Error -> onDone(false)
+                }
+            } finally {
+                isCopyingLastWeek = false
             }
         }
     }
