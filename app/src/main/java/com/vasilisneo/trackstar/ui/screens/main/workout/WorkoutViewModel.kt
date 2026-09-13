@@ -40,6 +40,8 @@ class WorkoutViewModel(
     private val planRepository: PlanRepository,
     private val sessionRepository: SessionRepository,
     private val commentRepository: CommentRepository,
+    private val bookingRepository: com.vasilisneo.trackstar.data.workout.BookingRepository =
+        com.vasilisneo.trackstar.data.workout.BookingRepository(),
 ) : AndroidViewModel(app) {
 
     constructor(app: Application) : this(app, PlanRepository(), SessionRepository(), CommentRepository())
@@ -117,7 +119,41 @@ class WorkoutViewModel(
     var lastWeekSessions by mutableStateOf<List<PlannedSessionResponse>>(emptyList())
         private set
 
-    init { fetch(); loadLastWeek() }
+    // Coaching booking (mirrors iOS MyWorkoutViewModel): the athlete's own booked slots and the
+    // coach's upcoming bookable slots.
+    var bookings by mutableStateOf<List<com.vasilisneo.trackstar.data.api.SlotResponse>>(emptyList())
+        private set
+    var availableSlots by mutableStateOf<List<com.vasilisneo.trackstar.data.api.SlotResponse>>(emptyList())
+        private set
+
+    /** The athlete's booked coaching sessions on the selected day. */
+    val bookingsForCurrentDay: List<com.vasilisneo.trackstar.data.api.SlotResponse>
+        get() {
+            val key = selectedDate.toString()
+            return bookings.filter { it.date == key && it.bookedByMe }.sortedBy { it.startTime }
+        }
+
+    /** The soonest slots the athlete can still book (upcoming, not full) — up to 3. */
+    val nextAvailableSlots: List<com.vasilisneo.trackstar.data.api.SlotResponse>
+        get() {
+            val todayKey = LocalDate.now().toString()
+            val nowTime = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+            return availableSlots
+                .filter { !it.full && (it.date > todayKey || (it.date == todayKey && it.startTime >= nowTime)) }
+                .sortedBy { it.date + it.startTime }
+                .take(3)
+        }
+
+    fun loadBookings() {
+        viewModelScope.launch {
+            bookingRepository.cachedMyBookings()?.let { if (bookings.isEmpty()) bookings = it }
+            bookingRepository.cachedAvailableSlots()?.let { if (availableSlots.isEmpty()) availableSlots = it }
+            (bookingRepository.myBookings() as? ApiResult.Success)?.let { bookings = it.data }
+            (bookingRepository.availableSlots() as? ApiResult.Success)?.let { availableSlots = it.data }
+        }
+    }
+
+    init { fetch(); loadLastWeek(); loadBookings() }
 
     fun goToDate(date: LocalDate) {
         val weekChanged = weekIdentifierFor(date) != weekIdentifierFor(selectedDate)

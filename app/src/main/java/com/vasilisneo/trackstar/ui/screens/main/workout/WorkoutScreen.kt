@@ -11,6 +11,9 @@ package com.vasilisneo.trackstar.ui.screens.main.workout
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.composed
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -61,6 +64,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.filled.AccessTime
 import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -118,11 +122,16 @@ fun WorkoutScreen(
     // while the athlete was away shows up without a manual reopen (mirrors iOS's refresh-on-appear).
     androidx.lifecycle.compose.LifecycleEventEffect(androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
         viewModel.fetch()
+        viewModel.loadBookings()
     }
     val selectedDate = viewModel.selectedDate
     val weekStart = selectedDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
     val weekDays = (0..6).map { weekStart.plusDays(it.toLong()) }
     val today = LocalDate.now()
+    val isPast = selectedDate.isBefore(today)
+    // Dashboard pinning — long-press a card to pin it above the workout (mirrors iOS @AppStorage).
+    val stepsPinned = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("dashPinSteps", false)
+    val bookPinned = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("dashPinBook", false)
 
     val displaySessions = viewModel.displaySessions
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -193,13 +202,24 @@ fun WorkoutScreen(
                 androidx.compose.material3.CircularProgressIndicator(color = TrackstarAccent, strokeWidth = 2.dp)
             }
         } else if (displaySessions.isEmpty()) {
-            val isPast = selectedDate.isBefore(today)
             Column(
                 modifier = Modifier.fillMaxSize().then(swipeDays).padding(
                     top = (if (headerHeightDp > 0.dp) headerHeightDp else 150.dp) + 4.dp
                 ),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
+                // Booked coaching sessions still show on an otherwise-empty day.
+                val booked = viewModel.bookingsForCurrentDay
+                if (booked.isNotEmpty()) {
+                    Text(
+                        (if (selectedDate == today) "Today's booked session" else "Booked session") + if (booked.size == 1) "" else "s",
+                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f),
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    booked.forEach {
+                        Box(modifier = Modifier.padding(horizontal = 16.dp)) { BookedSessionCard(it) }
+                    }
+                }
                 if (isPast) {
                     // Past day: show steps if there were any, otherwise a "no data" state. No planning.
                     val ctx = androidx.compose.ui.platform.LocalContext.current
@@ -230,6 +250,11 @@ fun WorkoutScreen(
                     com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(
                         date = selectedDate, modifier = Modifier.padding(horizontal = 16.dp)
                     )
+                    if (showBookSession) {
+                        Box(modifier = Modifier.padding(horizontal = 16.dp).clickable(onClick = onBookSession)) {
+                            BookSessionDashboardCard(viewModel.nextAvailableSlots)
+                        }
+                    }
                 }
             }
         } else {
@@ -246,6 +271,28 @@ fun WorkoutScreen(
                 modifier = Modifier.fillMaxSize().haze(hazeState).then(swipeDays)
             ) {
                     item { com.vasilisneo.trackstar.ui.components.OfflineBanner() }
+                    // Pinned cards sit above the workout (long-press to pin/unpin).
+                    if (stepsPinned.value) item {
+                        PinnableCard(pinned = true, onTogglePin = { stepsPinned.value = false }) {
+                            com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(date = selectedDate)
+                        }
+                    }
+                    if (bookPinned.value && showBookSession && !isPast) item {
+                        PinnableCard(pinned = true, onTogglePin = { bookPinned.value = false }, onClick = onBookSession) {
+                            BookSessionDashboardCard(viewModel.nextAvailableSlots)
+                        }
+                    }
+                    // Booked coaching sessions for the selected day (above the workout, like iOS).
+                    val booked = viewModel.bookingsForCurrentDay
+                    if (booked.isNotEmpty()) {
+                        item {
+                            Text(
+                                (if (selectedDate == today) "Today's booked session" else "Booked session") + if (booked.size == 1) "" else "s",
+                                fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f)
+                            )
+                        }
+                        items(booked, key = { "booked-${it.id}" }) { BookedSessionCard(it) }
+                    }
                     displaySessions.forEach { display ->
                         when (display) {
                             is SessionDisplay.Upcoming -> {
@@ -298,7 +345,17 @@ fun WorkoutScreen(
                         }
                     }
                     // Apple Health steps for the selected day, below the workout (matches iOS).
-                    item { com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(date = selectedDate) }
+                    // Unpinned cards sit below the workout (default).
+                    if (!stepsPinned.value) item {
+                        PinnableCard(pinned = false, onTogglePin = { stepsPinned.value = true }) {
+                            com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(date = selectedDate)
+                        }
+                    }
+                    if (showBookSession && !isPast && !bookPinned.value) item {
+                        PinnableCard(pinned = false, onTogglePin = { bookPinned.value = true }, onClick = onBookSession) {
+                            BookSessionDashboardCard(viewModel.nextAvailableSlots)
+                        }
+                    }
                 }
             }
 
@@ -695,6 +752,126 @@ private fun NoDataForDay() {
         Text("No data for this day", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.7f))
         Text("Nothing was logged on this day.", fontSize = 13.sp, color = Color.White.copy(alpha = 0.4f))
     }
+}
+
+// Ports iOS's bookedSessionCard: a coaching session the athlete has already booked on this day —
+// accent-tinted with a border so it stands out from the workout cards.
+@Composable
+private fun BookedSessionCard(slot: com.vasilisneo.trackstar.data.api.SlotResponse) {
+    val accent = TrackstarAccent
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
+            .background(accent.copy(alpha = 0.12f))
+            .border(1.dp, accent.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
+            .padding(16.dp)
+    ) {
+        Box(
+            modifier = Modifier.size(46.dp).background(accent.copy(alpha = 0.15f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) { Icon(Icons.Filled.EventAvailable, null, tint = accent, modifier = Modifier.size(18.dp)) }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
+            Text(
+                slot.title?.takeIf { it.isNotBlank() } ?: "Coaching session",
+                fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1
+            )
+            Text(
+                "${slot.startTime}–${slot.endTime}${slot.coachName?.let { " · $it" } ?: ""}",
+                fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f), maxLines = 1
+            )
+        }
+    }
+}
+
+// Ports iOS's bookWithCoachCard: prompt to book, listing up to 3 of the coach's next available
+// slots with their open-spot counts. Tapping opens the booking flow.
+@Composable
+private fun BookSessionDashboardCard(
+    slots: List<com.vasilisneo.trackstar.data.api.SlotResponse>,
+) {
+    val accent = TrackstarAccent
+    Column(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(CardFill)
+            .padding(16.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Box(
+                modifier = Modifier.size(46.dp).background(Color.White.copy(alpha = 0.08f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) { Icon(Icons.Filled.EventAvailable, null, tint = accent, modifier = Modifier.size(18.dp)) }
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
+                Text("Book a session", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                Text("Reserve a slot with your coach.", fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f))
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(18.dp))
+        }
+        if (slots.isNotEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)).padding(vertical = 0.dp))
+            Spacer(Modifier.height(14.dp))
+            Text("AVAILABLE", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.35f), letterSpacing = 1.sp)
+            Spacer(Modifier.height(8.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                slots.forEach { slot ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Filled.AccessTime, null, tint = accent, modifier = Modifier.size(12.dp))
+                        Text(slotAvailableLine(slot), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1, modifier = Modifier.weight(1f))
+                        Text(
+                            "${slot.remaining} spot${if (slot.remaining == 1) "" else "s"}",
+                            fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = accent
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Wraps a dashboard card so a long-press opens a Pin/Unpin menu (mirrors iOS's contextMenu on the
+// steps and book cards). Tapping runs onClick; the whole thing is ripple-free.
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@Composable
+private fun PinnableCard(
+    pinned: Boolean,
+    onTogglePin: () -> Unit,
+    onClick: () -> Unit = {},
+    content: @Composable () -> Unit,
+) {
+    var menuOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    Box {
+        Box(
+            modifier = Modifier.androidx_combinedClickable(
+                onClick = onClick,
+                onLongClick = { menuOpen = true },
+            )
+        ) { content() }
+        androidx.compose.material3.DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text(if (pinned) "Unpin" else "Pin to top") },
+                leadingIcon = { Icon(Icons.Filled.PushPin, null) },
+                onClick = { onTogglePin(); menuOpen = false },
+            )
+        }
+    }
+}
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+private fun Modifier.androidx_combinedClickable(onClick: () -> Unit, onLongClick: () -> Unit): Modifier =
+    this.composed {
+        combinedClickable(
+            interactionSource = androidx.compose.runtime.remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+            indication = null,
+            onClick = onClick,
+            onLongClick = onLongClick,
+        )
+    }
+
+private fun slotAvailableLine(slot: com.vasilisneo.trackstar.data.api.SlotResponse): String {
+    val day = runCatching {
+        LocalDate.parse(slot.date).format(java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d", Locale.ENGLISH))
+    }.getOrDefault(slot.date)
+    val title = slot.title?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""
+    return "$day · ${slot.startTime}$title"
 }
 
 private val MissedOrange = Color(0xFFFF9500)
