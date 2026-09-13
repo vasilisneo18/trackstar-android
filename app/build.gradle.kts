@@ -129,6 +129,8 @@ dependencies {
     implementation("androidx.camera:camera-view:1.4.1")
     // Apple Health equivalent — read step counts from Health Connect (daily card + weekly chart).
     implementation("androidx.health.connect:connect-client:1.1.0-alpha07")
+    // Fused location — a fresh, accurate GPS fix for the gym check-in geofence.
+    implementation("com.google.android.gms:play-services-location:21.3.0")
     // Health Connect forces the `listenablefuture` coordinate to Guava's empty marker; add real
     // Guava so CameraX (QR scanner) still finds ListenableFuture on the compile classpath.
     implementation("com.google.guava:guava:33.3.1-android")

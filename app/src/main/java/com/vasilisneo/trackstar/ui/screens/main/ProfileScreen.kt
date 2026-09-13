@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material.icons.filled.TrackChanges
 import androidx.compose.material.icons.outlined.Badge
@@ -93,6 +94,7 @@ fun ProfileScreen(
     onOpenBronzeGrants: () -> Unit = {},
     onQrCode: () -> Unit = {},
     onMyCoach: () -> Unit = {},
+    onCheckIn: () -> Unit = {},
     viewModel: ProfileViewModel = viewModel(),
 ) {
     // Athletes get a "My Coach" row here (they have no MyTeam tab — that's Gold-coach-only, matching
@@ -154,6 +156,7 @@ fun ProfileScreen(
                 AppSection(
                     onPersonalInfo = onPersonalInfo,
                     onSettings = onSettings,
+                    onCheckIn = onCheckIn,
                 )
 
                 LogoutSection(onLogout = { viewModel.logout(); onLogout() })
@@ -384,9 +387,12 @@ private fun StatFace(icon: ImageVector, iconTint: Color, value: String, unit: St
 private fun AppSection(
     onPersonalInfo: () -> Unit,
     onSettings: () -> Unit,
+    onCheckIn: () -> Unit = {},
 ) {
     ProfileGroup {
         ProfileRow(icon = Icons.Outlined.Badge, label = "Personal Info", onClick = onPersonalInfo)
+        HorizontalDivider(color = Color.White.copy(alpha = 0.08f), modifier = Modifier.padding(start = 62.dp))
+        ProfileRow(icon = Icons.Filled.QrCodeScanner, label = "Check In", onClick = onCheckIn)
         HorizontalDivider(color = Color.White.copy(alpha = 0.08f), modifier = Modifier.padding(start = 62.dp))
         ProfileRow(icon = Icons.Filled.Settings, label = "Settings", onClick = onSettings)
     }

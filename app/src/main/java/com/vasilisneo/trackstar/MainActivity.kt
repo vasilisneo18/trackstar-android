@@ -338,7 +338,16 @@ class MainActivity : ComponentActivity() {
                                 onOpenBronzeGrants = { navController.navigate("bronze_grants") },
                                 onQrCode = { navController.navigate("qr") },
                                 onMyCoach = { navController.navigate("my_coach") },
+                                onCheckIn = { navController.navigate("checkin") },
                             )
+                        }
+                        composable(
+                            "checkin",
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                            popExitTransition = { slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth }) },
+                        ) {
+                            com.vasilisneo.trackstar.ui.screens.main.attendance.CheckInScreen(onBack = { navController.popBackStack() })
                         }
                         composable(
                             "bronze_grants",

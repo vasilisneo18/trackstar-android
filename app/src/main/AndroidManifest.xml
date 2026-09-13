@@ -14,6 +14,10 @@
     <!-- Read step counts from Health Connect (daily steps card + weekly Stats chart). -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
 
+    <!-- Location for gym check-in geofence (scan a gym QR → verify the athlete is at the gym). -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
     <!-- Health Connect provider lookup (needed on Android < 14 where it's a separate app). -->
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
