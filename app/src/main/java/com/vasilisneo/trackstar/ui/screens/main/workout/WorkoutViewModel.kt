@@ -202,11 +202,13 @@ class WorkoutViewModel(
     }
 }
 
-// Locale-based week-of-year, mirroring iOS's Calendar.current.weekIdentifier() (also
-// locale-dependent, not forced ISO-8601 — see Extension+Date.swift). Both platforms derive
-// week fields from the device's CLDR locale data, so this matches for the common case.
+// ISO-8601 week-of-year (Monday-first). The workout day strip groups weeks Monday→Sunday
+// (previousOrSame(MONDAY)), and the backend plan for a week is stored under one identifier for all
+// seven of those days. A locale-based key (e.g. en_US, Sunday-first) would put Sunday in the NEXT
+// week — so on a US device only Sunday's session went missing, since it was fetched from the wrong
+// week bucket. ISO keeps all of Mon→Sun in the same week, matching the strip and iOS's grouping.
 fun weekIdentifierFor(date: LocalDate): String {
-    val weekFields = WeekFields.of(Locale.getDefault())
+    val weekFields = WeekFields.ISO
     val week = date.get(weekFields.weekOfWeekBasedYear())
     val year = date.get(weekFields.weekBasedYear())
     return "%d-W%02d".format(year, week)
