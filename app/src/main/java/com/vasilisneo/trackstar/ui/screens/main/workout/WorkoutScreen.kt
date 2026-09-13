@@ -57,6 +57,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.rotate
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
@@ -140,6 +143,9 @@ fun WorkoutScreen(
     // The missed session whose detail sheet is open (null = closed), mirroring MyWorkoutView's
     // `missedSession` @State on iOS.
     var missedSession by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<PlannedSessionResponse?>(null) }
+    // Which upcoming session cards are expanded to show their exercises (mirrors iOS's
+    // expandedSessionIds).
+    val expandedSessionIds = androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateListOf<String>() }
 
     val monthFmt = java.time.format.DateTimeFormatter.ofPattern("MMM", Locale.getDefault())
     val dayLabel = if (selectedDate == today) "Today" else selectedDate.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())
@@ -218,36 +224,28 @@ fun WorkoutScreen(
                                         InProgressCard(session = activeSession, onResume = onResumeSession)
                                     }
                                 } else {
-                                    item {
-                                        StartSessionButton(
+                                    item(key = "session-${display.planned.id}") {
+                                        val sid = display.planned.id ?: ""
+                                        SessionDashboardCard(
                                             session = display.planned,
+                                            expanded = expandedSessionIds.contains(sid),
+                                            onToggleExpand = {
+                                                if (expandedSessionIds.contains(sid)) expandedSessionIds.remove(sid)
+                                                else expandedSessionIds.add(sid)
+                                            },
+                                            comments = viewModel.exerciseComments,
+                                            onCommentsTap = { commentingExercise = it },
                                             // Free tier: 3 logged sessions/week (FeatureGate). At the
                                             // cap, starting/quick-logging opens the paywall instead.
                                             onStart = {
                                                 if (!viewModel.canStartSession) onUpgrade()
-                                                else onStartSession(selectedDate, display.planned.id ?: return@StartSessionButton)
+                                                else onStartSession(selectedDate, sid.ifBlank { return@SessionDashboardCard })
                                             },
                                             onQuickLog = {
                                                 if (!viewModel.canStartSession) onUpgrade()
-                                                else onQuickLog(selectedDate, display.planned.id ?: return@StartSessionButton)
+                                                else onQuickLog(selectedDate, sid.ifBlank { return@SessionDashboardCard })
                                             },
                                         )
-                                    }
-                                    items(display.planned.exercises.orEmpty().groupedForDisplay(), key = { it.id }) { unit ->
-                                        when (unit) {
-                                            is ExerciseDisplayUnit.Single -> ExercisePlanCard(
-                                                exercise = unit.exercise,
-                                                comments = viewModel.exerciseComments[unit.exercise.id] ?: emptyList(),
-                                                onCommentsTap = { commentingExercise = unit.exercise },
-                                            )
-                                            is ExerciseDisplayUnit.Pair -> ExercisePlanPairCard(
-                                                a = unit.a, b = unit.b,
-                                                commentsA = viewModel.exerciseComments[unit.a.id] ?: emptyList(),
-                                                commentsB = viewModel.exerciseComments[unit.b.id] ?: emptyList(),
-                                                onCommentsTapA = { commentingExercise = unit.a },
-                                                onCommentsTapB = { commentingExercise = unit.b },
-                                            )
-                                        }
                                     }
                                 }
                             }
@@ -491,37 +489,97 @@ private fun CollapsingDayStrip(
 // Mirrors iOS's startSessionButton in MyWorkoutView+Cards.swift: title above a translucent
 // white "Start Session" pill + a square Quick Log (clipboard) button beside it.
 @Composable
-private fun StartSessionButton(session: PlannedSessionResponse, onStart: () -> Unit, onQuickLog: () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp)) {
-        val title = session.title?.takeIf { it.isNotBlank() }
-        if (title != null) {
-            Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+// Ports iOS's startSessionButton + expandable session group (MyWorkoutView): one big card per
+// planned session (title + Start + quick-log + an expand toggle). When expanded, the exercises
+// render below inside the same accent-bordered container so the session reads as one unit.
+private fun SessionDashboardCard(
+    session: PlannedSessionResponse,
+    expanded: Boolean,
+    onToggleExpand: () -> Unit,
+    onStart: () -> Unit,
+    onQuickLog: () -> Unit,
+    comments: Map<String, List<ExerciseComment>>,
+    onCommentsTap: (ExerciseData) -> Unit,
+) {
+    val accent = TrackstarAccent
+    val units = session.exercises.orEmpty().groupedForDisplay()
+    val exerciseCount = session.exercises.orEmpty().size
+    val chevronAngle by androidx.compose.animation.core.animateFloatAsState(if (expanded) 180f else 0f, label = "chevron")
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(if (expanded) 26.dp else 22.dp))
+            .then(
+                if (expanded) Modifier
+                    .background(accent.copy(alpha = 0.06f))
+                    .border(1.dp, accent.copy(alpha = 0.35f), RoundedCornerShape(26.dp))
+                    .padding(8.dp)
+                else Modifier
+            )
+    ) {
+        // The session "start" card.
+        Column(
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(CardFill).padding(16.dp)
+        ) {
+            session.title?.takeIf { it.isNotBlank() }?.let {
+                Text(it, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f).height(50.dp).clip(RoundedCornerShape(16.dp))
+                        .background(Color.White).clickable(onClick = onStart),
+                ) {
+                    Spacer(Modifier.weight(1f))
+                    Icon(Icons.Filled.PlayArrow, null, tint = Color.Black, modifier = Modifier.size(14.dp))
+                    Text("Start Session", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
+                    Spacer(Modifier.weight(1f))
+                }
+                Box(
+                    modifier = Modifier.size(50.dp).clip(RoundedCornerShape(16.dp))
+                        .background(Color.White.copy(alpha = 0.12f)).clickable(onClick = onQuickLog),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ListAlt, "Quick log", tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(20.dp))
+                }
+            }
+            // Expand/collapse toggle — whole row tappable.
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier
-                    .weight(1f)
-                    .height(50.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color.White.copy(alpha = 0.15f))
-                    .clickable(onClick = onStart),
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onToggleExpand)
             ) {
-                Spacer(modifier = Modifier.weight(1f))
-                Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
-                Text("Start Session", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    "$exerciseCount exercise${if (exerciseCount == 1) "" else "s"}",
+                    fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.7f)
+                )
+                Spacer(Modifier.weight(1f))
+                Icon(
+                    Icons.Filled.KeyboardArrowDown, null, tint = Color.White.copy(alpha = 0.5f),
+                    modifier = Modifier.size(18.dp).rotate(chevronAngle)
+                )
             }
-            Box(
-                modifier = Modifier
-                    .size(50.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color.White.copy(alpha = 0.1f))
-                    .clickable(onClick = onQuickLog),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = "Quick log", tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(20.dp))
+        }
+
+        if (expanded) {
+            units.forEach { unit ->
+                when (unit) {
+                    is ExerciseDisplayUnit.Single -> ExercisePlanCard(
+                        exercise = unit.exercise,
+                        comments = comments[unit.exercise.id] ?: emptyList(),
+                        onCommentsTap = { onCommentsTap(unit.exercise) },
+                    )
+                    is ExerciseDisplayUnit.Pair -> ExercisePlanPairCard(
+                        a = unit.a, b = unit.b,
+                        commentsA = comments[unit.a.id] ?: emptyList(),
+                        commentsB = comments[unit.b.id] ?: emptyList(),
+                        onCommentsTapA = { onCommentsTap(unit.a) },
+                        onCommentsTapB = { onCommentsTap(unit.b) },
+                    )
+                }
             }
         }
     }
