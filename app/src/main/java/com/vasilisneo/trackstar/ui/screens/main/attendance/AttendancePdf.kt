@@ -68,11 +68,24 @@ object AttendancePdf {
                 canvas.drawText(s, x, y + p.textSize, p)
             }
 
-            // Header
-            text("Trackstar Fitness", paint(22f, ink, bold = true))
+            // Header — logo on the left, title + subtitle to its right (matches iOS).
+            val logoSize = 46f
+            var titleX = MARGIN
+            val logo = runCatching {
+                android.graphics.BitmapFactory.decodeResource(context.resources, com.vasilisneo.trackstar.R.drawable.trackstar_logo)
+            }.getOrNull()
+            if (logo != null) {
+                val dest = RectF(MARGIN, y, MARGIN + logoSize, y + logoSize)
+                val save = canvas.save()
+                canvas.clipPath(android.graphics.Path().apply { addRoundRect(dest, 11f, 11f, android.graphics.Path.Direction.CW) })
+                canvas.drawBitmap(logo, null, dest, null)
+                canvas.restoreToCount(save)
+                titleX = MARGIN + logoSize + 14f
+            }
+            text("Trackstar Fitness", paint(22f, ink, bold = true), x = titleX)
             val savedY = y; y += 27f
-            text("Attendance Report", paint(13f, sub))
-            y = savedY + 46f
+            text("Attendance Report", paint(13f, sub), x = titleX)
+            y = savedY + logoSize + 14f
             // Accent rule
             canvas.drawRect(MARGIN, y, MARGIN + 56f, y + 3f, Paint().apply { color = accent })
             y += 16f
