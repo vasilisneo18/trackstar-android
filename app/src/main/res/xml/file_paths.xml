@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Generated attendance PDFs live in the app cache dir. -->
+    <cache-path name="pdfs" path="." />
+</paths>

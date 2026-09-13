@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -61,7 +62,9 @@ private val CheckedInGreen = Color(0xFF34C759)
 @Composable
 fun CheckInScreen(onBack: () -> Unit) {
     val vm: CheckInViewModel = viewModel()
+    val context = androidx.compose.ui.platform.LocalContext.current
     var showScanner by remember { mutableStateOf(false) }
+    var showExport by remember { mutableStateOf(false) }
 
     val locationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     LaunchedEffect(Unit) {
@@ -90,6 +93,14 @@ fun CheckInScreen(onBack: () -> Unit) {
                     ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Back", tint = Color.White, modifier = Modifier.size(22.dp)) }
                     Spacer(Modifier.width(12.dp))
                     Text("Check In", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    Spacer(Modifier.weight(1f))
+                    if (vm.history.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier.size(40.dp).clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.1f)).clickable { showExport = true },
+                            contentAlignment = Alignment.Center
+                        ) { Icon(Icons.Filled.IosShare, "Export report", tint = Color.White, modifier = Modifier.size(18.dp)) }
+                    }
                 }
 
                 LazyColumn(
@@ -116,6 +127,18 @@ fun CheckInScreen(onBack: () -> Unit) {
                     }
                 }
             }
+        }
+
+        if (showExport) {
+            val store = remember { com.vasilisneo.trackstar.data.auth.TokenStore(context) }
+            val name = listOfNotNull(store.firstName?.ifBlank { null }, store.lastName?.ifBlank { null })
+                .joinToString(" ").ifBlank { null }
+            AttendanceExportSheet(
+                reportTitle = "Check-in history",
+                subjectName = name,
+                visits = vm.history,
+                onDismiss = { showExport = false },
+            )
         }
 
         vm.error?.let { message ->
