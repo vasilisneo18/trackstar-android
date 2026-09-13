@@ -59,6 +59,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Inbox
 import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -185,18 +187,43 @@ fun WorkoutScreen(
 
         // Content — scrolls beneath the header (padded down by the header's full height).
         if (displaySessions.isEmpty()) {
-            // Wrap so a rest day is swipeable between days too. Steps card sits up top, the
-            // rest-day cluster fills the space below.
+            val isPast = selectedDate.isBefore(today)
             Column(
                 modifier = Modifier.fillMaxSize().then(swipeDays).padding(
                     top = (if (headerHeightDp > 0.dp) headerHeightDp else 150.dp) + 4.dp
-                )
+                ),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(
-                    date = selectedDate, modifier = Modifier.padding(horizontal = 16.dp)
-                )
-                Box(modifier = Modifier.weight(1f)) {
-                    RestDayEmptyState(onScheduleWorkout = onScheduleWorkout)
+                if (isPast) {
+                    // Past day: show steps if there were any, otherwise a "no data" state. No planning.
+                    val ctx = androidx.compose.ui.platform.LocalContext.current
+                    val health = androidx.compose.runtime.remember { com.vasilisneo.trackstar.data.health.HealthConnectManager(ctx) }
+                    var steps by androidx.compose.runtime.remember(selectedDate) { androidx.compose.runtime.mutableStateOf<Int?>(null) }
+                    androidx.compose.runtime.LaunchedEffect(selectedDate) {
+                        steps = if (health.isAvailable && health.hasStepsPermission()) health.steps(selectedDate) else 0
+                    }
+                    when (val s = steps) {
+                        null -> Unit // loading — avoid flashing "no data"
+                        else -> if (s > 0) {
+                            com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(
+                                date = selectedDate, modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+                        } else {
+                            Box(modifier = Modifier.weight(1f)) { NoDataForDay() }
+                        }
+                    }
+                } else {
+                    // Today / future empty day: prompt to plan, offer a copy of last week, show steps.
+                    PlanSessionCard(
+                        lastWeek = viewModel.lastWeekSessions,
+                        weekdayName = selectedDate.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH),
+                        onPlan = onScheduleWorkout,
+                        onCopyLastWeek = { viewModel.copyLastWeekPlan() },
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    )
+                    com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(
+                        date = selectedDate, modifier = Modifier.padding(horizontal = 16.dp)
+                    )
                 }
             }
         } else {
@@ -585,6 +612,74 @@ private fun SessionDashboardCard(
     }
 }
 
+// Ports iOS's planSessionCard: an empty upcoming day's prompt to plan a workout, with a
+// "copy last week" row when the same weekday last week had sessions (progressive overload).
+@Composable
+private fun PlanSessionCard(
+    lastWeek: List<PlannedSessionResponse>,
+    weekdayName: String,
+    onPlan: () -> Unit,
+    onCopyLastWeek: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val accent = TrackstarAccent
+    Column(modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(CardFill)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onPlan).padding(16.dp)
+        ) {
+            Box(
+                modifier = Modifier.size(46.dp).background(Color.White.copy(alpha = 0.08f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) { Icon(Icons.Filled.FitnessCenter, null, tint = accent, modifier = Modifier.size(18.dp)) }
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
+                Text("Plan your session", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                Text("Nothing planned — add a workout for this day.", fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f))
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(18.dp))
+        }
+        if (lastWeek.isNotEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onCopyLastWeek).padding(16.dp)
+            ) {
+                Box(
+                    modifier = Modifier.size(46.dp).background(Color.White.copy(alpha = 0.08f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) { Icon(Icons.Filled.Refresh, null, tint = accent, modifier = Modifier.size(18.dp)) }
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Copy last $weekdayName's workout${if (lastWeek.size > 1) "s" else ""}",
+                        fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White
+                    )
+                    Text(
+                        "Start from last week and push a little further to keep progressing.",
+                        fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+// Ports iOS's noDataView: a centered "nothing here" state for a past day with no session and no steps.
+@Composable
+private fun NoDataForDay() {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(Icons.Filled.Inbox, null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(34.dp))
+        Spacer(Modifier.height(10.dp))
+        Text("No data for this day", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.7f))
+        Text("Nothing was logged on this day.", fontSize = 13.sp, color = Color.White.copy(alpha = 0.4f))
+    }
+}
+
 private val MissedOrange = Color(0xFFFF9500)
 
 // Ports iOS's missedSessionCard (MyWorkoutView+Cards.swift): an orange-outlined card for a
@@ -965,73 +1060,3 @@ private fun formatDuration(totalSeconds: Int): String {
 }
 
 private val CompletedGreen = Color(0xFF34C759)
-
-@Composable
-private fun RestDayEmptyState(onScheduleWorkout: () -> Unit) {
-    // Center in the *visible* area, not the full space behind the floating tab bar: reserve the
-    // tab bar (~76dp) + nav bar at the bottom so the cluster sits at the optical middle rather
-    // than being dragged low (mirrors iOS reserving the tab bar via a bottom safeAreaInset).
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .navigationBarsPadding()
-            .padding(bottom = 76.dp)
-            .padding(horizontal = 40.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Box(contentAlignment = Alignment.Center) {
-                Box(modifier = Modifier.size(120.dp).background(Color.White.copy(alpha = 0.05f), CircleShape))
-                Box(modifier = Modifier.size(86.dp).background(Color.White.copy(alpha = 0.07f), CircleShape))
-                Box(modifier = Modifier.size(58.dp).background(Color.White.copy(alpha = 0.10f), CircleShape))
-                Icon(
-                    painter = painterResource(R.drawable.ic_workout_figure),
-                    contentDescription = null,
-                    tint = Color.White.copy(alpha = 0.6f),
-                    modifier = Modifier.size(30.dp)
-                )
-            }
-
-            Box(
-                modifier = Modifier
-                    .background(Color.White.copy(alpha = 0.07f), RoundedCornerShape(50))
-                    .padding(horizontal = 14.dp, vertical = 6.dp)
-            ) {
-                Text(
-                    "REST DAY",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 2.5.sp,
-                    color = Color.White.copy(alpha = 0.35f)
-                )
-            }
-
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Nothing planned.", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                Text(
-                    "Enjoy the recovery, or\nschedule something.",
-                    fontSize = 15.sp,
-                    color = Color.White.copy(alpha = 0.4f),
-                    textAlign = TextAlign.Center,
-                    lineHeight = 20.sp
-                )
-            }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color.White.copy(alpha = 0.12f))
-                    .clickable(onClick = onScheduleWorkout)
-                    .padding(vertical = 14.dp),
-            ) {
-                Spacer(modifier = Modifier.weight(1f))
-                Icon(Icons.Filled.CalendarMonth, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                Text("Schedule Workout", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                Spacer(modifier = Modifier.weight(1f))
-            }
-        }
-    }
-}

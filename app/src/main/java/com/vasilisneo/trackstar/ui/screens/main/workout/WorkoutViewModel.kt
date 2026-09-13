@@ -112,12 +112,52 @@ class WorkoutViewModel(
                 }
             }
 
-    init { fetch() }
+    // Same-weekday sessions from one week ago — powers the "copy last week's workout" prompt on an
+    // empty upcoming day (mirrors iOS's lastWeekSessions).
+    var lastWeekSessions by mutableStateOf<List<PlannedSessionResponse>>(emptyList())
+        private set
+
+    init { fetch(); loadLastWeek() }
 
     fun goToDate(date: LocalDate) {
         val weekChanged = weekIdentifierFor(date) != weekIdentifierFor(selectedDate)
         selectedDate = date
         if (weekChanged) fetch()
+        loadLastWeek()
+    }
+
+    private fun loadLastWeek() {
+        viewModelScope.launch {
+            val lwId = weekIdentifierFor(selectedDate.minusWeeks(1))
+            val dayName = selectedDayName
+            val plan = planRepository.cachedPlan(lwId) ?: when (val r = planRepository.getPlan(lwId)) {
+                is ApiResult.Success -> r.data
+                is ApiResult.Error -> emptyList()
+            }
+            lastWeekSessions = plan.filter { it.day == dayName }.sortedBy { it.orderIndex ?: 0 }
+        }
+    }
+
+    /** Copy last week's same-weekday sessions onto the current day (fresh ids), then refresh. */
+    fun copyLastWeekPlan(onDone: (Boolean) -> Unit = {}) {
+        val source = lastWeekSessions
+        if (source.isEmpty()) { onDone(false); return }
+        viewModelScope.launch {
+            val requests = source.mapIndexed { idx, s ->
+                com.vasilisneo.trackstar.data.api.PlannedSessionRequest(
+                    id = java.util.UUID.randomUUID().toString(),
+                    weekIdentifier = weekId,
+                    day = selectedDayName,
+                    orderIndex = s.orderIndex ?: idx,
+                    title = s.title?.takeIf { it.isNotBlank() } ?: "Workout",
+                    exercises = s.exercises.orEmpty().map { it.copy(id = java.util.UUID.randomUUID().toString()) },
+                )
+            }
+            when (planRepository.upsertBatch(requests)) {
+                is ApiResult.Success -> { fetch(); onDone(true) }
+                is ApiResult.Error -> onDone(false)
+            }
+        }
     }
 
     fun fetch() {
