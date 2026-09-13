@@ -39,8 +39,12 @@ sealed interface CheckInScan {
 // visit, check out, and browse history. Mirrors iOS's CheckInViewModel.
 class CheckInViewModel(
     app: Application,
-    private val repo: CheckInRepository = CheckInRepository(),
+    private val repo: CheckInRepository,
 ) : AndroidViewModel(app) {
+
+    // The constructor Compose's viewModel() factory resolves at runtime (it looks for a single
+    // Application parameter — a Kotlin default value doesn't create one for reflection).
+    constructor(app: Application) : this(app, CheckInRepository())
 
     private val location = LocationProvider(app)
 
