@@ -118,6 +118,12 @@ fun StatsScreen(
             item { SummaryRow(viewModel.allTimeCount, viewModel.thisMonthCount, viewModel.thisWeekCount) }
             item { CompletionCard(viewModel.completionRate) }
             if (viewModel.streak > 0) item { StreakCard(viewModel.streak) }
+            // Apple Health steps this week — free feature, shown to everyone.
+            item {
+                val weekStart = java.time.LocalDate.now()
+                    .with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+                com.vasilisneo.trackstar.ui.screens.main.WeeklyStepsCard(weekStart = weekStart)
+            }
             if (isFree) {
                 item {
                     LockedFeatureCard(

@@ -127,6 +127,11 @@ dependencies {
     implementation("androidx.camera:camera-camera2:1.4.1")
     implementation("androidx.camera:camera-lifecycle:1.4.1")
     implementation("androidx.camera:camera-view:1.4.1")
+    // Apple Health equivalent — read step counts from Health Connect (daily card + weekly chart).
+    implementation("androidx.health.connect:connect-client:1.1.0-alpha07")
+    // Health Connect forces the `listenablefuture` coordinate to Guava's empty marker; add real
+    // Guava so CameraX (QR scanner) still finds ListenableFuture on the compile classpath.
+    implementation("com.google.guava:guava:33.3.1-android")
     // In-app subscriptions via RevenueCat (wraps Google Play Billing). iOS uses the RC SDK too,
     // and the backend already syncs plans from RC's webhook.
     implementation("com.revenuecat.purchases:purchases:9.0.0")

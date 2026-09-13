@@ -179,9 +179,19 @@ fun WorkoutScreen(
 
         // Content — scrolls beneath the header (padded down by the header's full height).
         if (displaySessions.isEmpty()) {
-            // Wrap so a rest day is swipeable between days too.
-            Box(modifier = Modifier.fillMaxSize().then(swipeDays)) {
-                RestDayEmptyState(onScheduleWorkout = onScheduleWorkout)
+            // Wrap so a rest day is swipeable between days too. Steps card sits up top, the
+            // rest-day cluster fills the space below.
+            Column(
+                modifier = Modifier.fillMaxSize().then(swipeDays).padding(
+                    top = (if (headerHeightDp > 0.dp) headerHeightDp else 150.dp) + 4.dp
+                )
+            ) {
+                com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(
+                    date = selectedDate, modifier = Modifier.padding(horizontal = 16.dp)
+                )
+                Box(modifier = Modifier.weight(1f)) {
+                    RestDayEmptyState(onScheduleWorkout = onScheduleWorkout)
+                }
             }
         } else {
             LazyColumn(
@@ -256,6 +266,8 @@ fun WorkoutScreen(
                             }
                         }
                     }
+                    // Apple Health steps for the selected day, below the workout (matches iOS).
+                    item { com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(date = selectedDate) }
                 }
             }
 
