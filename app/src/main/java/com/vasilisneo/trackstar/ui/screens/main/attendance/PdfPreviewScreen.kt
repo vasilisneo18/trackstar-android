@@ -81,10 +81,11 @@ fun PdfPreviewScreen(file: File, onClose: () -> Unit) {
             }
         }
 
-        // Top bar: close · title · share.
+        // Top bar: close · title · share. Solid header so the white controls stay visible over the
+        // white PDF page behind it.
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)
+            modifier = Modifier.fillMaxWidth().background(Color(0xFF0D0D17)).statusBarsPadding().padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             Box(
                 modifier = Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)).clickable(onClick = onClose),
