@@ -390,9 +390,9 @@ private fun AppSection(
     onCheckIn: () -> Unit = {},
 ) {
     ProfileGroup {
-        ProfileRow(icon = Icons.Outlined.Badge, label = "Personal Info", onClick = onPersonalInfo)
-        HorizontalDivider(color = Color.White.copy(alpha = 0.08f), modifier = Modifier.padding(start = 62.dp))
         ProfileRow(icon = Icons.Filled.QrCodeScanner, label = "Check In", onClick = onCheckIn)
+        HorizontalDivider(color = Color.White.copy(alpha = 0.08f), modifier = Modifier.padding(start = 62.dp))
+        ProfileRow(icon = Icons.Outlined.Badge, label = "Personal Info", onClick = onPersonalInfo)
         HorizontalDivider(color = Color.White.copy(alpha = 0.08f), modifier = Modifier.padding(start = 62.dp))
         ProfileRow(icon = Icons.Filled.Settings, label = "Settings", onClick = onSettings)
     }
