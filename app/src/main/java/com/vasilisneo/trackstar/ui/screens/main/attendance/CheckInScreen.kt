@@ -65,6 +65,7 @@ fun CheckInScreen(onBack: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var showScanner by remember { mutableStateOf(false) }
     var showExport by remember { mutableStateOf(false) }
+    var previewFile by remember { mutableStateOf<java.io.File?>(null) }
 
     val locationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {}
     LaunchedEffect(Unit) {
@@ -137,8 +138,13 @@ fun CheckInScreen(onBack: () -> Unit) {
                 reportTitle = "Check-in history",
                 subjectName = name,
                 visits = vm.history,
+                onGenerated = { previewFile = it },
                 onDismiss = { showExport = false },
             )
+        }
+
+        previewFile?.let { file ->
+            PdfPreviewScreen(file = file, onClose = { previewFile = null })
         }
 
         vm.error?.let { message ->

@@ -2,7 +2,6 @@ package com.vasilisneo.trackstar.ui.screens.main.attendance
 
 import android.app.DatePickerDialog
 import android.content.Context
-import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -39,7 +38,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.content.FileProvider
 import com.vasilisneo.trackstar.data.api.VisitResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -55,6 +53,7 @@ fun AttendanceExportSheet(
     reportTitle: String,
     subjectName: String?,
     visits: List<VisitResponse>,
+    onGenerated: (java.io.File) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -117,8 +116,8 @@ fun AttendanceExportSheet(
                                 AttendancePdf.make(context, reportTitle, subjectName, label, filtered)
                             }
                             generating = false
-                            if (file != null) sharePdf(context, file)
                             onDismiss()
+                            if (file != null) onGenerated(file)
                         }
                     },
                 contentAlignment = Alignment.Center
@@ -184,12 +183,3 @@ private fun periodLabel(period: AttendancePeriod, fromMs: Long, toMs: Long): Str
     return period.label
 }
 
-private fun sharePdf(context: Context, file: java.io.File) {
-    val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-    val intent = Intent(Intent.ACTION_SEND).apply {
-        type = "application/pdf"
-        putExtra(Intent.EXTRA_STREAM, uri)
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    }
-    context.startActivity(Intent.createChooser(intent, "Share report"))
-}
