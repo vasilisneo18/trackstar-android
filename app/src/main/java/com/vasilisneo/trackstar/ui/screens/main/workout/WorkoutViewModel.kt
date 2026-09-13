@@ -102,17 +102,25 @@ class WorkoutViewModel(
         get() = selectedDate.isBefore(LocalDate.now())
 
     val displaySessions: List<SessionDisplay>
-        get() = weekSessions
-            .filter { it.day == selectedDayName }
-            .sortedBy { it.orderIndex ?: 0 }
-            .map { planned ->
-                val match = completedSessions.firstOrNull { it.sessionData?.planSessionId == planned.id }
-                when {
-                    match != null -> SessionDisplay.Completed(planned, match)
-                    isPastDay -> SessionDisplay.Missed(planned)
-                    else -> SessionDisplay.Upcoming(planned)
+        get() {
+            // A logged session only counts for the exact date it was logged (its `date` is the
+            // planned day). Without this a past session would attach to a same-id planned session in
+            // another week — e.g. a "completed" report showing up on a future date.
+            val dayKey = selectedDate.toString()
+            return weekSessions
+                .filter { it.day == selectedDayName }
+                .sortedBy { it.orderIndex ?: 0 }
+                .map { planned ->
+                    val match = completedSessions.firstOrNull {
+                        it.date == dayKey && planned.id != null && it.sessionData?.planSessionId == planned.id
+                    }
+                    when {
+                        match != null -> SessionDisplay.Completed(planned, match)
+                        isPastDay -> SessionDisplay.Missed(planned)
+                        else -> SessionDisplay.Upcoming(planned)
+                    }
                 }
-            }
+        }
 
     // Same-weekday sessions from one week ago — powers the "copy last week's workout" prompt on an
     // empty upcoming day (mirrors iOS's lastWeekSessions).
