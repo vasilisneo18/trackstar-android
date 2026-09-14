@@ -81,20 +81,10 @@ fun CheckInScreen(onBack: () -> Unit) {
                 onClose = { showScanner = false },
             )
         } else {
-            Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
-                // Header
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
-                ) {
-                    Box(
-                        modifier = Modifier.size(40.dp).clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.1f)).clickable(onClick = onBack),
-                        contentAlignment = Alignment.Center
-                    ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Back", tint = Color.White, modifier = Modifier.size(22.dp)) }
-                    Spacer(Modifier.width(12.dp))
-                    Text("Check In", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                    Spacer(Modifier.weight(1f))
+            CollapsingTitleScaffold(
+                title = "Gym Check-In",
+                onBack = onBack,
+                actions = {
                     if (vm.history.isNotEmpty()) {
                         Box(
                             modifier = Modifier.size(40.dp).clip(CircleShape)
@@ -102,29 +92,28 @@ fun CheckInScreen(onBack: () -> Unit) {
                             contentAlignment = Alignment.Center
                         ) { Icon(Icons.Filled.IosShare, "Export report", tint = Color.White, modifier = Modifier.size(18.dp)) }
                     }
-                }
-
-                LazyColumn(
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    item {
-                        val active = vm.activeVisit
+                },
+            ) {
+                item {
+                    val active = vm.activeVisit
+                    Box(modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 16.dp)) {
                         if (active != null) {
                             ActiveVisitCard(visit = active, busy = vm.isBusy, onCheckOut = vm::checkOut)
                         } else {
                             ScanButton(busy = vm.isBusy, onScan = { showScanner = true })
                         }
                     }
-                    if (vm.history.isNotEmpty()) {
-                        item {
-                            Text(
-                                "HISTORY", fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                                color = Color.White.copy(alpha = 0.4f), modifier = Modifier.padding(top = 8.dp)
-                            )
-                        }
-                        items(vm.history, key = { it.id ?: it.hashCode().toString() }) { HistoryRow(it) }
+                }
+                if (vm.history.isNotEmpty()) {
+                    item {
+                        Text(
+                            "HISTORY", fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                            color = Color.White.copy(alpha = 0.4f),
+                            modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 8.dp)
+                        )
+                    }
+                    items(vm.history, key = { it.id ?: it.hashCode().toString() }) {
+                        Box(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 10.dp)) { HistoryRow(it) }
                     }
                 }
             }

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -26,6 +27,8 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.WrongLocation
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material3.AlertDialog
@@ -81,14 +84,17 @@ private fun ScreenScaffold(title: String, onBack: () -> Unit, content: @Composab
 
 @Composable
 fun CoachCheckInHubScreen(onBack: () -> Unit, onSessionCode: () -> Unit, onAttendance: () -> Unit, onGyms: () -> Unit) {
-    ScreenScaffold("Check-Ins", onBack) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Run a session and track who trains with you.", fontSize = 14.sp, color = Color.White.copy(alpha = 0.45f))
-            Spacer(Modifier.height(4.dp))
-            HubRow(Icons.Filled.QrCode2, "Session Code", "Show a code athletes scan to check in", onSessionCode)
-            HubRow(Icons.Filled.People, "Attendance", "See who checked in and for how long", onAttendance)
-            HubRow(Icons.Filled.LocationOn, "Gyms", "QR posters for gym check-ins", onGyms)
+    CollapsingTitleScaffold(title = "Check-Ins", onBack = onBack) {
+        item {
+            Text(
+                "Run a session and track who trains with you.",
+                fontSize = 14.sp, color = Color.White.copy(alpha = 0.45f),
+                modifier = Modifier.padding(horizontal = 16.dp).padding(top = 4.dp, bottom = 16.dp)
+            )
         }
+        item { HubRow(Icons.Filled.QrCode2, "Session Code", "Show a code athletes scan to check in", onSessionCode) }
+        item { HubRow(Icons.Filled.People, "Attendance", "See who checked in and for how long", onAttendance) }
+        item { HubRow(Icons.Filled.LocationOn, "Gyms", "QR posters for gym check-ins", onGyms) }
     }
 }
 
@@ -97,7 +103,8 @@ private fun HubRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title:
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(14.dp),
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(CardFill).clickable(onClick = onClick).padding(16.dp)
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 12.dp)
+            .clip(RoundedCornerShape(18.dp)).background(CardFill).clickable(onClick = onClick).padding(16.dp)
     ) {
         Box(modifier = Modifier.size(46.dp).background(Color.White.copy(alpha = 0.08f), CircleShape), contentAlignment = Alignment.Center) {
             Icon(icon, null, tint = TrackstarAccent, modifier = Modifier.size(20.dp))
@@ -177,41 +184,56 @@ fun GymsScreen(onBack: () -> Unit) {
     var showAdd by remember { mutableStateOf(false) }
     var qrGym by remember { mutableStateOf<GymResponse?>(null) }
 
-    ScreenScaffold("Gyms", onBack) {
-        Column(modifier = Modifier.fillMaxSize()) {
+    CollapsingTitleScaffold(
+        title = "My Gyms",
+        onBack = onBack,
+        actions = {
             Box(
-                modifier = Modifier.fillMaxWidth().padding(16.dp).height(48.dp).clip(RoundedCornerShape(14.dp))
-                    .background(TrackstarAccent).clickable { showAdd = true },
+                modifier = Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f)).clickable { showAdd = true },
                 contentAlignment = Alignment.Center
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(Icons.Filled.Add, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                    Text("Add Gym", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+            ) { Icon(Icons.Filled.Add, "Add gym", tint = Color.White, modifier = Modifier.size(20.dp)) }
+        },
+    ) {
+        item {
+            Text(
+                "Locations athletes can scan into. Tap one to show its QR poster.",
+                fontSize = 14.sp, color = Color.White.copy(alpha = 0.45f),
+                modifier = Modifier.padding(horizontal = 16.dp).padding(top = 4.dp, bottom = 20.dp)
+            )
+        }
+        if (vm.gyms.isEmpty()) {
+            item {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(top = 80.dp, start = 32.dp, end = 32.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(Icons.Filled.WrongLocation, null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(40.dp))
+                    Text("No gyms yet", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.6f))
+                    Text(
+                        "Add a location, then print its QR so athletes can check in.",
+                        fontSize = 13.sp, color = Color.White.copy(alpha = 0.4f),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
                 }
             }
-            LazyColumn(
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                items(vm.gyms, key = { it.id ?: it.hashCode().toString() }) { gym ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardFill)
-                            .combinedClickable(
-                                onClick = { qrGym = gym },
-                                onLongClick = { gym.id?.let { vm.deleteGym(it) } },
-                            ).padding(16.dp)
-                    ) {
-                        Box(modifier = Modifier.size(42.dp).background(Color.White.copy(alpha = 0.08f), CircleShape), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Filled.LocationOn, null, tint = TrackstarAccent, modifier = Modifier.size(18.dp))
-                        }
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
-                            Text(gym.name ?: "Gym", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                            Text("Tap for QR · long-press to delete", fontSize = 12.sp, color = Color.White.copy(alpha = 0.4f))
-                        }
-                        Icon(Icons.Filled.QrCode2, null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
+        } else {
+            items(vm.gyms, key = { it.id ?: it.hashCode().toString() }) { gym ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 10.dp)
+                        .clip(RoundedCornerShape(18.dp)).background(CardFill)
+                        .combinedClickable(
+                            onClick = { qrGym = gym },
+                            onLongClick = { gym.id?.let { vm.deleteGym(it) } },
+                        ).padding(14.dp)
+                ) {
+                    Icon(Icons.Filled.Place, null, tint = Color.White.copy(alpha = 0.75f), modifier = Modifier.size(26.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
+                        Text(gym.name ?: "Gym", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                        Text("Tap to show QR poster", fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f))
                     }
+                    Icon(Icons.Filled.QrCode2, null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
                 }
             }
         }
@@ -307,32 +329,32 @@ fun CoachAttendanceScreen(onBack: () -> Unit) {
     var showExport by remember { mutableStateOf(false) }
     var previewFile by remember { mutableStateOf<java.io.File?>(null) }
 
-    ScreenScaffold("Attendance", onBack) {
-        Column(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        CollapsingTitleScaffold(title = "Attendance", onBack = onBack) {
             if (vm.attendance.isEmpty()) {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(40.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center
-                ) {
-                    Icon(Icons.Filled.People, null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(34.dp))
-                    Spacer(Modifier.height(10.dp))
-                    Text("No check-ins yet", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.7f))
-                    Text("When athletes scan in, their visits show up here.", fontSize = 13.sp, color = Color.White.copy(alpha = 0.4f))
+                item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(top = 80.dp, start = 32.dp, end = 32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(Icons.Filled.People, null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(34.dp))
+                        Text("No check-ins yet", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.7f))
+                        Text("When athletes scan in, their visits show up here.", fontSize = 13.sp, color = Color.White.copy(alpha = 0.4f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    }
                 }
             } else {
-                LazyColumn(
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    items(vm.attendance, key = { it.id ?: it.hashCode().toString() }) { RosterRow(it) }
+                items(vm.attendance, key = { it.id ?: it.hashCode().toString() }) {
+                    Box(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 10.dp)) { RosterRow(it) }
                 }
-                Box(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp).height(52.dp).clip(RoundedCornerShape(26.dp))
-                        .background(Color.White).clickable { showExport = true },
-                    contentAlignment = Alignment.Center
-                ) { Text("Export Report", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black) }
+                item { Spacer(Modifier.height(80.dp)) } // clear the export button
             }
+        }
+        if (vm.attendance.isNotEmpty()) {
+            Box(
+                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(16.dp)
+                    .height(52.dp).clip(RoundedCornerShape(26.dp)).background(Color.White).clickable { showExport = true },
+                contentAlignment = Alignment.Center
+            ) { Text("Export Report", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black) }
         }
     }
 
