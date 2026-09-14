@@ -89,6 +89,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.vasilisneo.trackstar.data.api.ProfileResponse
 import com.vasilisneo.trackstar.data.api.SlotResponse
 import com.vasilisneo.trackstar.ui.components.GlassCircleIconButton
+import androidx.compose.material.icons.filled.QrCodeScanner
 import com.vasilisneo.trackstar.ui.components.ProfileAvatarButton
 import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
 import com.vasilisneo.trackstar.ui.theme.currentAppTheme
@@ -112,6 +113,7 @@ fun AthletesScreen(
     onSeeAll: () -> Unit = {},
     onOpenBookingSettings: () -> Unit = {},
     onSetBookingEnabled: (Boolean) -> Unit = {},
+    onOpenCheckIns: () -> Unit = {},
     showAvailability: Boolean = false,
     viewModel: AthletesViewModel = viewModel(),
 ) {
@@ -160,6 +162,7 @@ fun AthletesScreen(
                     Spacer(modifier = Modifier.size(12.dp))
                     Text("Team", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White, modifier = Modifier.alpha(frostProgress))
                     Spacer(modifier = Modifier.weight(1f))
+                    GlassCircleIconButton(onClick = onOpenCheckIns, icon = Icons.Filled.QrCodeScanner, contentDescription = "Check-Ins")
                 }
             }
 

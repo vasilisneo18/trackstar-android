@@ -37,6 +37,7 @@ object AttendancePdf {
         subjectName: String?,
         periodLabel: String,
         visits: List<VisitResponse>,
+        groupByAthlete: Boolean = false,
     ): File? {
         return try {
             val doc = PdfDocument()
@@ -150,17 +151,25 @@ object AttendancePdf {
                 }
             }
 
-            // Group by month, newest first.
-            val cal = Calendar.getInstance()
-            val groups = visits.groupBy { v ->
-                val ms = v.checkInAt?.toLong() ?: 0L
-                cal.timeInMillis = ms
-                cal.get(Calendar.YEAR) * 100 + cal.get(Calendar.MONTH)
-            }.toSortedMap(compareByDescending { it })
-
-            for ((_, rows) in groups) {
-                val first = rows.firstOrNull()?.checkInAt?.toLong() ?: 0L
-                drawSection(monthFmt.format(Date(first)), rows)
+            if (groupByAthlete) {
+                // Coach report: one section per athlete with per-athlete totals.
+                val groups = visits.groupBy { it.athleteName ?: "Athlete" }.toSortedMap()
+                for ((name, rows) in groups) {
+                    val mins = rows.mapNotNull { it.durationMin }.sum()
+                    drawSection("$name  —  ${rows.size} session${if (rows.size == 1) "" else "s"}, ${formatMinutes(mins)}", rows)
+                }
+            } else {
+                // Athlete report: group by month, newest first.
+                val cal = Calendar.getInstance()
+                val groups = visits.groupBy { v ->
+                    val ms = v.checkInAt?.toLong() ?: 0L
+                    cal.timeInMillis = ms
+                    cal.get(Calendar.YEAR) * 100 + cal.get(Calendar.MONTH)
+                }.toSortedMap(compareByDescending { it })
+                for ((_, rows) in groups) {
+                    val first = rows.firstOrNull()?.checkInAt?.toLong() ?: 0L
+                    drawSection(monthFmt.format(Date(first)), rows)
+                }
             }
 
             doc.finishPage(page)

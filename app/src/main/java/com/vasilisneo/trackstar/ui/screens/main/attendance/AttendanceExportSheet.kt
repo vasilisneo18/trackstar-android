@@ -53,6 +53,7 @@ fun AttendanceExportSheet(
     reportTitle: String,
     subjectName: String?,
     visits: List<VisitResponse>,
+    groupByAthlete: Boolean = false,
     onGenerated: (java.io.File) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -113,7 +114,7 @@ fun AttendanceExportSheet(
                         val label = periodLabel(period, fromMs, toMs)
                         scope.launch {
                             val file = withContext(Dispatchers.Default) {
-                                AttendancePdf.make(context, reportTitle, subjectName, label, filtered)
+                                AttendancePdf.make(context, reportTitle, subjectName, label, filtered, groupByAthlete)
                             }
                             generating = false
                             onDismiss()

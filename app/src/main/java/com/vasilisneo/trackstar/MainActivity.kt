@@ -191,6 +191,7 @@ class MainActivity : ComponentActivity() {
                                 onOpenTemplates = { navController.navigate("templates") },
                                 onOpenAvailability = { navController.navigate("coach_availability") },
                                 onOpenAllAthletes = { navController.navigate("all_athletes") },
+                                onOpenCheckIns = { navController.navigate("coach_checkins") },
                                 onOpenBookingSettings = { navController.navigate("settings_app_settings") },
                                 onOpenAiDietPlanner = { navController.navigate("ai_diet_planner") },
                                 onOpenSubscription = { navController.navigate("subscription") },
@@ -348,6 +349,37 @@ class MainActivity : ComponentActivity() {
                             popExitTransition = { slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth }) },
                         ) {
                             com.vasilisneo.trackstar.ui.screens.main.attendance.CheckInScreen(onBack = { navController.popBackStack() })
+                        }
+                        composable(
+                            "coach_checkins",
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                            popExitTransition = { slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth }) },
+                        ) {
+                            com.vasilisneo.trackstar.ui.screens.main.attendance.CoachCheckInHubScreen(
+                                onBack = { navController.popBackStack() },
+                                onSessionCode = { navController.navigate("coach_session_code") },
+                                onAttendance = { navController.navigate("coach_attendance") },
+                                onGyms = { navController.navigate("coach_gyms") },
+                            )
+                        }
+                        composable(
+                            "coach_session_code",
+                            popExitTransition = { slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth }) },
+                        ) {
+                            com.vasilisneo.trackstar.ui.screens.main.attendance.SessionCodeScreen(onBack = { navController.popBackStack() })
+                        }
+                        composable(
+                            "coach_gyms",
+                            popExitTransition = { slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth }) },
+                        ) {
+                            com.vasilisneo.trackstar.ui.screens.main.attendance.GymsScreen(onBack = { navController.popBackStack() })
+                        }
+                        composable(
+                            "coach_attendance",
+                            popExitTransition = { slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth }) },
+                        ) {
+                            com.vasilisneo.trackstar.ui.screens.main.attendance.CoachAttendanceScreen(onBack = { navController.popBackStack() })
                         }
                         composable(
                             "bronze_grants",

@@ -112,6 +112,7 @@ fun MainAppScreen(
     onOpenAvailability: () -> Unit = {},
     onOpenAllAthletes: () -> Unit = {},
     onOpenBookingSettings: () -> Unit = {},
+    onOpenCheckIns: () -> Unit = {},
     onOpenAiDietPlanner: () -> Unit = {},
     onOpenSubscription: () -> Unit = {},
 ) {
@@ -213,6 +214,7 @@ fun MainAppScreen(
                         }
                     },
                     showAvailability = showAvailabilityEntry,
+                    onOpenCheckIns = onOpenCheckIns,
                 )
             }
             composable("diet") {
