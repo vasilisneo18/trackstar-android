@@ -62,24 +62,6 @@ import java.util.Locale
 
 private val CardFill = Color.White.copy(alpha = 0.06f)
 
-@Composable
-private fun ScreenScaffold(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
-    Column(modifier = Modifier.fillMaxSize().trackstarBackground().statusBarsPadding()) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
-        ) {
-            Box(
-                modifier = Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f)).clickable(onClick = onBack),
-                contentAlignment = Alignment.Center
-            ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Back", tint = Color.White, modifier = Modifier.size(22.dp)) }
-            Spacer(Modifier.width(12.dp))
-            Text(title, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-        }
-        content()
-    }
-}
-
 // MARK: - Hub
 
 @Composable
@@ -124,8 +106,19 @@ fun SessionCodeScreen(onBack: () -> Unit) {
     val vm: CoachCheckInViewModel = viewModel()
     LaunchedEffect(Unit) { vm.runSessionCodeLoop() }
 
-    ScreenScaffold("Session Code", onBack) {
+    Column(modifier = Modifier.fillMaxSize().trackstarBackground().statusBarsPadding()) {
+        // Back-only nav row (no scroll here, so the title stays a large static header).
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp)) {
+            Box(
+                modifier = Modifier.size(40.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f)).clickable(onClick = onBack),
+                contentAlignment = Alignment.Center
+            ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Back", tint = Color.White, modifier = Modifier.size(22.dp)) }
+        }
         Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                "Session Code", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.White,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+            )
             Text(
                 "Ask your athletes to scan this to check in. It refreshes automatically.",
                 fontSize = 14.sp, color = Color.White.copy(alpha = 0.45f),
