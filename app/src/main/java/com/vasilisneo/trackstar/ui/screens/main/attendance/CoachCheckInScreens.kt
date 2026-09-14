@@ -169,7 +169,7 @@ fun SessionCodeScreen(onBack: () -> Unit) {
 
 // MARK: - Gyms
 
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class, androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun GymsScreen(onBack: () -> Unit) {
     val vm: CoachCheckInViewModel = viewModel()
@@ -244,20 +244,7 @@ fun GymsScreen(onBack: () -> Unit) {
         )
     }
 
-    qrGym?.let { gym ->
-        val payload = gym.id?.let { "trackstar://checkin/gym/$it" }
-        AlertDialog(
-            onDismissRequest = { qrGym = null },
-            confirmButton = { TextButton(onClick = { qrGym = null }) { Text("Done") } },
-            title = { Text(gym.name ?: "Gym") },
-            text = {
-                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    val bmp = remember(payload) { payload?.let { attendanceQrBitmap(it, 600) } }
-                    if (bmp != null) Image(bitmap = bmp.asImageBitmap(), contentDescription = "Gym QR", modifier = Modifier.size(220.dp))
-                }
-            },
-        )
-    }
+    qrGym?.let { gym -> GymQrSheet(gym) { qrGym = null } }
 
     vm.error?.let { msg ->
         AlertDialog(
@@ -266,6 +253,49 @@ fun GymsScreen(onBack: () -> Unit) {
             title = { Text("Gyms") }, text = { Text(msg) },
         )
     }
+}
+
+// Gym QR poster sheet (matches iOS's GymQRSheet): name + hint + QR + Share/Print.
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun GymQrSheet(gym: GymResponse, onDismiss: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val payload = gym.id?.let { "trackstar://checkin/gym/$it" }
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color(0xFF14141F)) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(20.dp).padding(bottom = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
+            Text(gym.name ?: "Gym", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text("Print this and put it at the entrance", fontSize = 14.sp, color = Color.White.copy(alpha = 0.5f))
+            Box(
+                modifier = Modifier.size(260.dp).clip(RoundedCornerShape(24.dp)).background(CardFill),
+                contentAlignment = Alignment.Center
+            ) {
+                val bmp = remember(payload) { payload?.let { attendanceQrBitmap(it, 600) } }
+                if (bmp != null) Image(bitmap = bmp.asImageBitmap(), contentDescription = "Gym QR", modifier = Modifier.size(212.dp))
+            }
+            Box(
+                modifier = Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(27.dp)).background(Color.White)
+                    .clickable { payload?.let { sharePrintableQr(context, it, gym.name) } },
+                contentAlignment = Alignment.Center
+            ) { Text("Share / Print", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black) }
+        }
+    }
+}
+
+private fun sharePrintableQr(context: android.content.Context, content: String, name: String?) {
+    val bmp = printableQrBitmap(content, 800) ?: return
+    val file = java.io.File(context.cacheDir, "gym-qr-${System.currentTimeMillis()}.png")
+    java.io.FileOutputStream(file).use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+    val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+    val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+        type = "image/png"
+        putExtra(android.content.Intent.EXTRA_STREAM, uri)
+        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    context.startActivity(android.content.Intent.createChooser(intent, name ?: "Gym QR"))
 }
 
 // MARK: - Attendance roster
