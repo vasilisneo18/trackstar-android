@@ -336,8 +336,20 @@ fun CoachAttendanceScreen(onBack: () -> Unit) {
                     }
                 }
             } else {
-                items(vm.attendance, key = { it.id ?: it.hashCode().toString() }) {
-                    Box(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 10.dp)) { RosterRow(it) }
+                // Group check-ins by day: a date section header, then that day's athletes below it.
+                val grouped = vm.attendance.groupBy { startOfDayMs(it.checkInAt) }
+                grouped.keys.sortedDescending().forEach { day ->
+                    val rows = grouped[day]!!.sortedByDescending { it.checkInAt ?: 0.0 }
+                    item(key = "hdr-$day") {
+                        Text(
+                            attendanceSectionTitle(day),
+                            fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f),
+                            modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 8.dp)
+                        )
+                    }
+                    items(rows, key = { it.id ?: it.hashCode().toString() }) {
+                        Box(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 10.dp)) { RosterRow(it) }
+                    }
                 }
                 item { Spacer(Modifier.height(80.dp)) } // clear the export button
             }
@@ -377,7 +389,7 @@ private fun RosterRow(visit: VisitResponse) {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
             Text(visit.athleteName ?: "Athlete", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1)
             visit.checkInAt?.let {
-                Text(SimpleDateFormat("EEE, MMM d · HH:mm", Locale.ENGLISH).format(Date(it.toLong())), fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f))
+                Text("Checked in " + SimpleDateFormat("HH:mm", Locale.ENGLISH).format(Date(it.toLong())), fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f))
             }
         }
         Text(
@@ -385,6 +397,24 @@ private fun RosterRow(visit: VisitResponse) {
             fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
             color = if (visit.isOpen) Color(0xFF34C759) else Color.White.copy(alpha = 0.6f)
         )
+    }
+}
+
+private fun startOfDayMs(ms: Double?): Long {
+    val cal = java.util.Calendar.getInstance().apply {
+        timeInMillis = ms?.toLong() ?: 0L
+        set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0)
+        set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
+    }
+    return cal.timeInMillis
+}
+
+private fun attendanceSectionTitle(dayMs: Long): String {
+    val today = startOfDayMs(System.currentTimeMillis().toDouble())
+    return when (dayMs) {
+        today -> "Today"
+        today - 86_400_000L -> "Yesterday"
+        else -> SimpleDateFormat("EEEE, MMM d", Locale.ENGLISH).format(Date(dayMs))
     }
 }
 
