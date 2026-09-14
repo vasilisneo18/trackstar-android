@@ -7,6 +7,14 @@ package com.vasilisneo.trackstar.ui.screens.main.coach
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.HealthAndSafety
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import com.vasilisneo.trackstar.ui.screens.main.attendance.CollapsingTitleScaffold
+import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -73,50 +81,52 @@ fun AthleteDetailScreen(athleteId: String, onBack: () -> Unit) {
     val name = vm.athlete?.fullName ?: "Athlete"
     val email = vm.athlete?.email
 
-    var tab by remember { mutableStateOf(AthleteTab.PLAN) }
+    // null = the athlete dashboard (cards); a value = that section open full-screen.
+    var tab by remember { mutableStateOf<AthleteTab?>(null) }
     var reportSession by remember { mutableStateOf<WorkoutSessionResponse?>(null) }
     var showTemplatePicker by remember { mutableStateOf(false) }
     var pendingTemplate by remember { mutableStateOf<TemplateSummary?>(null) }
 
-    // Hoisted so the nav-bar template button can drive it (applyTemplate) — not just the Plan tab.
+    // Hoisted so the nav-bar template button can drive it (applyTemplate) — not just the Plan tab —
+    // and so the dashboard cards can summarise the plan/diet before a tab is opened.
     val planVm: WeeklyPlanViewModel = viewModel(key = "plan-$athleteId") {
         WeeklyPlanViewModel(this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY]!!, athleteId)
     }
+    val dietVm: DietViewModel = viewModel(key = "diet-$athleteId") {
+        DietViewModel(this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY]!!, athleteId)
+    }
 
     Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
-        Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
-            // Nav bar: back + athlete name/email, plus (on the Plan tab) apply-template.
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp)) {
-                GlassCircleIconButton(onClick = onBack, contentDescription = "Back", icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft)
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(name, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
-                    email?.takeIf { it.isNotBlank() }?.let {
-                        Text(it, fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f), maxLines = 1)
+        val current = tab
+        if (current == null) {
+            AthleteDashboard(
+                name = name, email = email, notes = vm.notes,
+                planVm = planVm, dietVm = dietVm, sessions = vm.sessions,
+                onBack = onBack, onOpen = { tab = it },
+            )
+        } else {
+            Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+                // Inner section nav bar: back to dashboard, name on the left, plus (Plan) apply-template.
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp)) {
+                    GlassCircleIconButton(onClick = { tab = null }, contentDescription = "Back", icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft)
+                    Text(name, fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1, modifier = Modifier.padding(start = 10.dp).weight(1f))
+                    if (current == AthleteTab.PLAN) {
+                        GlassCircleIconButton(onClick = { showTemplatePicker = true }, contentDescription = "Apply template", icon = Icons.Filled.ContentCopy)
+                    } else {
+                        Spacer(modifier = Modifier.size(44.dp))
                     }
                 }
-                if (tab == AthleteTab.PLAN) {
-                    GlassCircleIconButton(onClick = { showTemplatePicker = true }, contentDescription = "Apply template", icon = Icons.Filled.ContentCopy)
-                } else {
-                    Spacer(modifier = Modifier.size(44.dp))
-                }
-            }
 
-            TabPicker(selected = tab, onSelect = { tab = it }, modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
+                com.vasilisneo.trackstar.ui.components.OfflineBanner()
 
-            com.vasilisneo.trackstar.ui.components.OfflineBanner()
-
-            Box(modifier = Modifier.fillMaxSize()) {
-                when (tab) {
-                    AthleteTab.SESSIONS -> SessionsWeekList(vm.sessions) { reportSession = it }
-                    AthleteTab.PLAN -> AthletePlanTab(viewModel = planVm)
-                    AthleteTab.PROGRESS -> AthleteProgressTab(sessions = vm.sessions)
-                    AthleteTab.DIET -> {
-                        val dietVm: DietViewModel = viewModel(key = "diet-$athleteId") {
-                            DietViewModel(this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY]!!, athleteId)
-                        }
-                        AthleteDietTab(viewModel = dietVm)
+                Box(modifier = Modifier.fillMaxSize()) {
+                    when (current) {
+                        AthleteTab.SESSIONS -> SessionsWeekList(vm.sessions) { reportSession = it }
+                        AthleteTab.PLAN -> AthletePlanTab(viewModel = planVm)
+                        AthleteTab.PROGRESS -> AthleteProgressTab(sessions = vm.sessions)
+                        AthleteTab.DIET -> AthleteDietTab(viewModel = dietVm)
+                        AthleteTab.PROFILE -> AthleteProfileTab(viewModel = vm)
                     }
-                    AthleteTab.PROFILE -> AthleteProfileTab(viewModel = vm)
                 }
             }
         }
@@ -155,6 +165,116 @@ fun AthleteDetailScreen(athleteId: String, onBack: () -> Unit) {
             dismissButton = { TextButton(onClick = { pendingTemplate = null; showTemplatePicker = false }) { Text("Cancel", color = Color.White) } },
         )
     }
+}
+
+// MARK: - Dashboard (cards instead of tabs)
+
+@Composable
+private fun AthleteDashboard(
+    name: String,
+    email: String?,
+    notes: com.vasilisneo.trackstar.data.api.AthleteNotesDto,
+    planVm: WeeklyPlanViewModel,
+    dietVm: DietViewModel,
+    sessions: List<WorkoutSessionResponse>,
+    onBack: () -> Unit,
+    onOpen: (AthleteTab) -> Unit,
+) {
+    val weekSessions = planVm.weekPlannedSessions
+    val planCount = weekSessions.size
+    val exCount = weekSessions.sumOf { it.exercises?.size ?: 0 }
+    val planSub = if (planCount == 0) "No plan yet — tap to build one"
+        else "$planCount session${if (planCount == 1) "" else "s"} · $exCount exercise${if (exCount == 1) "" else "s"} this week"
+
+    val last = sessions.maxByOrNull { it.sessionData?.completedAt ?: it.sessionData?.date ?: 0.0 }
+    val sessionsSub = if (sessions.isEmpty()) "No sessions logged yet"
+        else "${sessions.size} logged" + (last?.sessionData?.completedAt?.let { " · last " + epochSecDate(it) } ?: "")
+
+    val meals = dietVm.weeklyPlan.values.sumOf { it.size }
+    val dietSub = if (meals == 0) "No diet plan yet" else "$meals meal${if (meals == 1) "" else "s"} planned across the week"
+
+    val profileSub = buildList {
+        add(notes.fitnessLevel)
+        if (notes.trainingDaysPerWeek > 0) add("${notes.trainingDaysPerWeek} days/week")
+        if (notes.goals.isNotBlank()) add(notes.goals)
+    }.joinToString(" · ")
+
+    // Detail footers.
+    val planDetail = last?.let { s ->
+        val t = s.sessionData?.title?.ifBlank { "Workout" } ?: "Workout"
+        "Last done: $t" + (s.sessionData?.completedAt?.let { " · " + epochSecDate(it) } ?: "")
+    }
+    val sessionsDetail = last?.let { s ->
+        val t = s.sessionData?.title?.ifBlank { "Workout" } ?: "Workout"
+        val sets = s.sessionData?.exercises?.sumOf { it.sets.size } ?: 0
+        "$t · ${durationLabel(s.sessionData?.durationSeconds ?: 0)} · $sets sets"
+    }
+    val trackedCount = sessions.flatMap { it.sessionData?.exercises?.map { e -> e.name.lowercase() } ?: emptyList() }.toSet().size
+    val progressDetail = if (trackedCount == 0) null else "$trackedCount exercise${if (trackedCount == 1) "" else "s"} tracked"
+    val profileDetail = notes.injuries.trim().takeIf { it.isNotEmpty() }?.let { "Injuries: $it" }
+
+    CollapsingTitleScaffold(title = name, onBack = onBack) {
+        item {
+            Column(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp)) {
+                email?.takeIf { it.isNotBlank() }?.let {
+                    Text(it, fontSize = 14.sp, color = Color.White.copy(alpha = 0.55f))
+                }
+                Text(coachingSinceLine(notes), fontSize = 12.sp, color = Color.White.copy(alpha = 0.4f), modifier = Modifier.padding(top = 2.dp))
+            }
+        }
+        item { AthleteDashCard(AthleteTab.PLAN.icon, "Weekly Plan", planSub, Icons.Filled.CheckCircle, planDetail) { onOpen(AthleteTab.PLAN) } }
+        item { AthleteDashCard(AthleteTab.SESSIONS.icon, "Sessions", sessionsSub, Icons.Filled.Schedule, sessionsDetail) { onOpen(AthleteTab.SESSIONS) } }
+        item { AthleteDashCard(AthleteTab.PROGRESS.icon, "Progress", "Strength trends per exercise", Icons.Filled.BarChart, progressDetail) { onOpen(AthleteTab.PROGRESS) } }
+        item { AthleteDashCard(AthleteTab.DIET.icon, "Diet Plan", dietSub, null, null) { onOpen(AthleteTab.DIET) } }
+        item { AthleteDashCard(AthleteTab.PROFILE.icon, "Profile", profileSub, Icons.Filled.HealthAndSafety, profileDetail) { onOpen(AthleteTab.PROFILE) } }
+    }
+}
+
+@Composable
+private fun AthleteDashCard(
+    icon: ImageVector, title: String, subtitle: String,
+    detailIcon: ImageVector?, detailText: String?, onClick: () -> Unit,
+) {
+    val accent = TrackstarAccent
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 14.dp)
+            .clip(RoundedCornerShape(22.dp)).background(Color.White.copy(alpha = 0.06f)).clickable(onClick = onClick).padding(18.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Box(modifier = Modifier.size(50.dp).background(Color.White.copy(alpha = 0.08f), CircleShape), contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = accent, modifier = Modifier.size(20.dp))
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp), modifier = Modifier.weight(1f)) {
+                Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                Text(subtitle, fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f), maxLines = 2)
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(18.dp))
+        }
+        if (detailText != null) {
+            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)).padding(vertical = 0.dp))
+            Spacer(Modifier.height(14.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (detailIcon != null) Icon(detailIcon, null, tint = accent, modifier = Modifier.size(13.dp))
+                Text(detailText, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.7f), maxLines = 1)
+            }
+        }
+    }
+}
+
+private fun epochSecDate(sec: Double): String =
+    java.text.SimpleDateFormat("EEE, MMM d", java.util.Locale.ENGLISH).format(java.util.Date((sec * 1000).toLong()))
+
+private fun durationLabel(seconds: Int): String {
+    val m = (if (seconds < 0) 0 else seconds) / 60
+    return if (m >= 60) "${m / 60}h ${m % 60}m" else "${m}m"
+}
+
+private fun coachingSinceLine(notes: com.vasilisneo.trackstar.data.api.AthleteNotesDto): String {
+    val started = runCatching {
+        val d = java.time.LocalDate.parse(notes.startDate)
+        d.format(java.time.format.DateTimeFormatter.ofPattern("MMM yyyy", java.util.Locale.ENGLISH))
+    }.getOrNull()
+    return if (started != null) "Coaching since $started · ${notes.fitnessLevel}" else notes.fitnessLevel
 }
 
 @Composable

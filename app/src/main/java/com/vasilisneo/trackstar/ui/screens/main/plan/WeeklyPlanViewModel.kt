@@ -88,6 +88,10 @@ class WeeklyPlanViewModel @JvmOverloads constructor(app: Application, private va
     val sessionsForSelectedDay: List<PlannedSessionResponse>
         get() = weekSessions.filter { it.day == selectedDayName }.sortedBy { it.orderIndex ?: 0 }
 
+    // All of the current week's planned sessions (every day) — for the athlete dashboard summary.
+    val weekPlannedSessions: List<PlannedSessionResponse>
+        get() = weekSessions
+
     val weekDays: List<LocalDate>
         get() = (0..6).map { weekStart.plusDays(it.toLong()) }
 
