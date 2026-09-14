@@ -30,10 +30,17 @@ class LocationProvider(private val context: Context) {
         if (!hasPermission()) return Result.Error("Location permission is needed to check in at a gym.")
         return try {
             val cts = CancellationTokenSource()
-            val loc = client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token).await()
-                ?: client.lastLocation.await()
-            if (loc != null) Result.Success(loc.latitude, loc.longitude)
-            else Result.Error("Couldn't get your location. Make sure location is on and try again.")
+            // A fresh, high-accuracy fix is the reliable source for the geofence check.
+            val fresh = client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token).await()
+            if (fresh != null) return Result.Success(fresh.latitude, fresh.longitude)
+            // Only fall back to last-known if it's recent — a stale fix can be miles away and would
+            // make the gym geofence reject the check-in.
+            val last = client.lastLocation.await()
+            if (last != null && System.currentTimeMillis() - last.time < 120_000) {
+                Result.Success(last.latitude, last.longitude)
+            } else {
+                Result.Error("Couldn't get an accurate location. Make sure GPS is on and try again, ideally outdoors or near a window.")
+            }
         } catch (e: Exception) {
             Result.Error("Couldn't get your location. Try again.")
         }
