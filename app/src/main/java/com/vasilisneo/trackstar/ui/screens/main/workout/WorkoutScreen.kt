@@ -395,21 +395,8 @@ fun WorkoutScreen(
             ) {
                 ProfileAvatarButton(initials = viewModel.userInitials, onClick = onProfileClick)
                 Spacer(modifier = Modifier.weight(1f))
-                // Book a session: shown only to athletes whose linked coach offers booking (computed
-                // in MainAppScreen from the coach's server-side bookingEnabled setting).
-                if (showBookSession) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.15f))
-                            .clickable(onClick = onBookSession),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Filled.EventAvailable, contentDescription = "Book a session", tint = Color.White, modifier = Modifier.size(18.dp))
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                }
+                // Booking now lives in the dashboard "Book a session" card (matches iOS, which
+                // dropped the nav-bar book button).
                 Box(
                     modifier = Modifier
                         .size(44.dp)
