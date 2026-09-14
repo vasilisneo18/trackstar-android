@@ -114,7 +114,10 @@ fun SessionCodeScreen(onBack: () -> Unit) {
                 contentAlignment = Alignment.Center
             ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "Back", tint = Color.White, modifier = Modifier.size(22.dp)) }
         }
-        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp).navigationBarsPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Text(
                 "Session Code", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color.White,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
@@ -140,14 +143,13 @@ fun SessionCodeScreen(onBack: () -> Unit) {
             Spacer(Modifier.weight(1f))
             Box(
                 modifier = Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(27.dp))
-                    .background(Color.White.copy(alpha = 0.12f)).clickable(enabled = !vm.isEnding) { vm.endSession() }
-                    .padding(bottom = 0.dp),
+                    .background(Color.White.copy(alpha = 0.12f)).clickable(enabled = !vm.isEnding) { vm.endSession() },
                 contentAlignment = Alignment.Center
             ) {
                 if (vm.isEnding) CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
                 else Text("End Session", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
             }
-            Spacer(Modifier.height(30.dp))
+            Spacer(Modifier.height(24.dp))
         }
     }
 
