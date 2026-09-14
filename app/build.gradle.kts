@@ -51,8 +51,8 @@ android {
         // versionCode is Play's internal build counter — it MUST increase on every upload and is
         // not user-facing. versionName is the public "1.0.0" shown on the store; bump it only for
         // real marketing releases, not per test build.
-        versionCode = 26
-        versionName = "1.0.0"
+        versionCode = 27
+        versionName = "1.1.0"
 
         buildConfigField("String", "REVENUECAT_API_KEY", "\"$revenueCatApiKey\"")
         buildConfigField("String", "GOOGLE_SERVER_CLIENT_ID", "\"$googleServerClientId\"")
