@@ -105,15 +105,20 @@ fun CheckInScreen(onBack: () -> Unit) {
                     }
                 }
                 if (vm.history.isNotEmpty()) {
-                    item {
-                        Text(
-                            "HISTORY", fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                            color = Color.White.copy(alpha = 0.4f),
-                            modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 8.dp)
-                        )
-                    }
-                    items(vm.history, key = { it.id ?: it.hashCode().toString() }) {
-                        Box(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 10.dp)) { HistoryRow(it) }
+                    // Group history by month, newest first (matches the PDF report).
+                    val grouped = vm.history.groupBy { monthKey(it.checkInAt) }
+                    grouped.keys.sortedDescending().forEach { month ->
+                        val rows = grouped[month]!!.sortedByDescending { it.checkInAt ?: 0.0 }
+                        item(key = "hdr-$month") {
+                            Text(
+                                monthTitle(month), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                color = Color.White.copy(alpha = 0.5f),
+                                modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 8.dp)
+                            )
+                        }
+                        items(rows, key = { it.id ?: it.hashCode().toString() }) {
+                            Box(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 10.dp)) { HistoryRow(it) }
+                        }
                     }
                 }
             }
@@ -235,6 +240,18 @@ private fun ScannerOverlay(onCode: (String) -> Unit, onClose: () -> Unit) {
             Text("Point at a gym QR or your coach's code", fontSize = 13.sp, color = Color.White.copy(alpha = 0.45f))
         }
     }
+}
+
+private fun monthKey(ms: Double?): Int {
+    val cal = java.util.Calendar.getInstance().apply { timeInMillis = ms?.toLong() ?: 0L }
+    return cal.get(java.util.Calendar.YEAR) * 100 + cal.get(java.util.Calendar.MONTH)
+}
+
+private fun monthTitle(key: Int): String {
+    val cal = java.util.Calendar.getInstance().apply {
+        set(java.util.Calendar.YEAR, key / 100); set(java.util.Calendar.MONTH, key % 100); set(java.util.Calendar.DAY_OF_MONTH, 1)
+    }
+    return SimpleDateFormat("MMMM yyyy", Locale.ENGLISH).format(cal.time)
 }
 
 private fun fmtTime(epochMs: Double): String =
