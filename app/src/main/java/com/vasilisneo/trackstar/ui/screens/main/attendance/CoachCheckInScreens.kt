@@ -276,14 +276,17 @@ fun GymsScreen(onBack: () -> Unit) {
 private fun GymQrSheet(gym: GymResponse, onDismiss: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val payload = gym.id?.let { "trackstar://checkin/gym/$it" }
-    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color(0xFF14141F)) {
+    val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val screenH = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = Color(0xFF14141F)) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(20.dp).padding(bottom = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(18.dp)
+            modifier = Modifier.fillMaxWidth().height(screenH * 0.86f).padding(horizontal = 20.dp).padding(bottom = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(gym.name ?: "Gym", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Spacer(Modifier.height(6.dp))
             Text("Print this and put it at the entrance", fontSize = 14.sp, color = Color.White.copy(alpha = 0.5f))
+            Spacer(Modifier.weight(1f))
             Box(
                 modifier = Modifier.size(260.dp).clip(RoundedCornerShape(24.dp)).background(CardFill),
                 contentAlignment = Alignment.Center
@@ -291,6 +294,7 @@ private fun GymQrSheet(gym: GymResponse, onDismiss: () -> Unit) {
                 val bmp = remember(payload) { payload?.let { attendanceQrBitmap(it, 600) } }
                 if (bmp != null) Image(bitmap = bmp.asImageBitmap(), contentDescription = "Gym QR", modifier = Modifier.size(212.dp))
             }
+            Spacer(Modifier.weight(1f))
             Box(
                 modifier = Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(27.dp)).background(Color.White)
                     .clickable { payload?.let { sharePrintableQr(context, it, gym.name) } },
