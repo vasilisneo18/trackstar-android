@@ -50,6 +50,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -442,45 +444,43 @@ private fun FrequencyValueRow(group: ExerciseSetGroupState) {
                 }
             }
         }
-        FreqKind.DURATION -> {
+        FreqKind.DURATION, FreqKind.DISTANCE -> {
+            val isDistance = group.freqKind == FreqKind.DISTANCE
             val (h, m, s) = parseDuration(group.durationText)
-            Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 12.dp, bottom = 2.dp)
-                ) {
-                    Text("Duration", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f))
-                    Spacer(modifier = Modifier.weight(1f))
-                    Text(group.durationText.ifBlank { "0 sec" }, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.45f))
-                }
-                WheelPickerRow(
-                    columns = listOf(
-                        WheelColumn((0..23).map { it.toString() }, h.coerceIn(0, 23), { group.durationText = formatDuration(it, m, s) }, unit = "hr", width = 48.dp),
-                        WheelColumn((0..59).map { it.toString() }, m.coerceIn(0, 59), { group.durationText = formatDuration(h, it, s) }, unit = "min", width = 48.dp),
-                        WheelColumn((0..59).map { it.toString() }, s.coerceIn(0, 59), { group.durationText = formatDuration(h, m, it) }, unit = "sec", width = 48.dp),
-                    ),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp),
-                )
-            }
-        }
-        FreqKind.DISTANCE -> {
             val (km, meters) = parseDistance(group.distanceText)
             Column {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 12.dp, bottom = 2.dp)
                 ) {
-                    Text("Distance", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f))
+                    Text(if (isDistance) "Distance" else "Duration", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f))
                     Spacer(modifier = Modifier.weight(1f))
-                    Text(group.distanceText.ifBlank { "0 m" }, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.45f))
+                    Text(
+                        if (isDistance) group.distanceText.ifBlank { "0 m" } else group.durationText.ifBlank { "0 sec" },
+                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.45f)
+                    )
                 }
-                WheelPickerRow(
-                    columns = listOf(
-                        WheelColumn((0..99).map { it.toString() }, km.coerceIn(0, 99), { group.distanceText = formatDistance(it, meters) }, unit = "km"),
-                        WheelColumn((0..99).map { (it * 10).toString() }, (meters / 10).coerceIn(0, 99), { group.distanceText = formatDistance(km, it * 10) }, unit = "m"),
-                    ),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
-                )
+                // Keep both wheels mounted and toggle visibility (alpha + zIndex for input order) so
+                // switching duration <-> distance doesn't recreate a WheelPickerRow (which flashes).
+                Box {
+                    WheelPickerRow(
+                        columns = listOf(
+                            WheelColumn((0..23).map { it.toString() }, h.coerceIn(0, 23), { group.durationText = formatDuration(it, m, s) }, unit = "hr", width = 48.dp),
+                            WheelColumn((0..59).map { it.toString() }, m.coerceIn(0, 59), { group.durationText = formatDuration(h, it, s) }, unit = "min", width = 48.dp),
+                            WheelColumn((0..59).map { it.toString() }, s.coerceIn(0, 59), { group.durationText = formatDuration(h, m, it) }, unit = "sec", width = 48.dp),
+                        ),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp)
+                            .alpha(if (isDistance) 0f else 1f).zIndex(if (isDistance) 0f else 1f),
+                    )
+                    WheelPickerRow(
+                        columns = listOf(
+                            WheelColumn((0..99).map { it.toString() }, km.coerceIn(0, 99), { group.distanceText = formatDistance(it, meters) }, unit = "km"),
+                            WheelColumn((0..99).map { (it * 10).toString() }, (meters / 10).coerceIn(0, 99), { group.distanceText = formatDistance(km, it * 10) }, unit = "m"),
+                        ),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)
+                            .alpha(if (isDistance) 1f else 0f).zIndex(if (isDistance) 1f else 0f),
+                    )
+                }
             }
         }
     }
