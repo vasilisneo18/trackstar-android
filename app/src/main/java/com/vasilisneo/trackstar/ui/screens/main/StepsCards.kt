@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -81,6 +82,7 @@ fun DailyStepsCard(date: LocalDate, modifier: Modifier = Modifier) {
 
     val accent = TrackstarAccent
     val axisMax = stepsAxisMax(steps)
+    val ticks = stepsTicks(steps)
     // Progress is "real" up to this hour: past days are complete, today stops at the current hour.
     val nowHour = if (date == LocalDate.now()) java.time.LocalTime.now().hour else 23
     Column(
@@ -98,19 +100,22 @@ fun DailyStepsCard(date: LocalDate, modifier: Modifier = Modifier) {
         }
 
         Row {
-            // Leading y-axis labels: max / half / 0 — grows with the day's steps.
-            Column(
-                modifier = Modifier.height(60.dp),
-                verticalArrangement = Arrangement.SpaceBetween,
-                horizontalAlignment = Alignment.End,
-            ) {
-                Text(kLabel(axisMax), fontSize = 10.sp, color = Color.White.copy(alpha = 0.35f))
-                Text(kLabel(axisMax / 2), fontSize = 10.sp, color = Color.White.copy(alpha = 0.35f))
-                Text("0", fontSize = 10.sp, color = Color.White.copy(alpha = 0.35f))
+            // Leading y-axis labels drawn at each round-thousand tick position.
+            Canvas(modifier = Modifier.height(60.dp).width(28.dp)) {
+                val paint = android.graphics.Paint().apply {
+                    isAntiAlias = true
+                    textAlign = android.graphics.Paint.Align.RIGHT
+                    textSize = 10.sp.toPx()
+                    color = android.graphics.Color.argb((0.35f * 255).toInt(), 255, 255, 255)
+                }
+                ticks.forEach { t ->
+                    val y = size.height * (1f - t.toFloat() / axisMax.toFloat())
+                    drawContext.canvas.nativeCanvas.drawText(kLabel(t), size.width, y + paint.textSize * 0.35f, paint)
+                }
             }
             Spacer(Modifier.width(6.dp))
             Column(Modifier.weight(1f)) {
-                CumulativeStepsChart(hourly = hourly, axisMax = axisMax, nowHour = nowHour, accent = accent)
+                CumulativeStepsChart(hourly = hourly, axisMax = axisMax, ticks = ticks, nowHour = nowHour, accent = accent)
                 Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
                     listOf("00", "06", "12", "18").forEach {
                         Text(it, fontSize = 10.sp, color = Color.White.copy(alpha = 0.35f),
@@ -123,16 +128,17 @@ fun DailyStepsCard(date: LocalDate, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun CumulativeStepsChart(hourly: List<Int>, axisMax: Int, nowHour: Int, accent: Color) {
+private fun CumulativeStepsChart(hourly: List<Int>, axisMax: Int, ticks: List<Int>, nowHour: Int, accent: Color) {
     Canvas(modifier = Modifier.fillMaxWidth().height(60.dp)) {
         val n = 24
         val maxF = axisMax.toFloat().coerceAtLeast(1f)
         fun px(i: Int) = size.width * i / (n - 1)
         fun py(v: Int) = size.height * (1f - (v / maxF).coerceIn(0f, 1f))
 
-        // Gridlines at 0, half, max.
-        listOf(0f, 0.5f, 1f).forEach { frac ->
-            val y = size.height * (1f - frac)
+        // Baseline + a gridline at each tick.
+        drawLine(Color.White.copy(alpha = 0.06f), Offset(0f, size.height), Offset(size.width, size.height), 1f)
+        ticks.forEach { t ->
+            val y = size.height * (1f - t / maxF)
             drawLine(Color.White.copy(alpha = 0.06f), Offset(0f, y), Offset(size.width, y), 1f)
         }
 
@@ -169,13 +175,22 @@ private fun CumulativeStepsChart(hourly: List<Int>, axisMax: Int, nowHour: Int, 
     }
 }
 
-// Y-axis max grows with the day's steps: round the total (+~10% headroom) up to the nearest
-// 1/2/5 × 10ⁿ, with a 2k floor so low days read cleanly. Fully data-driven — no fixed 10k.
+// Y-axis grows with the day's steps in round-thousand ticks: pick a round step (1k, then 2k, 5k,
+// 10k… as the count climbs, keeping ≤5 ticks) and round the top up to the next multiple of it — so
+// 2,300 → top 3,000 (1k/2k/3k) and 5,000 → top 6,000 (not a half-empty 10k).
+private fun stepsAxisStep(steps: Int): Int =
+    listOf(1000, 2000, 5000, 10000, 20000, 50000, 100000).firstOrNull { steps / it + 1 <= 5 } ?: 100000
+
 private fun stepsAxisMax(steps: Int): Int {
-    val raw = maxOf(steps * 1.1, 2000.0)
-    val mag = Math.pow(10.0, kotlin.math.floor(kotlin.math.log10(raw)))
-    val m = listOf(1.0, 2.0, 5.0, 10.0).firstOrNull { it * mag >= raw } ?: 10.0
-    return (m * mag).toInt()
+    val step = stepsAxisStep(steps)
+    val m = (steps / step + 1) * step
+    return if (m / step < 3) 3 * step else m   // always show at least 3 ticks
+}
+
+private fun stepsTicks(steps: Int): List<Int> {
+    val step = stepsAxisStep(steps)
+    val max = stepsAxisMax(steps)
+    return generateSequence(step) { it + step }.takeWhile { it <= max }.toList()
 }
 
 private fun kLabel(v: Int): String {
