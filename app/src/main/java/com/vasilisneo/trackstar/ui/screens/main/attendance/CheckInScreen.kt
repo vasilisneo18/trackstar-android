@@ -116,8 +116,15 @@ fun CheckInScreen(onBack: () -> Unit) {
                                 modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 8.dp)
                             )
                         }
-                        items(rows, key = { it.id ?: it.hashCode().toString() }) {
-                            Box(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 10.dp)) { HistoryRow(it) }
+                        // One card per month holding that month's check-ins.
+                        item(key = "card-$month") {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 10.dp)
+                                    .clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.05f))
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                rows.forEach { HistoryRow(it) }
+                            }
                         }
                     }
                 }
@@ -203,7 +210,7 @@ private fun ScanButton(busy: Boolean, onScan: () -> Unit) {
 private fun HistoryRow(visit: VisitResponse) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.05f)).padding(14.dp)
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp)
     ) {
         Icon(Icons.Filled.FitnessCenter, null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(15.dp))
         Spacer(Modifier.width(12.dp))
