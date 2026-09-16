@@ -169,10 +169,13 @@ private fun CumulativeStepsChart(hourly: List<Int>, axisMax: Int, nowHour: Int, 
     }
 }
 
-// Y-axis max grows with the day's steps; ceilings chosen so max/2 is a round "k".
+// Y-axis max grows with the day's steps: round the total (+~10% headroom) up to the nearest
+// 1/2/5 × 10ⁿ, with a 2k floor so low days read cleanly. Fully data-driven — no fixed 10k.
 private fun stepsAxisMax(steps: Int): Int {
-    val ceilings = listOf(2000, 4000, 6000, 10000, 20000, 30000, 50000, 100000)
-    return ceilings.firstOrNull { it >= maxOf(steps, 1) } ?: ((steps / 25000 + 1) * 25000)
+    val raw = maxOf(steps * 1.1, 2000.0)
+    val mag = Math.pow(10.0, kotlin.math.floor(kotlin.math.log10(raw)))
+    val m = listOf(1.0, 2.0, 5.0, 10.0).firstOrNull { it * mag >= raw } ?: 10.0
+    return (m * mag).toInt()
 }
 
 private fun kLabel(v: Int): String {
