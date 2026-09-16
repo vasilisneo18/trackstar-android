@@ -31,6 +31,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
@@ -79,6 +80,9 @@ fun DailyStepsCard(date: LocalDate, modifier: Modifier = Modifier) {
     if (!health.isAvailable) return
 
     val accent = TrackstarAccent
+    val axisMax = stepsAxisMax(steps)
+    // Progress is "real" up to this hour: past days are complete, today stops at the current hour.
+    val nowHour = if (date == LocalDate.now()) java.time.LocalTime.now().hour else 23
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(CardFill).padding(16.dp)
@@ -94,21 +98,21 @@ fun DailyStepsCard(date: LocalDate, modifier: Modifier = Modifier) {
         }
 
         Row {
-            // Leading y-axis labels: 10k / 5k / 0.
+            // Leading y-axis labels: max / half / 0 — grows with the day's steps.
             Column(
                 modifier = Modifier.height(60.dp),
                 verticalArrangement = Arrangement.SpaceBetween,
                 horizontalAlignment = Alignment.End,
             ) {
-                Text("10k", fontSize = 10.sp, color = Color.White.copy(alpha = 0.35f))
-                Text("5k", fontSize = 10.sp, color = Color.White.copy(alpha = 0.35f))
+                Text(kLabel(axisMax), fontSize = 10.sp, color = Color.White.copy(alpha = 0.35f))
+                Text(kLabel(axisMax / 2), fontSize = 10.sp, color = Color.White.copy(alpha = 0.35f))
                 Text("0", fontSize = 10.sp, color = Color.White.copy(alpha = 0.35f))
             }
             Spacer(Modifier.width(6.dp))
             Column(Modifier.weight(1f)) {
-                CumulativeStepsChart(hourly = hourly, goal = maxOf(DailyGoal, steps), accent = accent)
+                CumulativeStepsChart(hourly = hourly, axisMax = axisMax, nowHour = nowHour, accent = accent)
                 Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                    listOf("12a", "6am", "12pm", "6pm").forEach {
+                    listOf("00", "06", "12", "18").forEach {
                         Text(it, fontSize = 10.sp, color = Color.White.copy(alpha = 0.35f),
                             textAlign = TextAlign.Start, modifier = Modifier.weight(1f))
                     }
@@ -119,14 +123,14 @@ fun DailyStepsCard(date: LocalDate, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun CumulativeStepsChart(hourly: List<Int>, goal: Int, accent: Color) {
+private fun CumulativeStepsChart(hourly: List<Int>, axisMax: Int, nowHour: Int, accent: Color) {
     Canvas(modifier = Modifier.fillMaxWidth().height(60.dp)) {
         val n = 24
-        val goalF = goal.toFloat().coerceAtLeast(1f)
+        val maxF = axisMax.toFloat().coerceAtLeast(1f)
         fun px(i: Int) = size.width * i / (n - 1)
-        fun py(v: Int) = size.height * (1f - (v / goalF).coerceIn(0f, 1f))
+        fun py(v: Int) = size.height * (1f - (v / maxF).coerceIn(0f, 1f))
 
-        // Gridlines at 0, half-goal, goal.
+        // Gridlines at 0, half, max.
         listOf(0f, 0.5f, 1f).forEach { frac ->
             val y = size.height * (1f - frac)
             drawLine(Color.White.copy(alpha = 0.06f), Offset(0f, y), Offset(size.width, y), 1f)
@@ -135,21 +139,46 @@ private fun CumulativeStepsChart(hourly: List<Int>, goal: Int, accent: Color) {
         // Cumulative running total per hour.
         var running = 0
         val pts = (0 until n).map { running += hourly[it]; Offset(px(it), py(running)) }
+        val cut = nowHour.coerceIn(0, n - 1)
 
+        // Filled area + solid line up to the current hour.
         val area = Path().apply {
             moveTo(0f, size.height)
-            pts.forEach { lineTo(it.x, it.y) }
-            lineTo(size.width, size.height)
+            (0..cut).forEach { lineTo(pts[it].x, pts[it].y) }
+            lineTo(pts[cut].x, size.height)
             close()
         }
         drawPath(area, Brush.verticalGradient(listOf(accent.copy(alpha = 0.35f), accent.copy(alpha = 0.02f))))
 
         val line = Path().apply {
             moveTo(pts[0].x, pts[0].y)
-            pts.drop(1).forEach { lineTo(it.x, it.y) }
+            (1..cut).forEach { lineTo(pts[it].x, pts[it].y) }
         }
         drawPath(line, accent, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
+
+        // Faded dashed line flat across the rest of the day.
+        if (cut < n - 1) {
+            val faded = Path().apply {
+                moveTo(pts[cut].x, pts[cut].y)
+                (cut + 1 until n).forEach { lineTo(pts[it].x, pts[it].y) }
+            }
+            drawPath(faded, accent.copy(alpha = 0.22f),
+                style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round,
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 6f))))
+        }
     }
+}
+
+// Y-axis max grows with the day's steps; ceilings chosen so max/2 is a round "k".
+private fun stepsAxisMax(steps: Int): Int {
+    val ceilings = listOf(2000, 4000, 6000, 10000, 20000, 30000, 50000, 100000)
+    return ceilings.firstOrNull { it >= maxOf(steps, 1) } ?: ((steps / 25000 + 1) * 25000)
+}
+
+private fun kLabel(v: Int): String {
+    if (v == 0) return "0"
+    val k = v / 1000.0
+    return if (k == kotlin.math.floor(k)) "${k.toInt()}k" else "%.1fk".format(k)
 }
 
 // MARK: - Weekly chart (Stats) — steps per day, tap a bar to inspect it
