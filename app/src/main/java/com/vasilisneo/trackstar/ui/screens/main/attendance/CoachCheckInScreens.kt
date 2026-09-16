@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -353,8 +354,20 @@ fun CoachAttendanceScreen(onBack: () -> Unit) {
                             modifier = Modifier.padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 8.dp)
                         )
                     }
-                    items(rows, key = { it.id ?: it.hashCode().toString() }) {
-                        Box(modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 10.dp)) { RosterRow(it) }
+                    // One card per day holding all that day's athlete rows, split by dividers.
+                    item(key = "card-$day") {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 10.dp)
+                                .clip(RoundedCornerShape(16.dp)).background(CardFill)
+                        ) {
+                            rows.forEachIndexed { index, visit ->
+                                if (index > 0) {
+                                    HorizontalDivider(color = Color.White.copy(alpha = 0.08f), thickness = 1.dp,
+                                        modifier = Modifier.padding(start = 64.dp))
+                                }
+                                RosterRow(visit)
+                            }
+                        }
                     }
                 }
                 item { Spacer(Modifier.height(80.dp)) } // clear the export button
@@ -387,7 +400,7 @@ private fun RosterRow(visit: VisitResponse) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardFill).padding(14.dp)
+        modifier = Modifier.fillMaxWidth().padding(14.dp)
     ) {
         Box(modifier = Modifier.size(38.dp).background(Color.White.copy(alpha = 0.1f), CircleShape), contentAlignment = Alignment.Center) {
             Text(initials(visit.athleteName), fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
