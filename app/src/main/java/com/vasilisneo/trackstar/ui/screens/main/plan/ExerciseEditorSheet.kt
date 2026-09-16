@@ -271,8 +271,16 @@ private fun LazyListScope.itemsIndexed(list: List<ExerciseSetGroupState>, conten
     items(list.size) { index -> content(index, list[index]) }
 }
 
+// showSets/showRest let the superset editor reuse this exact card while sharing one Sets count and
+// Rest across both exercises (it hides those rows and drives them itself).
 @Composable
-private fun SetGroupCard(group: ExerciseSetGroupState, canRemove: Boolean, onRemove: () -> Unit) {
+internal fun SetGroupCard(
+    group: ExerciseSetGroupState,
+    canRemove: Boolean = false,
+    showSets: Boolean = true,
+    showRest: Boolean = true,
+    onRemove: () -> Unit = {},
+) {
     Column(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(RowBackground).padding(vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -305,18 +313,20 @@ private fun SetGroupCard(group: ExerciseSetGroupState, canRemove: Boolean, onRem
         }
 
         // 2. Sets count — big count on the left (mirrors iOS), stepper on the right.
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Sets", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f))
-                Text("${group.count}", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        if (showSets) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("Sets", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f))
+                    Text("${group.count}", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                MiniStepper(value = group.count, onDecrement = { if (group.count > 1) group.count-- }, onIncrement = { group.count++ }, big = true)
             }
-            Spacer(modifier = Modifier.weight(1f))
-            MiniStepper(value = group.count, onDecrement = { if (group.count > 1) group.count-- }, onIncrement = { group.count++ }, big = true)
+            Divider()
         }
-        Divider()
 
         // 3. Frequency type selector
         SegmentedRow(
@@ -352,34 +362,35 @@ private fun SetGroupCard(group: ExerciseSetGroupState, canRemove: Boolean, onRem
                 ResistKind.NONE -> {}
             }
         }
-        Divider()
-
         // 7. Rest — "Rest" label + formatted value, then a min/sec scroll-wheel (iOS RestTimePicker).
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 12.dp, bottom = 2.dp)
-        ) {
-            Text("Rest", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f))
-            Spacer(modifier = Modifier.weight(1f))
-            Text(formatRestTime(group.restSeconds), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.45f))
+        if (showRest) {
+            Divider()
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 12.dp, bottom = 2.dp)
+            ) {
+                Text("Rest", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f))
+                Spacer(modifier = Modifier.weight(1f))
+                Text(formatRestTime(group.restSeconds), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.45f))
+            }
+            WheelPickerRow(
+                columns = listOf(
+                    WheelColumn(
+                        items = (0..10).map { it.toString() },
+                        selectedIndex = (group.restSeconds / 60).coerceIn(0, 10),
+                        onSelectedIndexChange = { group.restSeconds = it * 60 + group.restSeconds % 60 },
+                        unit = "min",
+                    ),
+                    WheelColumn(
+                        items = (0..59).map { it.toString() },
+                        selectedIndex = group.restSeconds % 60,
+                        onSelectedIndexChange = { group.restSeconds = (group.restSeconds / 60) * 60 + it },
+                        unit = "sec",
+                    ),
+                ),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 2.dp),
+            )
         }
-        WheelPickerRow(
-            columns = listOf(
-                WheelColumn(
-                    items = (0..10).map { it.toString() },
-                    selectedIndex = (group.restSeconds / 60).coerceIn(0, 10),
-                    onSelectedIndexChange = { group.restSeconds = it * 60 + group.restSeconds % 60 },
-                    unit = "min",
-                ),
-                WheelColumn(
-                    items = (0..59).map { it.toString() },
-                    selectedIndex = group.restSeconds % 60,
-                    onSelectedIndexChange = { group.restSeconds = (group.restSeconds / 60) * 60 + it },
-                    unit = "sec",
-                ),
-            ),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 2.dp),
-        )
 
         // 8. Remove group
         if (canRemove) {
@@ -714,7 +725,11 @@ private fun groupsFromSets(existing: ExerciseData?): List<ExerciseSetGroupState>
     }
 }
 
-private fun buildExercise(existing: ExerciseData?, name: String, groups: List<ExerciseSetGroupState>): ExerciseData {
+// First set-group of an exercise (or a sensible default) — used by the superset editor to seed
+// each half with the same GroupCard state as a single exercise.
+internal fun firstGroupState(exercise: ExerciseData?): ExerciseSetGroupState = groupsFromSets(exercise).first()
+
+internal fun buildExercise(existing: ExerciseData?, name: String, groups: List<ExerciseSetGroupState>): ExerciseData {
     val sets = groups.filter { it.count > 0 }.flatMap { group ->
         val freqValue = when (group.freqKind) {
             FreqKind.REPS -> FrequencyValue(reps = group.reps)
