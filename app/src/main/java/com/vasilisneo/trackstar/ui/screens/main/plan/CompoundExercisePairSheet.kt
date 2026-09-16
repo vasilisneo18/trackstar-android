@@ -1,11 +1,10 @@
 package com.vasilisneo.trackstar.ui.screens.main.plan
 
 // Ports iOS's CompoundExercisePairSheet.swift: configure two exercises performed back-to-back
-// as a superset. Deliberately scoped to reps+weight only (matches iOS's own comment: "the
-// overwhelming common case for compound-set training") — rounds and rest are shared between
-// both exercises, but reps/weight are independent per exercise, each with its own rep-range
-// toggle. Writes both exercises with a matching compoundGroupId so they render as one paired
-// unit (see data/workout/ExerciseGrouping.kt).
+// as a superset. Each exercise is independently reps-based (with an optional rep-range) or
+// time-based (a duration), plus an optional weight; rounds and rest are shared between both.
+// Writes both exercises with a matching compoundGroupId so they render as one paired unit
+// (see data/workout/ExerciseGrouping.kt).
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -103,6 +102,13 @@ fun CompoundExercisePairSheet(
     var repsBMax by remember(editKey) { mutableStateOf(firstSetB?.repsMax) }
     var weightA by remember(editKey) { mutableStateOf(firstSetA?.resistanceValue?.weight ?: "") }
     var weightB by remember(editKey) { mutableStateOf(firstSetB?.resistanceValue?.weight ?: "") }
+    // Per-exercise frequency: reps or a timed duration (minutes + seconds).
+    var freqTypeA by remember(editKey) { mutableStateOf(if (firstSetA?.frequencyValue?.duration != null) "Duration" else "Repetitions") }
+    var freqTypeB by remember(editKey) { mutableStateOf(if (firstSetB?.frequencyValue?.duration != null) "Duration" else "Repetitions") }
+    var durMinA by remember(editKey) { mutableStateOf(parseSupersetDuration(firstSetA?.frequencyValue?.duration).first) }
+    var durSecA by remember(editKey) { mutableStateOf(parseSupersetDuration(firstSetA?.frequencyValue?.duration).second) }
+    var durMinB by remember(editKey) { mutableStateOf(parseSupersetDuration(firstSetB?.frequencyValue?.duration).first) }
+    var durSecB by remember(editKey) { mutableStateOf(parseSupersetDuration(firstSetB?.frequencyValue?.duration).second) }
     var rounds by remember(editKey) { mutableStateOf(initialExerciseA?.sets?.size?.takeIf { it > 0 } ?: 3) }
     val initialRest = firstSetA?.restSeconds ?: 60
     var restMinutes by remember(editKey) { mutableStateOf(initialRest / 60) }
@@ -147,7 +153,9 @@ fun CompoundExercisePairSheet(
                         .background(Color.White.copy(alpha = 0.12f))
                         .clickable(enabled = isValid) {
                             val (exerciseA, exerciseB) = buildPair(
-                                initialExerciseA, initialExerciseB, nameA, nameB, repsA, repsB, repsAMax, repsBMax,
+                                initialExerciseA, initialExerciseB, nameA, nameB,
+                                freqTypeA, freqTypeB, repsA, repsB, repsAMax, repsBMax,
+                                durMinA, durSecA, durMinB, durSecB,
                                 weightA, weightB, rounds, restMinutes * 60 + restSeconds,
                             )
                             close { onSave(exerciseA, exerciseB) }
@@ -172,7 +180,9 @@ fun CompoundExercisePairSheet(
                 item {
                     ExerciseHalfCard(
                         title = "Exercise 1", name = nameA, onNameChange = { nameA = it },
+                        freqType = freqTypeA, onFreqTypeChange = { freqTypeA = it },
                         reps = repsA, onRepsChange = { repsA = it }, repsMax = repsAMax, onRepsMaxChange = { repsAMax = it },
+                        durMin = durMinA, onDurMinChange = { durMinA = it }, durSec = durSecA, onDurSecChange = { durSecA = it },
                         weight = weightA, onWeightChange = { weightA = it },
                     )
                 }
@@ -184,7 +194,9 @@ fun CompoundExercisePairSheet(
                 item {
                     ExerciseHalfCard(
                         title = "Exercise 2", name = nameB, onNameChange = { nameB = it },
+                        freqType = freqTypeB, onFreqTypeChange = { freqTypeB = it },
                         reps = repsB, onRepsChange = { repsB = it }, repsMax = repsBMax, onRepsMaxChange = { repsBMax = it },
+                        durMin = durMinB, onDurMinChange = { durMinB = it }, durSec = durSecB, onDurSecChange = { durSecB = it },
                         weight = weightB, onWeightChange = { weightB = it },
                     )
                 }
@@ -235,10 +247,14 @@ fun CompoundExercisePairSheet(
 private fun ExerciseHalfCard(
     title: String,
     name: String, onNameChange: (String) -> Unit,
+    freqType: String, onFreqTypeChange: (String) -> Unit,
     reps: Int, onRepsChange: (Int) -> Unit,
     repsMax: Int?, onRepsMaxChange: (Int?) -> Unit,
+    durMin: Int, onDurMinChange: (Int) -> Unit,
+    durSec: Int, onDurSecChange: (Int) -> Unit,
     weight: String, onWeightChange: (String) -> Unit,
 ) {
+    val isDuration = freqType == "Duration"
     Column(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color.White.copy(alpha = 0.06f)),
     ) {
@@ -262,27 +278,51 @@ private fun ExerciseHalfCard(
 
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)))
 
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
-            Text(
-                if (repsMax != null) "Range ⇄" else "Reps ⇄",
-                fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.75f),
-                modifier = Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(Color.White.copy(alpha = 0.1f))
-                    .clickable {
-                        if (repsMax != null) onRepsMaxChange(null) else { onRepsChange(1); onRepsMaxChange(2) }
-                    }
-                    .padding(horizontal = 10.dp, vertical = 5.dp)
+        // Reps vs Time.
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+            FreqTogglePill("Reps", selected = !isDuration, modifier = Modifier.weight(1f)) { onFreqTypeChange("Repetitions"); onRepsMaxChange(null) }
+            FreqTogglePill("Time", selected = isDuration, modifier = Modifier.weight(1f)) { onFreqTypeChange("Duration"); onRepsMaxChange(null) }
+        }
+
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)))
+
+        if (isDuration) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp)) {
+                Text("Duration", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f))
+                Spacer(modifier = Modifier.weight(1f))
+                Text(supersetDurationLabel(durMin, durSec), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.45f))
+            }
+            WheelPickerRow(
+                columns = listOf(
+                    WheelColumn((0..59).map { it.toString() }, durMin.coerceIn(0, 59), { onDurMinChange(it) }, unit = "min"),
+                    WheelColumn((0..59).map { it.toString() }, durSec.coerceIn(0, 59), { onDurSecChange(it) }, unit = "sec"),
+                ),
+                visibleCount = 3,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp),
             )
-            Spacer(modifier = Modifier.weight(1f))
-            if (repsMax != null) {
-                RepsRangeControlShared(
-                    min = reps, max = repsMax,
-                    onMinChange = { newMin -> onRepsChange(newMin); if (newMin >= repsMax) onRepsMaxChange(newMin + 1) },
-                    onMaxChange = onRepsMaxChange,
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
+                Text(
+                    if (repsMax != null) "Range ⇄" else "Reps ⇄",
+                    fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.75f),
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.White.copy(alpha = 0.1f))
+                        .clickable {
+                            if (repsMax != null) onRepsMaxChange(null) else { onRepsChange(1); onRepsMaxChange(2) }
+                        }
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
                 )
-            } else {
-                MiniStepperShared(value = reps, onDecrement = { if (reps > 0) onRepsChange(reps - 1) }, onIncrement = { onRepsChange(reps + 1) }, big = true)
+                Spacer(modifier = Modifier.weight(1f))
+                if (repsMax != null) {
+                    RepsRangeControlShared(
+                        min = reps, max = repsMax,
+                        onMinChange = { newMin -> onRepsChange(newMin); if (newMin >= repsMax) onRepsMaxChange(newMin + 1) },
+                        onMaxChange = onRepsMaxChange,
+                    )
+                } else {
+                    MiniStepperShared(value = reps, onDecrement = { if (reps > 0) onRepsChange(reps - 1) }, onIncrement = { onRepsChange(reps + 1) }, big = true)
+                }
             }
         }
 
@@ -314,6 +354,43 @@ private fun ExerciseHalfCard(
             Text("kg", fontSize = 14.sp, color = Color.White.copy(alpha = 0.6f))
         }
     }
+}
+
+@Composable
+private fun FreqTogglePill(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Text(
+        label,
+        fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+        color = if (selected) Color.White else Color.White.copy(alpha = 0.4f),
+        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        modifier = modifier
+            .clip(RoundedCornerShape(50))
+            .background(if (selected) Color.White.copy(alpha = 0.15f) else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(vertical = 8.dp),
+    )
+}
+
+private fun supersetDurationLabel(min: Int, sec: Int): String {
+    if (min == 0 && sec == 0) return "0 sec"
+    return buildList {
+        if (min > 0) add("$min min")
+        if (sec > 0) add("$sec sec")
+    }.joinToString(" ")
+}
+
+// The duration frequency string the rest of the app uses, e.g. "1 minute 30 sec".
+private fun formatSupersetDuration(min: Int, sec: Int): String =
+    buildList {
+        if (min > 0) add("$min minute")
+        if (sec > 0 || min == 0) add("$sec sec")
+    }.joinToString(" ")
+
+// Parse a stored duration string ("1 hour 2 minute 30 sec") into minutes + seconds (hours fold in).
+private fun parseSupersetDuration(text: String?): Pair<Int, Int> {
+    if (text == null) return 0 to 30
+    fun grab(unit: String) = Regex("(\\d+)\\s*$unit").find(text)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+    return (grab("hour") * 60 + grab("minute")) to grab("sec")
 }
 
 @Composable
@@ -373,33 +450,37 @@ private fun restLabel(totalSeconds: Int): String {
 private fun buildPair(
     initialA: ExerciseData?, initialB: ExerciseData?,
     nameA: String, nameB: String,
+    freqTypeA: String, freqTypeB: String,
     repsA: Int, repsB: Int, repsAMax: Int?, repsBMax: Int?,
+    durMinA: Int, durSecA: Int, durMinB: Int, durSecB: Int,
     weightA: String, weightB: String,
     rounds: Int, restSeconds: Int,
 ): kotlin.Pair<ExerciseData, ExerciseData> {
     val groupId = initialA?.compoundGroupId ?: UUID.randomUUID().toString()
 
-    fun buildSets(reps: Int, repsMax: Int?, weight: String) = (0 until rounds).map {
+    fun buildSets(freqType: String, reps: Int, repsMax: Int?, durMin: Int, durSec: Int, weight: String) = (0 until rounds).map {
+        val isDur = freqType == "Duration"
         ExerciseSet(
             id = UUID.randomUUID().toString(),
-            frequencyValue = FrequencyValue(reps = reps),
+            frequencyValue = if (isDur) FrequencyValue(duration = formatSupersetDuration(durMin, durSec))
+                             else FrequencyValue(reps = reps),
             resistanceValue = ResistanceValue(weight = weight),
             restSeconds = restSeconds,
-            setType = "Normal",
-            repsMax = repsMax,
+            setType = "Normal",   // duration/distance groups force Normal on Android (see ExerciseEditorSheet)
+            repsMax = if (isDur) null else repsMax,
         )
     }
 
     val exerciseA = ExerciseData(
         id = initialA?.id ?: UUID.randomUUID().toString(), name = nameA.trim(),
-        sets = buildSets(repsA, repsAMax, weightA),
-        frequencyType = "Repetitions", resistanceType = "Weight", resistanceUnit = ResistanceUnit(weight = "KG"),
+        sets = buildSets(freqTypeA, repsA, repsAMax, durMinA, durSecA, weightA),
+        frequencyType = freqTypeA, resistanceType = "Weight", resistanceUnit = ResistanceUnit(weight = "KG"),
         compoundGroupId = groupId,
     )
     val exerciseB = ExerciseData(
         id = initialB?.id ?: UUID.randomUUID().toString(), name = nameB.trim(),
-        sets = buildSets(repsB, repsBMax, weightB),
-        frequencyType = "Repetitions", resistanceType = "Weight", resistanceUnit = ResistanceUnit(weight = "KG"),
+        sets = buildSets(freqTypeB, repsB, repsBMax, durMinB, durSecB, weightB),
+        frequencyType = freqTypeB, resistanceType = "Weight", resistanceUnit = ResistanceUnit(weight = "KG"),
         compoundGroupId = groupId,
     )
     return exerciseA to exerciseB
