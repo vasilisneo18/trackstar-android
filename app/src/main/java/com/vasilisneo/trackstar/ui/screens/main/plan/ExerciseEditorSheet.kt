@@ -285,32 +285,28 @@ internal fun SetGroupCard(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(RowBackground).padding(vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        // 1. Set Type row — reps groups only (mirrors iOS: hidden for Duration/Distance,
-        // where setType is meaningless and forced to NORMAL on save). "Set Type" label above a
-        // horizontally-scrolling row of pills.
-        if (group.freqKind == FreqKind.REPS) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
-            ) {
-                Text("Set Type", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(SetTypeOption.entries) { option ->
-                        val selected = group.setType == option
-                        Text(
-                            option.shortLabel, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
-                            color = if (selected) Color.White else Color.White.copy(alpha = 0.4f),
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background((option.badgeColor ?: Color.White).copy(alpha = if (selected) 0.35f else 0.08f))
-                                .clickable { group.setType = option }
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                        )
-                    }
+        // 1. Set Type row — applies to every frequency type (reps, duration, distance).
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+            Text("Set Type", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(SetTypeOption.entries) { option ->
+                    val selected = group.setType == option
+                    Text(
+                        option.shortLabel, fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                        color = if (selected) Color.White else Color.White.copy(alpha = 0.4f),
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background((option.badgeColor ?: Color.White).copy(alpha = if (selected) 0.35f else 0.08f))
+                            .clickable { group.setType = option }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
                 }
             }
-            Divider()
         }
+        Divider()
 
         // 2. Sets count — big count on the left (mirrors iOS), stepper on the right.
         if (showSets) {
@@ -334,10 +330,7 @@ internal fun SetGroupCard(
             selectedIndex = FreqKind.entries.indexOf(group.freqKind),
             onSelect = { index ->
                 group.freqKind = FreqKind.entries[index]
-                if (group.freqKind != FreqKind.REPS) {
-                    group.setType = SetTypeOption.NORMAL
-                    group.repsMax = null
-                }
+                if (group.freqKind != FreqKind.REPS) group.repsMax = null
             },
         )
         Divider()
@@ -720,7 +713,7 @@ private fun groupsFromSets(existing: ExerciseData?): List<ExerciseSetGroupState>
             reps = key.reps ?: 10, repsMax = key.repsMax,
             durationText = key.duration ?: "30 sec", distanceText = key.distance ?: "0 m",
             weightText = key.weight ?: "", bandText = key.band ?: "",
-            restSeconds = key.rest, setType = if (freqKind == FreqKind.REPS) setType else SetTypeOption.NORMAL,
+            restSeconds = key.rest, setType = setType,
         )
     }
 }
@@ -747,7 +740,7 @@ internal fun buildExercise(existing: ExerciseData?, name: String, groups: List<E
                 frequencyValue = freqValue,
                 resistanceValue = resistValue,
                 restSeconds = group.restSeconds,
-                setType = if (group.freqKind == FreqKind.REPS) group.setType.backendValue else SetTypeOption.NORMAL.backendValue,
+                setType = group.setType.backendValue,
                 repsMax = if (group.freqKind == FreqKind.REPS) group.repsMax else null,
             )
         }
