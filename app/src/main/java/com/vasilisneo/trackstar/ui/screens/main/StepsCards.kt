@@ -21,7 +21,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -73,6 +77,14 @@ fun DailyStepsCard(date: LocalDate, modifier: Modifier = Modifier) {
     }
     LaunchedEffect(date, granted) {
         if (granted) {
+            steps = health.steps(date)
+            hourly = health.hourlySteps(date)
+        }
+    }
+    // Re-query when the screen resumes (returning from another tab/app) so steps aren't stale.
+    val scope = rememberCoroutineScope()
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (granted) scope.launch {
             steps = health.steps(date)
             hourly = health.hourlySteps(date)
         }
@@ -219,6 +231,11 @@ fun WeeklyStepsCard(weekStart: LocalDate, modifier: Modifier = Modifier) {
     }
     LaunchedEffect(weekStart, granted) {
         if (granted) days = health.weeklySteps(weekStart)
+    }
+    // Re-query when the screen resumes so the week's steps aren't stale.
+    val scope = rememberCoroutineScope()
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (granted) scope.launch { days = health.weeklySteps(weekStart) }
     }
 
     if (!health.isAvailable) return
