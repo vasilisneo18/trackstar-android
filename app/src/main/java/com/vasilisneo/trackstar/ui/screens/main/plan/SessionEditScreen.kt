@@ -555,7 +555,7 @@ private data class PlanSetGroup(
     val repsRangeDisplay: String
         get() = when {
             reps != null -> { val max = repsMax; if (max != null && max != reps) "${minOf(reps, max)}-${maxOf(reps, max)}" else "$reps" }
-            duration != null -> duration
+            duration != null -> compactDuration(duration)
             distance != null -> distance
             else -> ""
         }
@@ -714,7 +714,8 @@ private fun formatRest(totalSeconds: Int): String {
     }
 }
 
-// Per-set label like iOS's ExerciseSet.sessionLabel: "8-12 reps @ 50 kg", "30 sec duration", …
+// Per-set label like iOS's ExerciseSet.sessionLabel: "8-12 reps @ 50 kg", "1m 30s @ 10 kg", …
+// The value implies the type, so duration/distance don't repeat the word; duration is compacted.
 private fun setSessionLabel(set: ExerciseSet): String {
     val freq = set.frequencyValue
     val valuePart = when {
@@ -722,8 +723,8 @@ private fun setSessionLabel(set: ExerciseSet): String {
             val max = set.repsMax
             if (max != null && max != freq.reps) "${minOf(freq.reps, max)}-${maxOf(freq.reps, max)} reps" else "${freq.reps} reps"
         }
-        freq?.duration != null -> "${freq.duration} duration"
-        freq?.distance != null -> "${freq.distance} distance"
+        freq?.duration != null -> compactDuration(freq.duration)
+        freq?.distance != null -> freq.distance
         else -> ""
     }
     val weight = set.resistanceValue?.weight
@@ -734,6 +735,17 @@ private fun setSessionLabel(set: ExerciseSet): String {
         else -> ""
     }
     return listOf(valuePart, resistancePart).filter { it.isNotBlank() }.joinToString(" ")
+}
+
+// "1 minute 30 sec" → "1m 30s", "45 sec" → "45s", "2 hour 5 minute" → "2h 5m".
+private fun compactDuration(text: String): String {
+    fun grab(unit: String) = Regex("(\\d+)\\s*$unit").find(text)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+    val h = grab("hour"); val m = grab("minute"); val s = grab("sec")
+    return buildList {
+        if (h > 0) add("${h}h")
+        if (m > 0) add("${m}m")
+        if (s > 0 || (h == 0 && m == 0)) add("${s}s")
+    }.joinToString(" ")
 }
 
 // Compact filled title field (50dp, white 15% fill, no border) — matches iOS's WLBTextfield used
