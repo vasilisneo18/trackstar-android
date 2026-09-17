@@ -614,9 +614,6 @@ internal fun SessionSupersetRow(
 ) {
     val rounds = a.sets.orEmpty().size
     val restSeconds = a.sets.orEmpty().firstOrNull()?.restSeconds ?: 0
-    val badge = a.sets.orEmpty().firstOrNull()?.setType?.let { raw ->
-        SetTypeOption.entries.firstOrNull { it.backendValue == raw && it.badgeColor != null }
-    }
     var menuOpen by remember { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
     Box {
@@ -648,15 +645,6 @@ internal fun SessionSupersetRow(
             Spacer(modifier = Modifier.padding(start = 6.dp))
             Text("Superset", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = SupersetCyan)
             Spacer(modifier = Modifier.weight(1f))
-            if (badge != null) {
-                Text(
-                    badge.shortLabel, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = badge.badgeColor!!,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(badge.badgeColor!!.copy(alpha = 0.15f))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                )
-            }
         }
 
         SupersetExerciseRow(a, commentsA, onCommentsTapA, showNotes)
@@ -683,9 +671,19 @@ internal fun SessionSupersetRow(
 
 @Composable
 private fun SupersetExerciseRow(exercise: ExerciseData, comments: List<ExerciseComment> = emptyList(), onCommentsTap: () -> Unit = {}, showNotes: Boolean = true) {
+    val badge = exercise.sets.orEmpty().firstOrNull()?.setType?.let { raw ->
+        SetTypeOption.entries.firstOrNull { it.backendValue == raw && it.badgeColor != null }
+    }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
             Text(exercise.name ?: "Exercise", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+            // Each exercise in the superset shows its own set type.
+            if (badge != null) {
+                Text(
+                    badge.shortLabel, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = badge.badgeColor!!,
+                    modifier = Modifier.clip(RoundedCornerShape(50)).background(badge.badgeColor!!.copy(alpha = 0.15f)).padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
             Spacer(modifier = Modifier.weight(1f))
             val label = exercise.sets.orEmpty().firstOrNull()?.let { setSessionLabel(it) }.orEmpty()
             if (label.isNotBlank()) {
