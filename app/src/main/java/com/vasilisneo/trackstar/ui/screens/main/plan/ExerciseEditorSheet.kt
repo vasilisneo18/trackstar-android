@@ -289,11 +289,11 @@ internal fun SetGroupCard(
     ) {
         // 1. Set Type row — applies to every frequency type (reps, duration, distance).
         Column(
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)
         ) {
             Text("Set Type", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 items(SetTypeOption.entries) { option ->
                     val selected = group.setType == option
                     Text(
@@ -303,7 +303,7 @@ internal fun SetGroupCard(
                             .clip(RoundedCornerShape(50))
                             .background((option.badgeColor ?: Color.White).copy(alpha = if (selected) 0.35f else 0.08f))
                             .clickable { group.setType = option }
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                            .padding(horizontal = 11.dp, vertical = 5.dp)
                     )
                 }
             }
@@ -574,13 +574,13 @@ private fun Divider() {
 @Composable
 private fun SegmentedRow(options: List<String>, selectedIndex: Int, onSelect: (Int) -> Unit) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(12.dp))
             .background(Color.White.copy(alpha = 0.08f))
-            .padding(4.dp)
+            .padding(3.dp)
     ) {
         options.forEachIndexed { index, label ->
             val selected = index == selectedIndex
@@ -589,10 +589,10 @@ private fun SegmentedRow(options: List<String>, selectedIndex: Int, onSelect: (I
                 color = if (selected) Color.White else Color.White.copy(alpha = 0.4f),
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(10.dp))
                     .background(if (selected) Color.White.copy(alpha = 0.2f) else Color.Transparent)
                     .clickable { onSelect(index) }
-                    .padding(vertical = 7.dp),
+                    .padding(vertical = 5.dp),
                 textAlign = TextAlign.Center,
             )
         }
