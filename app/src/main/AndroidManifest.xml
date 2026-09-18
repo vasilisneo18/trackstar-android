@@ -17,6 +17,10 @@
     <!-- Location for gym check-in geofence (scan a gym QR → verify the athlete is at the gym). -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Location is optional — only gym check-in uses it (session-code check-in works without a
+         GPS fix). Declared required=false so GPS-less devices aren't excluded from the store. -->
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 
     <!-- Health Connect provider lookup (needed on Android < 14 where it's a separate app). -->
     <queries>
