@@ -74,6 +74,9 @@ android {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfigs.findByName("release")?.let { signingConfig = it }
+            // Bundle native debug symbols (Realm/CameraX/image libs) so native crashes/ANRs in Play
+            // Console are readable. Clears the "no debug symbols" upload warning.
+            ndk { debugSymbolLevel = "FULL" }
         }
     }
 
