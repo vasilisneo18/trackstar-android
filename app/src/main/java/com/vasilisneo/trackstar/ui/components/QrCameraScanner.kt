@@ -142,14 +142,25 @@ private class QrAnalyzer(private val onCode: (String) -> Unit) : ImageAnalysis.A
             val source = PlanarYUVLuminanceSource(
                 data, image.width, image.height, 0, 0, image.width, image.height, false
             )
-            val bitmap = BinaryBitmap(HybridBinarizer(source))
-            val result = runCatching { reader.decodeWithState(bitmap) }.getOrNull()
-            result?.text?.let(onCode)
+            // Trackstar's QRs are white-on-dark (inverted). ZXing only reads dark-on-light, so try
+            // the normal frame first, then the inverted one — otherwise the app's own codes never scan.
+            val text = decode(source) ?: decode(source.invert())
+            text?.let(onCode)
         } catch (_: Exception) {
             // Ignore undecodable frames.
         } finally {
-            reader.reset()
             image.close()
+        }
+    }
+
+    private fun decode(source: com.google.zxing.LuminanceSource): String? {
+        val bitmap = BinaryBitmap(HybridBinarizer(source))
+        return try {
+            reader.decodeWithState(bitmap).text
+        } catch (_: Exception) {
+            null
+        } finally {
+            reader.reset()
         }
     }
 }
