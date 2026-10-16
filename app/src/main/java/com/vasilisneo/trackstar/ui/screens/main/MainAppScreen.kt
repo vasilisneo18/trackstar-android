@@ -184,7 +184,6 @@ fun MainAppScreen(
                     activeSession = activeSession,
                     onResumeSession = { showActiveFull = true },
                     refreshKey = workoutRefreshKey,
-                    onUpgrade = onOpenSubscription,
                 )
             }
             composable("stats") {
