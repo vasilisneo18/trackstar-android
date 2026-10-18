@@ -84,7 +84,7 @@ private data class Tier(
     val features: List<String>,
 )
 
-// Two tabs: Free and Athlete Gold (the single in-app paid tier — coaching is sold on the web).
+// Two tabs: Free and Gold (the single in-app paid athlete tier — coaching is sold on the web).
 private val Tiers = listOf(
     Tier(
         name = "Free", plan = AppPlan.FREE, accent = Color(0xFF9AA3B2),
@@ -92,7 +92,7 @@ private val Tiers = listOf(
         features = listOf("Unlimited workout logging", "Build & edit weekly plans", "Last 30 days of history"),
     ),
     Tier(
-        name = "Athlete Gold", plan = AppPlan.GOLD, accent = Color(0xFFFFC61A),
+        name = "Gold", plan = AppPlan.GOLD, accent = Color(0xFFFFC61A),
         monthly = "€4.99", annual = "€39.99", annualMonthly = "€3.33", savings = "Save 33%",
         features = listOf("AI workout & diet planners", "Full history, stats & progress charts", "Premium app themes"),
     ),
