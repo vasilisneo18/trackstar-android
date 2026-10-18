@@ -41,6 +41,7 @@ object AppIconManager {
         AppPlan.BRONZE -> BRONZE
         AppPlan.SILVER -> SILVER
         AppPlan.GOLD -> GOLD
+        AppPlan.COACH -> GOLD // coach implies gold — use the gold launcher icon
     }
 
     // Queue the icon to match `plan`. Cheap and non-disruptive: no components are touched here.
