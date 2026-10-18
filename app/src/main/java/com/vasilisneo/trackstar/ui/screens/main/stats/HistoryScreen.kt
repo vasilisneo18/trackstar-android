@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,13 +68,24 @@ private val CardFill = Color.White.copy(alpha = 0.06f)
 @Composable
 fun HistoryScreen(
     onBack: () -> Unit = {},
+    onUpgrade: () -> Unit = {},
     viewModel: StatsViewModel = viewModel(),
 ) {
     var showingList by remember { mutableStateOf(false) }
     var reportSession by remember { mutableStateOf<WorkoutSessionResponse?>(null) }
-    val sessionsByDate = remember(viewModel.sessions) {
-        viewModel.sessions.mapNotNull { s -> s.localDate?.let { it to s } }.toMap()
+
+    // Free accounts see only the last 30 days of history; Athlete Gold unlocks the full timeline.
+    val plan by com.vasilisneo.trackstar.data.billing.BillingManager.currentPlan.collectAsState()
+    val isFree = !com.vasilisneo.trackstar.data.billing.FeatureGate.hasFullHistory(plan)
+    val freeWindowStart = remember { LocalDate.now().minusDays(30) }
+    val gatedSessions = remember(viewModel.sessions, isFree) {
+        if (isFree) viewModel.sessions.filter { s -> s.localDate?.let { !it.isBefore(freeWindowStart) } ?: true }
+        else viewModel.sessions
     }
+    val sessionsByDate = remember(gatedSessions) {
+        gatedSessions.mapNotNull { s -> s.localDate?.let { it to s } }.toMap()
+    }
+    val minMonth = if (isFree) freeWindowStart.withDayOfMonth(1) else null
 
     Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
         Column(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
@@ -93,10 +105,11 @@ fun HistoryScreen(
                 )
             }
 
+            if (isFree) FreeHistoryBanner(onUpgrade, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             if (showingList) {
-                SessionsWeekList(viewModel.sessions) { reportSession = it }
+                SessionsWeekList(gatedSessions) { reportSession = it }
             } else {
-                CalendarPane(sessionsByDate) { reportSession = it }
+                CalendarPane(sessionsByDate, minMonth) { reportSession = it }
             }
         }
 
@@ -111,22 +124,43 @@ fun HistoryScreen(
     }
 }
 
+// Shown to free users — history clipped to the last 30 days; tapping opens the paywall.
+@Composable
+private fun FreeHistoryBanner(onUpgrade: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CardFill)
+            .clickable(onClick = onUpgrade).padding(14.dp),
+    ) {
+        Icon(Icons.Filled.Timer, contentDescription = null, tint = TrackstarAccent, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text("Showing your last 30 days", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+            Text("Unlock your full history with Athlete Gold", fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f))
+        }
+        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(20.dp))
+    }
+}
+
 // MARK: - Calendar pane
 
 @Composable
 private fun CalendarPane(
     sessionsByDate: Map<LocalDate, WorkoutSessionResponse>,
+    minMonth: LocalDate?,
     onOpenSession: (WorkoutSessionResponse) -> Unit,
 ) {
     var displayedMonth by remember { mutableStateOf(LocalDate.now().withDayOfMonth(1)) }
     var selectedDate by remember { mutableStateOf<LocalDate?>(LocalDate.now()) }
+    // Free users can't page back past the 30-day window (minMonth).
+    val canGoBack = minMonth == null || displayedMonth.isAfter(minMonth)
 
     Column(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(top = 12.dp, bottom = 32.dp)
     ) {
-        CalendarCard(displayedMonth, selectedDate, sessionsByDate,
-            onPrev = { displayedMonth = displayedMonth.minusMonths(1) },
+        CalendarCard(displayedMonth, selectedDate, sessionsByDate, canGoBack = canGoBack,
+            onPrev = { if (canGoBack) displayedMonth = displayedMonth.minusMonths(1) },
             onNext = { displayedMonth = displayedMonth.plusMonths(1) },
             onSelect = { selectedDate = it })
 
@@ -146,6 +180,7 @@ private fun CalendarCard(
     displayedMonth: LocalDate,
     selectedDate: LocalDate?,
     sessionsByDate: Map<LocalDate, WorkoutSessionResponse>,
+    canGoBack: Boolean,
     onPrev: () -> Unit,
     onNext: () -> Unit,
     onSelect: (LocalDate) -> Unit,
@@ -170,8 +205,8 @@ private fun CalendarCard(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(CardFill).padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous month", tint = Color.White.copy(alpha = 0.7f),
-                modifier = Modifier.size(32.dp).clip(CircleShape).clickable(onClick = onPrev).padding(4.dp))
+            Icon(Icons.Filled.ChevronLeft, contentDescription = "Previous month", tint = if (canGoBack) Color.White.copy(alpha = 0.7f) else Color.White.copy(alpha = 0.2f),
+                modifier = Modifier.size(32.dp).clip(CircleShape).clickable(enabled = canGoBack, onClick = onPrev).padding(4.dp))
             Spacer(modifier = Modifier.weight(1f))
             Text(displayedMonth.format(monthFmt), fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Spacer(modifier = Modifier.weight(1f))

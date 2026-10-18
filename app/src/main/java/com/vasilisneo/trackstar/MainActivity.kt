@@ -486,7 +486,7 @@ class MainActivity : ComponentActivity() {
                             popEnterTransition = { EnterTransition.None },
                             popExitTransition = { slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth }) },
                         ) {
-                            HistoryScreen(onBack = { navController.popBackStack() })
+                            HistoryScreen(onBack = { navController.popBackStack() }, onUpgrade = { navController.navigate("subscription") })
                         }
                         composable(
                             "progress",
