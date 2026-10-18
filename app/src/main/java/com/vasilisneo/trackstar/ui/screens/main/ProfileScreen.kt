@@ -91,7 +91,6 @@ fun ProfileScreen(
     onPersonalInfo: () -> Unit = {},
     onSettings: () -> Unit = {},
     onUpgrade: () -> Unit = {},
-    onOpenBronzeGrants: () -> Unit = {},
     onQrCode: () -> Unit = {},
     onMyCoach: () -> Unit = {},
     onCheckIn: () -> Unit = {},
@@ -145,7 +144,7 @@ fun ProfileScreen(
 
                 ProfileHeader(profile)
 
-                PersonalSection(profile, onUpgrade = onUpgrade, bronzeGrants = remote?.bronzeGrantsRemaining ?: 0, onOpenBronzeGrants = onOpenBronzeGrants)
+                PersonalSection(profile, onUpgrade = onUpgrade)
 
                 // A linked coach shows an inline coach card (no separate screen). Gated on coachName
                 // being present — matches iOS; coaches have no coachName so it never shows for them.
@@ -220,7 +219,7 @@ private fun ProfileHeader(profile: ProfileData) {
 }
 
 @Composable
-private fun PersonalSection(profile: ProfileData, onUpgrade: () -> Unit, bronzeGrants: Int = 0, onOpenBronzeGrants: () -> Unit = {}) {
+private fun PersonalSection(profile: ProfileData, onUpgrade: () -> Unit) {
     val plan by com.vasilisneo.trackstar.data.billing.BillingManager.currentPlan.collectAsState()
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -232,9 +231,6 @@ private fun PersonalSection(profile: ProfileData, onUpgrade: () -> Unit, bronzeG
         } else {
             MembershipCard(plan = plan, onClick = onUpgrade)
         }
-
-        // Coaches with free Bronze grants see them right below the plan card (matches iOS).
-        if (bronzeGrants > 0) BronzeCreditsCard(bronzeGrants, onClick = onOpenBronzeGrants)
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatCard(icon = Icons.Filled.Person, title = "Gender", value = profile.gender, unit = "", modifier = Modifier.weight(1f))
@@ -400,27 +396,6 @@ private fun AppSection(
 
 // Inline "My Coach" card for athletes (replaces the old full-screen My Coach). Uses the coach name +
 // "coaching since" from the athlete's own profile.
-@Composable
-private fun BronzeCreditsCard(credits: Int, onClick: () -> Unit) {
-    val bronze = Color(0xFFCD7F32)
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp)).background(bronze.copy(alpha = 0.08f))
-            .clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp),
-    ) {
-        Icon(Icons.Filled.MilitaryTech, contentDescription = null, tint = bronze, modifier = Modifier.size(22.dp))
-        Spacer(Modifier.width(12.dp))
-        Text("Bronze Credits", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.weight(1f))
-        Text(
-            "$credits left", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = bronze,
-            modifier = Modifier.clip(RoundedCornerShape(50)).background(bronze.copy(alpha = 0.2f)).padding(horizontal = 10.dp, vertical = 5.dp),
-        )
-        Spacer(Modifier.width(8.dp))
-        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(20.dp))
-    }
-}
-
 @Composable
 private fun CoachCard(name: String, coachingSince: String?) {
     Row(

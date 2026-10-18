@@ -336,7 +336,6 @@ class MainActivity : ComponentActivity() {
                                 onPersonalInfo = { navController.navigate("personal_info") },
                                 onSettings = { navController.navigate("settings") },
                                 onUpgrade = { navController.navigate("subscription") },
-                                onOpenBronzeGrants = { navController.navigate("bronze_grants") },
                                 onQrCode = { navController.navigate("qr") },
                                 onMyCoach = { navController.navigate("my_coach") },
                                 onCheckIn = { navController.navigate("checkin") },
@@ -380,14 +379,6 @@ class MainActivity : ComponentActivity() {
                             popExitTransition = { slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth }) },
                         ) {
                             com.vasilisneo.trackstar.ui.screens.main.attendance.CoachAttendanceScreen(onBack = { navController.popBackStack() })
-                        }
-                        composable(
-                            "bronze_grants",
-                            exitTransition = { ExitTransition.None },
-                            popEnterTransition = { EnterTransition.None },
-                            popExitTransition = { slideOutHorizontally(targetOffsetX = { fullWidth -> fullWidth }) },
-                        ) {
-                            com.vasilisneo.trackstar.ui.screens.main.coach.BronzeGrantsScreen(onBack = { navController.popBackStack() })
                         }
                         composable(
                             "my_coach",
