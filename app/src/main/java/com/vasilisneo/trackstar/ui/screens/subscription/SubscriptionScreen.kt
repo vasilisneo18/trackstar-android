@@ -94,7 +94,13 @@ private val Tiers = listOf(
     Tier(
         name = "Gold", plan = AppPlan.GOLD, accent = Color(0xFFFFC61A),
         monthly = "€4.99", annual = "€39.99", annualMonthly = "€3.33", savings = "Save 33%",
-        features = listOf("AI workout & diet planners", "Full history, stats & progress charts", "Premium app themes"),
+        features = listOf(
+            "Unlimited workout logging",
+            "Build & edit weekly plans",
+            "Full history, stats & progress charts",
+            "AI workout & diet planners",
+            "Premium app themes",
+        ),
     ),
 )
 
