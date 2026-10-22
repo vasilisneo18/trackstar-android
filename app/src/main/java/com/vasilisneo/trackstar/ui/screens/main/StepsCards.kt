@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -108,8 +107,10 @@ fun DailyStepsCard(date: LocalDate, modifier: Modifier = Modifier) {
         modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(CardFill)
             .padding(horizontal = 18.dp, vertical = 22.dp)
     ) {
-        // Left column: today's steps on top, this week's total pinned to the bottom.
-        Column(modifier = Modifier.width(116.dp).fillMaxHeight()) {
+        // Left column: today's steps on top, this week's total pinned to the bottom. Fixed to the
+        // graph height (NOT fillMaxHeight — in a LazyColumn item that has unbounded height, so the
+        // card would balloon to fill the screen).
+        Column(modifier = Modifier.width(116.dp).height(104.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.DirectionsWalk, null, tint = accent, modifier = Modifier.size(14.dp))
                 Spacer(Modifier.width(6.dp))
