@@ -7,9 +7,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -66,6 +68,8 @@ fun DailyStepsCard(date: LocalDate, modifier: Modifier = Modifier) {
     var granted by remember { mutableStateOf(false) }
     var steps by remember { mutableStateOf(0) }
     var hourly by remember { mutableStateOf(List(24) { 0 }) }
+    var weekTotal by remember { mutableStateOf(0) }
+    val weekStart = date.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
 
     val launcher = rememberLauncherForActivityResult(
         PermissionController.createRequestPermissionResultContract()
@@ -79,6 +83,7 @@ fun DailyStepsCard(date: LocalDate, modifier: Modifier = Modifier) {
         if (granted) {
             steps = health.steps(date)
             hourly = health.hourlySteps(date)
+            weekTotal = health.weeklySteps(weekStart).sum()
         }
     }
     // Re-query when the screen resumes (returning from another tab/app) so steps aren't stale.
@@ -87,6 +92,7 @@ fun DailyStepsCard(date: LocalDate, modifier: Modifier = Modifier) {
         if (granted) scope.launch {
             steps = health.steps(date)
             hourly = health.hourlySteps(date)
+            weekTotal = health.weeklySteps(weekStart).sum()
         }
     }
 
@@ -97,51 +103,34 @@ fun DailyStepsCard(date: LocalDate, modifier: Modifier = Modifier) {
     val ticks = stepsTicks(steps)
     // Progress is "real" up to this hour: past days are complete, today stops at the current hour.
     val nowHour = if (date == LocalDate.now()) java.time.LocalTime.now().hour else 23
-    Column(
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(CardFill).padding(16.dp)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(CardFill)
+            .padding(horizontal = 18.dp, vertical = 22.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.DirectionsWalk, null, tint = accent, modifier = Modifier.width(20.dp))
-            Spacer(Modifier.width(8.dp))
-            Text("%,d".format(steps), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            Spacer(Modifier.width(6.dp))
-            Text("steps", fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f))
+        // Left column: today's steps on top, this week's total pinned to the bottom.
+        Column(modifier = Modifier.width(116.dp).fillMaxHeight()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.DirectionsWalk, null, tint = accent, modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Steps", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.55f))
+            }
+            Spacer(Modifier.height(4.dp))
+            Text("%,d".format(steps), fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Spacer(Modifier.weight(1f))
-            Text("Goal %,d".format(DailyGoal), fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f))
+            Text("%,d this week".format(weekTotal), fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f))
         }
-
-        Row {
-            // Leading y-axis labels drawn at each round-thousand tick position.
-            Canvas(modifier = Modifier.height(60.dp).width(28.dp)) {
-                val paint = android.graphics.Paint().apply {
-                    isAntiAlias = true
-                    textAlign = android.graphics.Paint.Align.RIGHT
-                    textSize = 10.sp.toPx()
-                    color = android.graphics.Color.argb((0.35f * 255).toInt(), 255, 255, 255)
-                }
-                ticks.forEach { t ->
-                    val y = size.height * (1f - t.toFloat() / axisMax.toFloat())
-                    drawContext.canvas.nativeCanvas.drawText(kLabel(t), size.width, y + paint.textSize * 0.35f, paint)
-                }
-            }
-            Spacer(Modifier.width(6.dp))
-            Column(Modifier.weight(1f)) {
-                CumulativeStepsChart(hourly = hourly, axisMax = axisMax, ticks = ticks, nowHour = nowHour, accent = accent)
-                Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
-                    listOf("00", "06", "12", "18").forEach {
-                        Text(it, fontSize = 10.sp, color = Color.White.copy(alpha = 0.35f),
-                            textAlign = TextAlign.Start, modifier = Modifier.weight(1f))
-                    }
-                }
-            }
-        }
+        Spacer(Modifier.width(16.dp))
+        CumulativeStepsChart(
+            hourly = hourly, axisMax = axisMax, ticks = ticks, nowHour = nowHour, accent = accent,
+            modifier = Modifier.weight(1f).height(104.dp)
+        )
     }
 }
 
 @Composable
-private fun CumulativeStepsChart(hourly: List<Int>, axisMax: Int, ticks: List<Int>, nowHour: Int, accent: Color) {
-    Canvas(modifier = Modifier.fillMaxWidth().height(60.dp)) {
+private fun CumulativeStepsChart(hourly: List<Int>, axisMax: Int, ticks: List<Int>, nowHour: Int, accent: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
         val n = 24
         val maxF = axisMax.toFloat().coerceAtLeast(1f)
         fun px(i: Int) = size.width * i / (n - 1)
