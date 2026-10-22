@@ -88,17 +88,17 @@ private val Tiers = listOf(
     Tier(
         name = "Bronze", plan = AppPlan.BRONZE, accent = Color(0xFFCC8033),
         monthly = "€2.99", annual = "€19.99", annualMonthly = "€1.67", savings = "Save 44%",
-        features = listOf("Create & edit workout plans", "Unlimited session logging", "Session history & stats", "No ads"),
+        features = listOf("Create & edit workout plans", "Unlimited session logging", "Session history & stats"),
     ),
     Tier(
         name = "Silver", plan = AppPlan.SILVER, accent = Color(0xFFB8BFD1),
         monthly = "€4.99", annual = "€39.99", annualMonthly = "€3.33", savings = "Save 33%",
-        features = listOf("Create & edit workout plans", "Unlimited session logging", "Session history & stats", "No ads", "AI diet plans", "AI workout plans"),
+        features = listOf("Create & edit workout plans", "Unlimited session logging", "Session history & stats", "AI diet plans", "AI workout plans"),
     ),
     Tier(
         name = "Gold", plan = AppPlan.GOLD, accent = Color(0xFFFFC61A),
         monthly = "€9.99", annual = "€69.99", annualMonthly = "€5.83", savings = "Save 42%",
-        features = listOf("Create & edit workout plans", "Unlimited session logging", "Session history & stats", "No ads", "AI diet & workout plans", "Coach athletes", "Assign & view athlete plans", "Up to 20 plan templates", "AI template generation"),
+        features = listOf("Create & edit workout plans", "Unlimited session logging", "Session history & stats", "AI diet & workout plans", "Coach athletes", "Assign & view athlete plans", "Up to 20 plan templates", "AI template generation"),
     ),
 )
 
