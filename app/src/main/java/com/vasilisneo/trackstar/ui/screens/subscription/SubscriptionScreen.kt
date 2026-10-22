@@ -198,26 +198,9 @@ fun SubscriptionScreen(
                 }
             }
 
-            // Single Athlete Gold paywall (no tier carousel — one in-app paid tier), centred so it
-            // fills the screen rather than floating at the top like a stranded carousel slide.
-            Column(
-                modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Icon(
-                    Icons.Filled.MilitaryTech, contentDescription = null, tint = tier.accent,
-                    modifier = Modifier.align(Alignment.CenterHorizontally).size(56.dp)
-                )
-                Spacer(modifier = Modifier.height(10.dp))
-                Text(
-                    "Everything you need to\ntrain smarter", fontSize = 22.sp, fontWeight = FontWeight.Bold,
-                    color = Color.White, textAlign = TextAlign.Center, lineHeight = 28.sp,
-                    modifier = Modifier.align(Alignment.CenterHorizontally)
-                )
-                Spacer(modifier = Modifier.height(20.dp))
-                PlanCard(tier, pricing[tier.plan])
-                Spacer(modifier = Modifier.height(8.dp))
+            // Single Athlete Gold card (no tier carousel — one in-app paid tier).
+            Box(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                PlanCard(tier, pricing[tier.plan], modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             }
 
             // Bottom CTA — navigationBarsPadding so it clears the system nav bar on 3-button devices.
@@ -344,9 +327,6 @@ private fun PlanCard(tier: Tier, pricing: PlanPricing?, modifier: Modifier = Mod
             Column(modifier = Modifier.align(Alignment.BottomStart).padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(tier.name, fontSize = 34.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 Text("$monthlyPrice/month", fontSize = 16.sp, color = Color.White.copy(alpha = 0.55f))
-                val annual = pricing?.annualPrice ?: tier.annual
-                val savings = pricing?.savings ?: tier.savings
-                Text("or $annual/year · $savings", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = tier.accent)
             }
         }
 
