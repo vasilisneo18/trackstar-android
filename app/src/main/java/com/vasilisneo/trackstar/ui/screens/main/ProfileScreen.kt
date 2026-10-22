@@ -304,7 +304,7 @@ private fun MembershipCard(plan: com.vasilisneo.trackstar.data.billing.AppPlan, 
                 .padding(horizontal = 10.dp, vertical = 5.dp)
         ) {
             Text(
-                if (plan != com.vasilisneo.trackstar.data.billing.AppPlan.FREE) "Manage" else "Upgrade",
+                if (plan == com.vasilisneo.trackstar.data.billing.AppPlan.GOLD) "Manage" else "Upgrade",
                 fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = accent,
             )
         }
