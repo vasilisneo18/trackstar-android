@@ -79,6 +79,23 @@ class WorkoutViewModel(
     private val selectedDayName: String
         get() = selectedDate.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
 
+    // Free accounts may log FeatureGate.WEEKLY_SESSION_LIMIT sessions per calendar week. Count the
+    // current week's already-logged sessions (server data, so it survives reinstall unlike iOS's
+    // local store) and expose whether another may be started under the caller's plan.
+    private val sessionsThisWeek: Int
+        get() {
+            val currentWeek = weekIdentifierFor(LocalDate.now())
+            return completedSessions.count { s ->
+                val d = s.date?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+                d != null && weekIdentifierFor(d) == currentWeek
+            }
+        }
+
+    val canStartSession: Boolean
+        get() = com.vasilisneo.trackstar.data.billing.FeatureGate.canStartSession(
+            com.vasilisneo.trackstar.data.billing.BillingManager.currentPlan.value, sessionsThisWeek
+        )
+
     // True when the selected day is strictly before today, so an unlogged session on it counts as
     // missed rather than upcoming (mirrors iOS's MyWorkoutViewModel.isPastDay).
     private val isPastDay: Boolean

@@ -110,6 +110,7 @@ fun WorkoutScreen(
     activeSession: ActiveSessionViewModel? = null,
     onResumeSession: () -> Unit = {},
     refreshKey: Int = 0,
+    onUpgrade: () -> Unit = {},
 ) {
     val viewModel: WorkoutViewModel = viewModel()
     // Re-fetch completed sessions when a session finishes elsewhere (active session / quick log
@@ -314,11 +315,15 @@ fun WorkoutScreen(
                                             },
                                             comments = viewModel.exerciseComments,
                                             onCommentsTap = { commentingExercise = it },
+                                            // Free tier: 3 logged sessions/week (FeatureGate). At the
+                                            // cap, starting/quick-logging opens the paywall instead.
                                             onStart = {
-                                                onStartSession(selectedDate, sid.ifBlank { return@SessionDashboardCard })
+                                                if (!viewModel.canStartSession) onUpgrade()
+                                                else onStartSession(selectedDate, sid.ifBlank { return@SessionDashboardCard })
                                             },
                                             onQuickLog = {
-                                                onQuickLog(selectedDate, sid.ifBlank { return@SessionDashboardCard })
+                                                if (!viewModel.canStartSession) onUpgrade()
+                                                else onQuickLog(selectedDate, sid.ifBlank { return@SessionDashboardCard })
                                             },
                                         )
                                     }
@@ -447,16 +452,18 @@ fun WorkoutScreen(
         MissedSessionSheet(
             workoutTitle = planned.title?.takeIf { it.isNotBlank() } ?: "Workout",
             exercises = exercises,
+            // Only offer the actions when the session can actually be started/logged. Both paths
+            // enforce the free-tier weekly cap (paywall on overflow) like the Upcoming card.
             onStart = if (sessionId != null) {
                 {
                     missedSession = null
-                    onStartSession(selectedDate, sessionId)
+                    if (!viewModel.canStartSession) onUpgrade() else onStartSession(selectedDate, sessionId)
                 }
             } else null,
             onQuickLog = if (sessionId != null) {
                 {
                     missedSession = null
-                    onQuickLog(selectedDate, sessionId)
+                    if (!viewModel.canStartSession) onUpgrade() else onQuickLog(selectedDate, sessionId)
                 }
             } else null,
             onDismiss = { missedSession = null },
