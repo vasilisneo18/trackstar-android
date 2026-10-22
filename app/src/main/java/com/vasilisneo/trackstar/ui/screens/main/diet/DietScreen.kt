@@ -43,6 +43,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -113,6 +114,8 @@ fun DietScreen(
     onProfileClick: () -> Unit = {},
     onOpenAiPlanner: () -> Unit = {},
     onUpgrade: () -> Unit = {},
+    // Set when Diet is opened from the Home tool card — shows a back button in place of the avatar.
+    onBack: (() -> Unit)? = null,
     viewModel: DietViewModel = viewModel(),
 ) {
     // AI diet planner is Silver+ (FeatureGate.canUseAI). Tapping ✨ on a lower tier opens the
@@ -167,7 +170,11 @@ fun DietScreen(
         Column(modifier = Modifier.fillMaxSize()) {
             Column(modifier = Modifier.fillMaxWidth().background(headerFill.copy(alpha = frostProgress)).statusBarsPadding()) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 16.dp)) {
-                    ProfileAvatarButton(initials = viewModel.userInitials, onClick = onProfileClick)
+                    if (onBack != null) {
+                        GlassCircleIconButton(onClick = onBack, contentDescription = "Close", icon = Icons.Filled.KeyboardArrowDown)
+                    } else {
+                        ProfileAvatarButton(initials = viewModel.userInitials, onClick = onProfileClick)
+                    }
                     Spacer(modifier = Modifier.size(12.dp))
                     Text("Diet Plan", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White, modifier = Modifier.alpha(frostProgress))
                     Spacer(modifier = Modifier.weight(1f))

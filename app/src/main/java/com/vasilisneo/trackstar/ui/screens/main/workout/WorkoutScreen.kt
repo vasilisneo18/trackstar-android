@@ -65,6 +65,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.Restaurant
 import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -111,6 +112,7 @@ fun WorkoutScreen(
     onResumeSession: () -> Unit = {},
     refreshKey: Int = 0,
     onUpgrade: () -> Unit = {},
+    onOpenDiet: () -> Unit = {},
 ) {
     val viewModel: WorkoutViewModel = viewModel()
     // Re-fetch completed sessions when a session finishes elsewhere (active session / quick log
@@ -132,6 +134,7 @@ fun WorkoutScreen(
     // Dashboard pinning — long-press a card to pin it above the workout (mirrors iOS @AppStorage).
     val stepsPinned = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("dashPinSteps", false)
     val bookPinned = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("dashPinBook", false)
+    val dietPinned = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("dashPinDiet", false)
 
     val displaySessions = viewModel.displaySessions
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -282,6 +285,11 @@ fun WorkoutScreen(
                             BookSessionDashboardCard(viewModel.nextAvailableSlots)
                         }
                     }
+                    if (dietPinned.value) item {
+                        PinnableCard(pinned = true, onTogglePin = { dietPinned.value = false }, onClick = onOpenDiet) {
+                            DietDashboardCard()
+                        }
+                    }
                     // Booked coaching sessions for the selected day (above the workout, like iOS).
                     val booked = viewModel.bookingsForCurrentDay
                     if (booked.isNotEmpty()) {
@@ -354,6 +362,11 @@ fun WorkoutScreen(
                     if (showBookSession && !isPast && !bookPinned.value) item {
                         PinnableCard(pinned = false, onTogglePin = { bookPinned.value = true }, onClick = onBookSession) {
                             BookSessionDashboardCard(viewModel.nextAvailableSlots)
+                        }
+                    }
+                    if (!dietPinned.value) item {
+                        PinnableCard(pinned = false, onTogglePin = { dietPinned.value = true }, onClick = onOpenDiet) {
+                            DietDashboardCard()
                         }
                     }
                 }
@@ -809,6 +822,50 @@ private fun BookSessionDashboardCard(
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+// Diet tool card for the Home dashboard — previews today's calories, opening the full Diet screen
+// on tap. Mirrors BookSessionDashboardCard / iOS's DietToolCard.
+@Composable
+private fun DietDashboardCard(
+    viewModel: com.vasilisneo.trackstar.ui.screens.main.diet.DietViewModel = viewModel(),
+) {
+    val accent = TrackstarAccent
+    val meals = viewModel.activeMeals
+    val consumedCal = meals.filter { it.isConsumed }.sumOf { it.totalCalories }
+    val totalCal = meals.sumOf { it.totalCalories }
+    val progress = if (totalCal > 0) (consumedCal.toFloat() / totalCal).coerceIn(0f, 1f) else 0f
+    Column(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(CardFill).padding(16.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Box(
+                modifier = Modifier.size(46.dp).background(Color.White.copy(alpha = 0.08f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) { Icon(Icons.Filled.Restaurant, null, tint = accent, modifier = Modifier.size(18.dp)) }
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
+                Text("Diet", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                Text(
+                    if (meals.isEmpty()) "Plan & track today's meals." else "Track today's meals.",
+                    fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f)
+                )
+            }
+            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(18.dp))
+        }
+        if (meals.isNotEmpty()) {
+            Spacer(Modifier.height(14.dp))
+            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)))
+            Spacer(Modifier.height(12.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("TODAY", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.35f), letterSpacing = 1.sp, modifier = Modifier.weight(1f))
+                Text("$consumedCal / $totalCal kcal", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+            }
+            Spacer(Modifier.height(8.dp))
+            Box(modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f))) {
+                Box(modifier = Modifier.fillMaxWidth(progress).height(6.dp).clip(CircleShape).background(accent))
             }
         }
     }

@@ -37,9 +37,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.annotation.DrawableRes
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Groups
-import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -88,10 +87,9 @@ private data class MainTab(
 )
 
 private val MainTabs = listOf(
-    MainTab("workout", "Workout", icon = Icons.Filled.FitnessCenter, iconSize = 25.dp),
+    MainTab("workout", "Home", icon = Icons.Filled.Home, iconSize = 26.dp),
     MainTab("stats", "Stats", icon = Icons.Filled.BarChart, iconSize = 24.dp),
     MainTab("myteam", "MyTeam", icon = Icons.Filled.Groups, iconSize = 28.dp),
-    MainTab("diet", "Diet", icon = Icons.Filled.Restaurant, iconSize = 24.dp),
 )
 
 // Lighter, translucent "liquid glass" capsule (was a near-black #17171F that vanished on the dark
@@ -115,6 +113,7 @@ fun MainAppScreen(
     onOpenCheckIns: () -> Unit = {},
     onOpenAiDietPlanner: () -> Unit = {},
     onOpenSubscription: () -> Unit = {},
+    onOpenDiet: () -> Unit = {},
 ) {
     val tabNavController = rememberNavController()
 
@@ -185,6 +184,7 @@ fun MainAppScreen(
                     onResumeSession = { showActiveFull = true },
                     refreshKey = workoutRefreshKey,
                     onUpgrade = onOpenSubscription,
+                    onOpenDiet = onOpenDiet,
                 )
             }
             composable("stats") {
@@ -217,13 +217,8 @@ fun MainAppScreen(
                     onOpenCheckIns = onOpenCheckIns,
                 )
             }
-            composable("diet") {
-                com.vasilisneo.trackstar.ui.screens.main.diet.DietScreen(
-                    onProfileClick = onProfileClick,
-                    onOpenAiPlanner = onOpenAiDietPlanner,
-                    onUpgrade = onOpenSubscription,
-                )
-            }
+            // Diet is no longer a tab — it opens full-screen from the Home dashboard's Diet card
+            // (see the "diet" route in MainActivity).
         }
 
         // Scroll-edge fade behind the floating tab bar: content scrolling toward the bar softly

@@ -195,6 +195,22 @@ class MainActivity : ComponentActivity() {
                                 onOpenBookingSettings = { navController.navigate("settings_app_settings") },
                                 onOpenAiDietPlanner = { navController.navigate("ai_diet_planner") },
                                 onOpenSubscription = { navController.navigate("subscription") },
+                                onOpenDiet = { navController.navigate("diet") },
+                            )
+                        }
+                        composable(
+                            "diet",
+                            // Slide-up modal, matching iOS's full-screen Diet cover from the Home card.
+                            enterTransition = { slideInVertically(initialOffsetY = { it }) },
+                            exitTransition = { ExitTransition.None },
+                            popEnterTransition = { EnterTransition.None },
+                            popExitTransition = { slideOutVertically(targetOffsetY = { it }) },
+                        ) {
+                            com.vasilisneo.trackstar.ui.screens.main.diet.DietScreen(
+                                onProfileClick = { navController.navigate("profile") },
+                                onOpenAiPlanner = { navController.navigate("ai_diet_planner") },
+                                onUpgrade = { navController.navigate("subscription") },
+                                onBack = { navController.popBackStack() },
                             )
                         }
                         composable(
