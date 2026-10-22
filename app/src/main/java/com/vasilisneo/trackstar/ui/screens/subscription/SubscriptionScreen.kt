@@ -98,20 +98,6 @@ private val AthleteGold = Tier(
     ),
 )
 
-// The Free tier, shown as a tab so users can see what they already have vs. what Gold adds.
-private val FreeTier = Tier(
-    name = "Free", plan = AppPlan.FREE, accent = Color(0xFF9AA3B2),
-    monthly = "€0", annual = "€0", annualMonthly = "€0", savings = "",
-    features = listOf(
-        "Unlimited workout logging",
-        "Build & edit weekly plans",
-        "Last 30 days of history",
-    ),
-)
-
-// Free on the left, Athlete Gold on the right.
-private val Tiers = listOf(FreeTier, AthleteGold)
-
 // Finds the hosting Activity from a Compose context — RevenueCat's purchase flow needs one to
 // launch Google's billing sheet.
 private fun android.content.Context.findActivity(): android.app.Activity? {
@@ -166,6 +152,7 @@ fun SubscriptionScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var showBilling by remember { mutableStateOf(false) }
+    val tier = AthleteGold
 
     val currentPlan by BillingManager.currentPlan.collectAsState()
     val managementUrl by BillingManager.managementUrl.collectAsState()
@@ -173,10 +160,7 @@ fun SubscriptionScreen(
     val pricing by BillingManager.pricing.collectAsState()
 
     // Gold and Coach both already include the athlete features, so Athlete Gold is their plan.
-    val isPaid = currentPlan.atLeast(AppPlan.GOLD)
-    // Default to the Gold tab for free users (the upsell), the Free tab for subscribers.
-    var selectedIndex by remember(isPaid) { mutableStateOf(if (isPaid) 0 else 1) }
-    val tier = Tiers[selectedIndex]
+    val isCurrentPlan = currentPlan.atLeast(AppPlan.GOLD)
 
     // Where the active plan is billed, derived from RevenueCat's management URL: Apple, or a comped
     // grant (a paid plan with no management URL). Google Play on Android needs no special handling.
@@ -202,42 +186,38 @@ fun SubscriptionScreen(
             .trackstarBackground()
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Nav bar + Free / Gold tabs
+            // Nav bar
             Column(modifier = Modifier.statusBarsPadding()) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 16.dp)
                 ) {
                     GlassCircleIconButton(onClick = onDismiss, icon = Icons.Filled.Close, contentDescription = "Close")
-                    Text("Membership", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
+                    Text("Level Up", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White, modifier = Modifier.weight(1f), textAlign = TextAlign.Center)
                     Spacer(modifier = Modifier.width(44.dp))
-                }
-                // Segmented Free | Gold selector.
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)
-                        .clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.06f)).padding(4.dp)
-                ) {
-                    Tiers.forEachIndexed { i, t ->
-                        val selected = selectedIndex == i
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier.weight(1f).clip(RoundedCornerShape(50))
-                                .background(if (selected) Color.White.copy(alpha = 0.14f) else Color.Transparent)
-                                .clickable { selectedIndex = i }.padding(vertical = 10.dp)
-                        ) {
-                            Text(t.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                                color = if (selected) Color.White else Color.White.copy(alpha = 0.4f))
-                        }
-                    }
                 }
             }
 
+            // Single Athlete Gold paywall (no tier carousel — one in-app paid tier), centred so it
+            // fills the screen rather than floating at the top like a stranded carousel slide.
             Column(
                 modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.Center,
             ) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Icon(
+                    Icons.Filled.MilitaryTech, contentDescription = null, tint = tier.accent,
+                    modifier = Modifier.align(Alignment.CenterHorizontally).size(56.dp)
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    "Everything you need to\ntrain smarter", fontSize = 22.sp, fontWeight = FontWeight.Bold,
+                    color = Color.White, textAlign = TextAlign.Center, lineHeight = 28.sp,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+                Spacer(modifier = Modifier.height(20.dp))
                 PlanCard(tier, pricing[tier.plan])
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
             // Bottom CTA — navigationBarsPadding so it clears the system nav bar on 3-button devices.
@@ -251,36 +231,33 @@ fun SubscriptionScreen(
                         modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
                     )
                 }
-                when {
-                    // Subscribers (Gold/Coach) manage their plan in the store.
-                    isPaid -> PillButton(
-                        text = "Manage",
-                        foreground = Color.Black,
-                        background = Color.White,
-                        onClick = {
-                            val url = managementUrl
-                            when {
-                                url == null -> manageInfoMessage = grantUpgradeMessage(currentTierName, currentPlanExpiry)
-                                url.contains("apple", ignoreCase = true) -> manageInfoMessage =
-                                    "This subscription was purchased on Apple. Manage it from your Apple subscriptions."
-                                else -> openManageUrl(context, url)
-                            }
-                        }
-                    )
-                    // Free user viewing the Free tab — it's their current plan.
-                    selectedIndex == 0 -> PillButton(
+                if (isCurrentPlan) {
+                    PillButton(
                         text = "Current Plan",
                         foreground = Color.White.copy(alpha = 0.5f),
                         background = Color.White.copy(alpha = 0.08f),
                         enabled = false,
                         onClick = {}
                     )
-                    // Free user viewing the Gold tab — the upsell.
-                    else -> PillButton(
+                } else {
+                    PillButton(
                         text = "Join Athlete Gold",
                         foreground = Color.Black,
                         background = Color.White,
-                        onClick = { showBilling = true }
+                        onClick = {
+                            val url = managementUrl
+                            when {
+                                // Free → straight to purchase.
+                                currentPlan == AppPlan.FREE -> showBilling = true
+                                // Comped grant (paid plan, no store URL) → nothing to buy yet.
+                                url == null -> manageInfoMessage = grantUpgradeMessage(currentTierName, currentPlanExpiry)
+                                // Bought on Apple → must cancel there before buying on Android.
+                                url.contains("apple", ignoreCase = true) -> manageInfoMessage =
+                                    "This subscription was purchased on Apple. To subscribe on Android, cancel it from your Apple subscriptions first, then come back and purchase here."
+                                // Bought on Google Play (or other store) → change it there.
+                                else -> openManageUrl(context, url)
+                            }
+                        }
                     )
                 }
             }
@@ -297,15 +274,14 @@ fun SubscriptionScreen(
     }
 
     if (showBilling) {
-        // You only ever purchase Athlete Gold in-app, regardless of the selected tab.
-        val goldTier = AthleteGold
-        val livePrice = pricing[goldTier.plan]
+        // Merge live store prices over the hardcoded fallbacks for Athlete Gold.
+        val livePrice = pricing[tier.plan]
         BillingSheet(
-            tier = goldTier,
-            monthly = livePrice?.monthlyPrice ?: goldTier.monthly,
-            annual = livePrice?.annualPrice ?: goldTier.annual,
-            annualMonthly = livePrice?.annualMonthlyEquivalent ?: goldTier.annualMonthly,
-            savings = livePrice?.savings ?: goldTier.savings,
+            tier = tier,
+            monthly = livePrice?.monthlyPrice ?: tier.monthly,
+            annual = livePrice?.annualPrice ?: tier.annual,
+            annualMonthly = livePrice?.annualMonthlyEquivalent ?: tier.annualMonthly,
+            savings = livePrice?.savings ?: tier.savings,
             trialDays = livePrice?.trialDays ?: 0,
             onDismiss = { showBilling = false },
             onSubscribe = { billing ->
@@ -314,7 +290,7 @@ fun SubscriptionScreen(
                     showBilling = false
                 } else {
                     scope.launch {
-                        val result = BillingManager.purchase(activity, goldTier.plan, billing)
+                        val result = BillingManager.purchase(activity, tier.plan, billing)
                         result.onSuccess { purchased ->
                             showBilling = false
                             if (purchased) onDismiss()
@@ -367,14 +343,10 @@ private fun PlanCard(tier: Tier, pricing: PlanPricing?, modifier: Modifier = Mod
             )
             Column(modifier = Modifier.align(Alignment.BottomStart).padding(20.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(tier.name, fontSize = 34.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                if (tier.plan == AppPlan.FREE) {
-                    Text("Free forever", fontSize = 16.sp, color = Color.White.copy(alpha = 0.55f))
-                } else {
-                    Text("$monthlyPrice/month", fontSize = 16.sp, color = Color.White.copy(alpha = 0.55f))
-                    val annual = pricing?.annualPrice ?: tier.annual
-                    val savings = pricing?.savings ?: tier.savings
-                    Text("or $annual/year · $savings", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = tier.accent)
-                }
+                Text("$monthlyPrice/month", fontSize = 16.sp, color = Color.White.copy(alpha = 0.55f))
+                val annual = pricing?.annualPrice ?: tier.annual
+                val savings = pricing?.savings ?: tier.savings
+                Text("or $annual/year · $savings", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = tier.accent)
             }
         }
 
