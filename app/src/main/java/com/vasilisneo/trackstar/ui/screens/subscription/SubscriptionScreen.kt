@@ -92,7 +92,7 @@ private val Tiers = listOf(
     ),
     Tier(
         name = "Silver", plan = AppPlan.SILVER, accent = Color(0xFFB8BFD1),
-        monthly = "€5.99", annual = "€39.99", annualMonthly = "€3.33", savings = "Save 44%",
+        monthly = "€4.99", annual = "€39.99", annualMonthly = "€3.33", savings = "Save 33%",
         features = listOf("Create & edit workout plans", "Unlimited session logging", "Session history & stats", "No ads", "AI diet plans", "AI workout plans"),
     ),
     Tier(

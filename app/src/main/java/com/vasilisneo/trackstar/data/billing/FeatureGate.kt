@@ -12,7 +12,7 @@ package com.vasilisneo.trackstar.data.billing
 // open the AI planners at all — plus the local weekly session cap and template cap.
 object FeatureGate {
 
-    const val WEEKLY_SESSION_LIMIT = 3
+    const val WEEKLY_SESSION_LIMIT = 5
     const val GOLD_TEMPLATE_LIMIT = 20
 
     // AI diet & workout planners: Silver and Gold only (iOS FeatureGate.canUseAI).
