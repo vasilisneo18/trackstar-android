@@ -74,10 +74,10 @@ fun HistoryScreen(
     var showingList by remember { mutableStateOf(false) }
     var reportSession by remember { mutableStateOf<WorkoutSessionResponse?>(null) }
 
-    // Free accounts see only the last 30 days of history; Athlete Gold unlocks the full timeline.
+    // Free accounts see only the last 14 days of history; Bronze and up unlock the full timeline.
     val plan by com.vasilisneo.trackstar.data.billing.BillingManager.currentPlan.collectAsState()
     val isFree = !com.vasilisneo.trackstar.data.billing.FeatureGate.hasFullHistory(plan)
-    val freeWindowStart = remember { LocalDate.now().minusDays(30) }
+    val freeWindowStart = remember { LocalDate.now().minusDays(14) }
     val gatedSessions = remember(viewModel.sessions, isFree) {
         if (isFree) viewModel.sessions.filter { s -> s.localDate?.let { !it.isBefore(freeWindowStart) } ?: true }
         else viewModel.sessions
@@ -124,7 +124,7 @@ fun HistoryScreen(
     }
 }
 
-// Shown to free users — history clipped to the last 30 days; tapping opens the paywall.
+// Shown to free users — history clipped to the last 14 days; tapping opens the paywall.
 @Composable
 private fun FreeHistoryBanner(onUpgrade: () -> Unit, modifier: Modifier = Modifier) {
     Row(
@@ -135,8 +135,8 @@ private fun FreeHistoryBanner(onUpgrade: () -> Unit, modifier: Modifier = Modifi
         Icon(Icons.Filled.Timer, contentDescription = null, tint = TrackstarAccent, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text("Showing your last 30 days", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-            Text("Unlock your full history with Athlete Gold", fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f))
+            Text("Showing your last 14 days", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+            Text("Unlock your full history with Bronze", fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f))
         }
         Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(20.dp))
     }
@@ -152,7 +152,7 @@ private fun CalendarPane(
 ) {
     var displayedMonth by remember { mutableStateOf(LocalDate.now().withDayOfMonth(1)) }
     var selectedDate by remember { mutableStateOf<LocalDate?>(LocalDate.now()) }
-    // Free users can't page back past the 30-day window (minMonth).
+    // Free users can't page back past the 14-day window (minMonth).
     val canGoBack = minMonth == null || displayedMonth.isAfter(minMonth)
 
     Column(
