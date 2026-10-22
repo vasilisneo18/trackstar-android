@@ -43,7 +43,6 @@ fun tabWatermarkBottomPadding(): Dp =
 
 // Subscription-tier accent, matching iOS's ProfileNavButton / AppPlan.accentColor. Free = white.
 fun tierAccentColor(plan: AppPlan): Color = when (plan) {
-    AppPlan.COACH -> Color(0xFFFFC61A) // coach implies gold — same gold accent
     AppPlan.GOLD -> Color(0xFFFFC61A)
     AppPlan.SILVER -> Color(0xFFB8BFD1)
     AppPlan.BRONZE -> Color(0xFFCC8033)
