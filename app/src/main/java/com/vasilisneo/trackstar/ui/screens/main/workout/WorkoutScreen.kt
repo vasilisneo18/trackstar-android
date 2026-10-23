@@ -54,6 +54,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,6 +69,11 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.RemoveCircleOutline
+import androidx.compose.material.icons.filled.DirectionsWalk
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
 import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -100,6 +108,7 @@ import java.time.format.TextStyle
 import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun WorkoutScreen(
     onProfileClick: () -> Unit = {},
@@ -135,6 +144,12 @@ fun WorkoutScreen(
     val stepsPinned = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("dashPinSteps", false)
     val bookPinned = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("dashPinBook", false)
     val dietPinned = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("dashPinDiet", false)
+    // Per-widget visibility — users add/remove dashboard widgets via the gallery + long-press menu.
+    val showStepsWidget = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("widgetShowSteps", true)
+    val showDietWidget = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("widgetShowDiet", true)
+    val showBookWidget = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("widgetShowBook", true)
+    var showWidgetGallery by remember { mutableStateOf(false) }
+    val hasHiddenWidgets = !showStepsWidget.value || !showDietWidget.value || (showBookSession && !showBookWidget.value)
 
     val displaySessions = viewModel.displaySessions
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -250,13 +265,23 @@ fun WorkoutScreen(
                         onCopyLastWeek = { viewModel.copyLastWeekPlan() },
                         modifier = Modifier.padding(horizontal = 16.dp),
                     )
-                    com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(
-                        date = selectedDate, modifier = Modifier.padding(horizontal = 16.dp)
-                    )
-                    if (showBookSession) {
+                    if (showStepsWidget.value) {
+                        com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(
+                            date = selectedDate, modifier = Modifier.padding(horizontal = 16.dp)
+                        )
+                    }
+                    if (showBookSession && showBookWidget.value) {
                         Box(modifier = Modifier.padding(horizontal = 16.dp).clickable(onClick = onBookSession)) {
                             BookSessionDashboardCard(viewModel.nextAvailableSlots)
                         }
+                    }
+                    if (showDietWidget.value) {
+                        Box(modifier = Modifier.padding(horizontal = 16.dp).clickable(onClick = onOpenDiet)) {
+                            DietDashboardCard()
+                        }
+                    }
+                    if (hasHiddenWidgets) {
+                        AddWidgetTile(onClick = { showWidgetGallery = true }, modifier = Modifier.padding(horizontal = 16.dp))
                     }
                 }
             }
@@ -275,18 +300,18 @@ fun WorkoutScreen(
             ) {
                     item { com.vasilisneo.trackstar.ui.components.OfflineBanner() }
                     // Pinned cards sit above the workout (long-press to pin/unpin).
-                    if (stepsPinned.value) item {
-                        PinnableCard(pinned = true, onTogglePin = { stepsPinned.value = false }) {
+                    if (stepsPinned.value && showStepsWidget.value) item {
+                        PinnableCard(pinned = true, onTogglePin = { stepsPinned.value = false }, onRemove = { showStepsWidget.value = false }) {
                             com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(date = selectedDate)
                         }
                     }
-                    if (bookPinned.value && showBookSession && !isPast) item {
-                        PinnableCard(pinned = true, onTogglePin = { bookPinned.value = false }, onClick = onBookSession) {
+                    if (bookPinned.value && showBookSession && !isPast && showBookWidget.value) item {
+                        PinnableCard(pinned = true, onTogglePin = { bookPinned.value = false }, onClick = onBookSession, onRemove = { showBookWidget.value = false }) {
                             BookSessionDashboardCard(viewModel.nextAvailableSlots)
                         }
                     }
-                    if (dietPinned.value) item {
-                        PinnableCard(pinned = true, onTogglePin = { dietPinned.value = false }, onClick = onOpenDiet) {
+                    if (dietPinned.value && showDietWidget.value) item {
+                        PinnableCard(pinned = true, onTogglePin = { dietPinned.value = false }, onClick = onOpenDiet, onRemove = { showDietWidget.value = false }) {
                             DietDashboardCard()
                         }
                     }
@@ -354,20 +379,23 @@ fun WorkoutScreen(
                     }
                     // Apple Health steps for the selected day, below the workout (matches iOS).
                     // Unpinned cards sit below the workout (default).
-                    if (!stepsPinned.value) item {
-                        PinnableCard(pinned = false, onTogglePin = { stepsPinned.value = true }) {
+                    if (!stepsPinned.value && showStepsWidget.value) item {
+                        PinnableCard(pinned = false, onTogglePin = { stepsPinned.value = true }, onRemove = { showStepsWidget.value = false }) {
                             com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(date = selectedDate)
                         }
                     }
-                    if (showBookSession && !isPast && !bookPinned.value) item {
-                        PinnableCard(pinned = false, onTogglePin = { bookPinned.value = true }, onClick = onBookSession) {
+                    if (showBookSession && !isPast && !bookPinned.value && showBookWidget.value) item {
+                        PinnableCard(pinned = false, onTogglePin = { bookPinned.value = true }, onClick = onBookSession, onRemove = { showBookWidget.value = false }) {
                             BookSessionDashboardCard(viewModel.nextAvailableSlots)
                         }
                     }
-                    if (!dietPinned.value) item {
-                        PinnableCard(pinned = false, onTogglePin = { dietPinned.value = true }, onClick = onOpenDiet) {
+                    if (!dietPinned.value && showDietWidget.value) item {
+                        PinnableCard(pinned = false, onTogglePin = { dietPinned.value = true }, onClick = onOpenDiet, onRemove = { showDietWidget.value = false }) {
                             DietDashboardCard()
                         }
+                    }
+                    if (hasHiddenWidgets) item {
+                        AddWidgetTile(onClick = { showWidgetGallery = true })
                     }
                 }
             }
@@ -495,6 +523,46 @@ fun WorkoutScreen(
             onCommentsUpdated = { viewModel.setCommentsFor(exId, it) },
             onDismiss = { commentingExercise = null },
         )
+    }
+
+    if (showWidgetGallery) {
+        val hidden = buildList {
+            if (!showStepsWidget.value) add(AddableWidget("Steps", "Daily steps + weekly total", Icons.Filled.DirectionsWalk) { showStepsWidget.value = true })
+            if (!showDietWidget.value) add(AddableWidget("Diet", "Today's calories & meals", Icons.Filled.Restaurant) { showDietWidget.value = true })
+            if (showBookSession && !showBookWidget.value) add(AddableWidget("Book a session", "Reserve a slot with your coach", Icons.Filled.EventAvailable) { showBookWidget.value = true })
+        }
+        androidx.compose.material3.ModalBottomSheet(
+            onDismissRequest = { showWidgetGallery = false },
+            containerColor = Color(0xFF14141C),
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text("Add widget", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                hidden.forEach { w ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(CardFill)
+                            .clickable { w.onAdd() }.padding(16.dp)
+                    ) {
+                        Box(Modifier.size(46.dp).background(Color.White.copy(alpha = 0.08f), CircleShape), contentAlignment = Alignment.Center) {
+                            Icon(w.icon, null, tint = TrackstarAccent, modifier = Modifier.size(18.dp))
+                        }
+                        Column(Modifier.weight(1f)) {
+                            Text(w.title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                            Text(w.subtitle, fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f))
+                        }
+                        Icon(Icons.Filled.AddCircle, null, tint = TrackstarAccent, modifier = Modifier.size(22.dp))
+                    }
+                }
+                if (hidden.isEmpty()) {
+                    Text("All widgets added.", fontSize = 14.sp, color = Color.White.copy(alpha = 0.5f))
+                }
+            }
+        }
+        LaunchedEffect(hidden.isEmpty()) { if (hidden.isEmpty()) showWidgetGallery = false }
     }
 }
 
@@ -879,6 +947,7 @@ private fun PinnableCard(
     pinned: Boolean,
     onTogglePin: () -> Unit,
     onClick: () -> Unit = {},
+    onRemove: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     var menuOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
@@ -895,9 +964,52 @@ private fun PinnableCard(
                 leadingIcon = { Icon(Icons.Filled.PushPin, null) },
                 onClick = { onTogglePin(); menuOpen = false },
             )
+            if (onRemove != null) {
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text("Remove from Home") },
+                    leadingIcon = { Icon(Icons.Filled.RemoveCircleOutline, null) },
+                    onClick = { onRemove(); menuOpen = false },
+                )
+            }
         }
     }
 }
+
+// Dashed "Add widget" tile at the bottom of the dashboard — opens the widget gallery.
+@Composable
+private fun AddWidgetTile(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val stroke = androidx.compose.ui.graphics.drawscope.Stroke(
+        width = with(androidx.compose.ui.platform.LocalDensity.current) { 1.5.dp.toPx() },
+        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(18f, 14f), 0f)
+    )
+    val dashColor = Color.White.copy(alpha = 0.18f)
+    Row(
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .androidx_combinedClickable(onClick = onClick, onLongClick = {})
+            .drawBehind {
+                drawRoundRect(
+                    color = dashColor,
+                    cornerRadius = CornerRadius(20.dp.toPx()),
+                    style = stroke
+                )
+            }
+    ) {
+        Icon(Icons.Filled.AddCircle, null, tint = Color.White.copy(alpha = 0.45f), modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("Add widget", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.45f))
+    }
+}
+
+private data class AddableWidget(
+    val title: String,
+    val subtitle: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector,
+    val onAdd: () -> Unit,
+)
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 private fun Modifier.androidx_combinedClickable(onClick: () -> Unit, onLongClick: () -> Unit): Modifier =
