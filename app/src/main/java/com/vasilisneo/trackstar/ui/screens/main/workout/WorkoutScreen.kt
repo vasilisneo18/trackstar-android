@@ -70,10 +70,9 @@ import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.RemoveCircleOutline
-import androidx.compose.material.icons.filled.DirectionsWalk
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.CornerRadius
 import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
@@ -280,9 +279,6 @@ fun WorkoutScreen(
                             DietDashboardCard()
                         }
                     }
-                    if (hasHiddenWidgets) {
-                        AddWidgetTile(onClick = { showWidgetGallery = true }, modifier = Modifier.padding(horizontal = 16.dp))
-                    }
                 }
             }
         } else {
@@ -394,9 +390,6 @@ fun WorkoutScreen(
                             DietDashboardCard()
                         }
                     }
-                    if (hasHiddenWidgets) item {
-                        AddWidgetTile(onClick = { showWidgetGallery = true })
-                    }
                 }
             }
 
@@ -485,6 +478,28 @@ fun WorkoutScreen(
                 Text("Today", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
             }
         }
+
+        // "Add widget" pill — floats above the Today pill (stacks when both are visible).
+        androidx.compose.animation.AnimatedVisibility(
+            visible = hasHiddenWidgets,
+            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically { it / 2 },
+            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically { it / 2 },
+            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
+                .padding(bottom = (if (activeSession != null) 150.dp else 92.dp) + (if (selectedDate != today) 48.dp else 0.dp)),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.15f))
+                    .clickable { showWidgetGallery = true }
+                    .padding(horizontal = 18.dp, vertical = 10.dp),
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Text("Add widget", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+            }
+        }
     }
 
     missedSession?.let { planned ->
@@ -527,38 +542,44 @@ fun WorkoutScreen(
 
     if (showWidgetGallery) {
         val hidden = buildList {
-            if (!showStepsWidget.value) add(AddableWidget("Steps", "Daily steps + weekly total", Icons.Filled.DirectionsWalk) { showStepsWidget.value = true })
-            if (!showDietWidget.value) add(AddableWidget("Diet", "Today's calories & meals", Icons.Filled.Restaurant) { showDietWidget.value = true })
-            if (showBookSession && !showBookWidget.value) add(AddableWidget("Book a session", "Reserve a slot with your coach", Icons.Filled.EventAvailable) { showBookWidget.value = true })
+            if (!showStepsWidget.value) add(AddableWidget("steps") { showStepsWidget.value = true })
+            if (!showDietWidget.value) add(AddableWidget("diet") { showDietWidget.value = true })
+            if (showBookSession && !showBookWidget.value) add(AddableWidget("book") { showBookWidget.value = true })
         }
         androidx.compose.material3.ModalBottomSheet(
             onDismissRequest = { showWidgetGallery = false },
             containerColor = Color(0xFF14141C),
+            dragHandle = null,
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 28.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text("Add widget", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                // X close button + large title.
+                Box(
+                    modifier = Modifier.size(48.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f))
+                        .clickable { showWidgetGallery = false },
+                    contentAlignment = Alignment.Center
+                ) { Icon(Icons.Filled.Close, null, tint = Color.White, modifier = Modifier.size(20.dp)) }
+                Text("Add widget", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White)
+
+                // Each addable widget renders as its ACTUAL dashboard card, so the sheet matches Home.
                 hidden.forEach { w ->
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(CardFill)
-                            .clickable { w.onAdd() }.padding(16.dp)
-                    ) {
-                        Box(Modifier.size(46.dp).background(Color.White.copy(alpha = 0.08f), CircleShape), contentAlignment = Alignment.Center) {
-                            Icon(w.icon, null, tint = TrackstarAccent, modifier = Modifier.size(18.dp))
+                    Box(modifier = Modifier.fillMaxWidth().clickable { w.onAdd() }) {
+                        when (w.id) {
+                            "steps" -> com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(date = selectedDate)
+                            "diet" -> DietDashboardCard()
+                            "book" -> BookSessionDashboardCard(viewModel.nextAvailableSlots)
                         }
-                        Column(Modifier.weight(1f)) {
-                            Text(w.title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                            Text(w.subtitle, fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f))
-                        }
-                        Icon(Icons.Filled.AddCircle, null, tint = TrackstarAccent, modifier = Modifier.size(22.dp))
+                        Icon(
+                            Icons.Filled.AddCircle, null, tint = TrackstarAccent,
+                            modifier = Modifier.align(Alignment.TopEnd).padding(10.dp).size(26.dp)
+                        )
                     }
                 }
                 if (hidden.isEmpty()) {
-                    Text("All widgets added.", fontSize = 14.sp, color = Color.White.copy(alpha = 0.5f))
+                    Text("All widgets added. Long-press a widget on Home to remove it.",
+                        fontSize = 14.sp, color = Color.White.copy(alpha = 0.5f))
                 }
             }
         }
@@ -975,41 +996,7 @@ private fun PinnableCard(
     }
 }
 
-// Dashed "Add widget" tile at the bottom of the dashboard — opens the widget gallery.
-@Composable
-private fun AddWidgetTile(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val stroke = androidx.compose.ui.graphics.drawscope.Stroke(
-        width = with(androidx.compose.ui.platform.LocalDensity.current) { 1.5.dp.toPx() },
-        pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(18f, 14f), 0f)
-    )
-    val dashColor = Color.White.copy(alpha = 0.18f)
-    Row(
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = modifier
-            .fillMaxWidth()
-            .height(56.dp)
-            .androidx_combinedClickable(onClick = onClick, onLongClick = {})
-            .drawBehind {
-                drawRoundRect(
-                    color = dashColor,
-                    cornerRadius = CornerRadius(20.dp.toPx()),
-                    style = stroke
-                )
-            }
-    ) {
-        Icon(Icons.Filled.AddCircle, null, tint = Color.White.copy(alpha = 0.45f), modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Text("Add widget", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.45f))
-    }
-}
-
-private data class AddableWidget(
-    val title: String,
-    val subtitle: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector,
-    val onAdd: () -> Unit,
-)
+private data class AddableWidget(val id: String, val onAdd: () -> Unit)
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 private fun Modifier.androidx_combinedClickable(onClick: () -> Unit, onLongClick: () -> Unit): Modifier =
