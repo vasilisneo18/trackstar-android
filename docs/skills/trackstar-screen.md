@@ -89,24 +89,75 @@ struct MyThingView: View {
 Real references to mirror: `UI/View/MainApp/Attendance/GymsView.swift`,
 `Profile/PersonalInfoView.swift`, `Coach/TemplatesView.swift`.
 
-### Sheet / modal recipe
+### Sheet / modal recipe (sheet with a ScrollView)
 
-A `.sheet` uses the *same* collapsing pattern — the title still scrolls up. The
-only differences: the nav bar's leading button is a **close X**, and you present
-with a detent. Store the sheet's own `@State` scroll offset (don't reuse the
-parent's).
+A `.sheet` uses the *same* collapsing pattern — the large title scrolls up and
+the inline title fades in. Use our `CollapsingNavBar`, **not** the native
+`.navigationTitle(...)` + `.navigationBarTitleDisplayMode(.large)` (its
+large↔inline transition looks springy and wrong inside sheets). Sheets differ
+from pushed screens in four ways — get all four right:
+
+1. **Top padding inside the bar:** a sheet has no status bar, so the bar hugs
+   the sheet edge. Pass `topPadding: 18` to `CollapsingNavBar` — never
+   `.padding(.top, 18)` outside it, or the space sits outside the blur and
+   scrolled content shows through a strip above the bar.
+2. **Measure collapse from the resting offset:** in a sheet
+   `contentInsets.top` isn't reliable, so `offset + insetTop` starts non-zero and
+   both titles show half-faded at rest. Record the first offset you see and
+   collapse relative to it; reset it `.onAppear`.
+3. **Center the inline title:** pass a 44×44 `Color.clear` as the trailing
+   content (balances the X). The no-trailing overload uses an expanding
+   `Color.clear` that pushes the title left.
+4. **Close button:** `leadingIcon: "xmark"`, and hide the system drag indicator.
 
 ```swift
+@State private var showThing = false
+@State private var sheetScrollOffset: CGFloat = 0
+@State private var sheetRestOffset: CGFloat?
+private var sheetCollapse: CGFloat {
+    guard let rest = sheetRestOffset else { return 0 }
+    return min(1, max(0, (sheetScrollOffset - rest) / 60))
+}
+
 .sheet(isPresented: $showThing) {
-    mySheet
+    thingSheet
         .presentationDetents([.large])
         .presentationDragIndicator(.hidden)   // we provide the X ourselves
 }
+
+private var thingSheet: some View {
+    ScrollView(showsIndicators: false) {
+        VStack(alignment: .leading, spacing: 0) {
+            CollapsingLargeTitle(title: "My Thing", collapseProgress: sheetCollapse)
+                .padding(.bottom, 14)
+            VStack(alignment: .leading, spacing: 14) { /* rows */ }
+                .padding(.horizontal, 16)
+        }
+        .padding(.bottom, 40)
+    }
+    .onScrollGeometryChange(for: CGFloat.self, of: { $0.contentOffset.y }) { _, offset in
+        if sheetRestOffset == nil { sheetRestOffset = offset }
+        sheetScrollOffset = offset
+    }
+    .safeAreaInset(edge: .top, spacing: 0) {
+        CollapsingNavBar(title: "My Thing", collapseProgress: sheetCollapse,
+                         leadingIcon: "xmark", onBack: { showThing = false },
+                         topPadding: 18) {
+            Color.clear.frame(width: 44, height: 44)   // centers the inline title
+        }
+    }
+    .appBackground()
+    .onAppear { sheetRestOffset = nil }
+}
 ```
 
-Inside `mySheet`, build it exactly like the screen recipe but pass
-`leadingIcon: "xmark", onBack: { showThing = false }` to `CollapsingNavBar`.
-`Add widget` in `MyWorkoutView.swift` (`widgetGallerySheet`) is a worked example.
+Don't "fix" a sheet title by disabling scroll (`scrollBounceBehavior`), forcing
+container heights, or hand-animating on scroll — the sheet must scroll even when
+its content is short. Worked example: `widgetGallerySheet` in `MyWorkoutView.swift`.
+
+Tappable cards in a sheet: if a preview card is wrapped with
+`.allowsHitTesting(false)` inside a `Button`, add
+`.overlay(Color.clear.contentShape(Rectangle()))` or the tap won't register.
 
 ### iOS values & building blocks
 
@@ -186,5 +237,6 @@ val collapse by remember {
 - [ ] 16pt side gutters on every row/card and the title.
 - [ ] Bottom padding clears the floating tab bar / action buttons (nothing hidden behind them).
 - [ ] Back button is a glass circle `chevron.left`; a sheet's close is `xmark`.
+- [ ] Sheets: `topPadding: 18` on the bar, collapse measured from the resting offset, inline title centered, both titles not visible at rest.
 - [ ] App background applied once on the outermost view; the app's own bars, not the system's.
 - [ ] Same titles, paddings, and behavior on iOS and Android when the screen exists on both.
