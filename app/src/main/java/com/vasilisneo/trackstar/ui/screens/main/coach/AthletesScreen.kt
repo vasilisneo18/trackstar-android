@@ -7,6 +7,8 @@ package com.vasilisneo.trackstar.ui.screens.main.coach
 // The + (add athlete) and templates buttons are wired to callbacks (Phase 2/4); tapping a card
 // opens the athlete detail (Phase 3).
 
+import com.vasilisneo.trackstar.ui.i18n.tr
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -59,7 +61,7 @@ import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -475,7 +477,7 @@ private fun CoachQuickInfoCard(next: SlotResponse?, finishedCount: Int, modifier
             )
             val who = next.attendees?.mapNotNull { it.name?.ifBlank { null } }?.firstOrNull()
             Text(
-                listOfNotNull(next.title?.ifBlank { null } ?: "Session", who?.let { "with $it" }).joinToString(" · "),
+                listOfNotNull(next.title?.ifBlank { null } ?: "Session", who?.let { trf("with %s", it) }).joinToString(" · "),
                 fontSize = 14.sp, color = Color.White.copy(alpha = 0.55f), textAlign = TextAlign.Center,
             )
         } else {
@@ -484,7 +486,7 @@ private fun CoachQuickInfoCard(next: SlotResponse?, finishedCount: Int, modifier
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp)) {
             Icon(Icons.Filled.CheckCircle, null, tint = Color(0xFF34C759), modifier = Modifier.size(15.dp))
             Text(
-                "$finishedCount finished session${if (finishedCount == 1) "" else "s"} this week",
+                if (finishedCount == 1) tr("1 finished session this week") else trf("%s finished sessions this week", finishedCount),
                 fontSize = 14.sp, color = Color.White.copy(alpha = 0.7f),
             )
         }
@@ -505,9 +507,9 @@ private fun CoachTeamStatsBlock(athletesToday: Int, planned: Int, done: Int, mod
             fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.White, textAlign = TextAlign.Center,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Planned $planned", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.6f))
+            Text(trf("Planned %s", planned), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.6f))
             Text("|", fontSize = 14.sp, color = Color.White.copy(alpha = 0.25f))
-            Text("Done $done", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.6f))
+            Text(trf("Done %s", done), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.6f))
         }
     }
 }
@@ -583,7 +585,7 @@ private fun AthletePagerPage(athlete: ProfileResponse, summary: AthleteWeeklySum
         }
         Spacer(Modifier.height(6.dp))
         Text(
-            "${summary?.plannedCount ?: 0} planned · ${summary?.completedCount ?: 0} done",
+            trf("%1\$s planned · %2\$s done", summary?.plannedCount ?: 0, summary?.completedCount ?: 0),
             fontSize = 14.sp, color = Color.White.copy(alpha = 0.6f),
         )
     }

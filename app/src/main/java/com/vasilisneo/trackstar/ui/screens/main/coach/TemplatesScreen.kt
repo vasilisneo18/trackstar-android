@@ -4,6 +4,8 @@ package com.vasilisneo.trackstar.ui.screens.main.coach
 // Create a named template, view its active days + exercise count, swipe to delete, tap to edit
 // (editor arrives in a later phase). API-first via TemplatesViewModel.
 
+import com.vasilisneo.trackstar.ui.i18n.tr
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
@@ -37,7 +39,7 @@ import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -74,7 +76,7 @@ fun TemplatesScreen(onClose: () -> Unit, onOpenTemplate: (String, String) -> Uni
     fun requestCreate() {
         if (viewModel.canCreate) showCreate = true
         else android.widget.Toast.makeText(
-            context, "You've reached the ${viewModel.templateLimit}-template limit.", android.widget.Toast.LENGTH_LONG
+            context, trf("You've reached the %s-template limit.", viewModel.templateLimit), android.widget.Toast.LENGTH_LONG
         ).show()
     }
 
@@ -201,7 +203,7 @@ private fun TemplateCard(template: TemplateSummary, onClick: () -> Unit) {
             } else {
                 val days = template.activeDays.joinToString(" · ") { it.take(1) }
                 val count = template.exerciseCount
-                Text("$days · $count exercise${if (count == 1) "" else "s"}", fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f), maxLines = 1)
+                Text("$days · " + (if (count == 1) tr("1 exercise") else trf("%s exercises", count)), fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f), maxLines = 1)
             }
         }
     }

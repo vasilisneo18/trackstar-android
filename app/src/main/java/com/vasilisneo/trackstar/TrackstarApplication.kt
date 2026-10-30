@@ -30,6 +30,7 @@ class TrackstarApplication : Application() {
 
         // Bring up the local cache (Room) and connectivity tracking before any screen/repository
         // runs, so cache-then-network reads and the offline banner work from the first frame.
+        com.vasilisneo.trackstar.ui.i18n.I18n.init(this)
         LocalStore.init(this)
         ConnectivityMonitor.start(this)
         // Replays any offline writes queued in the outbox once connectivity is available.

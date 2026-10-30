@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChatBubble
 import androidx.compose.material.icons.filled.Description
@@ -38,7 +39,7 @@ import androidx.compose.material.icons.filled.UnfoldMore
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.NotificationsOff
@@ -216,6 +217,44 @@ fun AppSettingsScreen(onBackClick: () -> Unit = {}) {
                 }
                 SettingsRowDivider()
                 SettingsToggleRow(Icons.Filled.VolumeUp, "Rest Timer Sound", restTimerSound) { restTimerSound = it }
+                SettingsRowDivider()
+                LanguageRow()
+            }
+        }
+    }
+}
+
+// In-app language override; "System" follows the phone. Switching recomposes the UI instantly.
+@Composable
+private fun LanguageRow() {
+    var open by remember { mutableStateOf(false) }
+    val current = com.vasilisneo.trackstar.ui.i18n.I18n.selected
+    Box {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.fillMaxWidth().clickable { open = true }.padding(horizontal = 16.dp, vertical = 18.dp)
+        ) {
+            Box(modifier = Modifier.size(32.dp), contentAlignment = Alignment.CenterStart) {
+                Icon(Icons.Filled.Language, contentDescription = null, tint = Color.White.copy(alpha = 0.7f))
+            }
+            Text("Language", fontSize = 16.sp, color = Color.White, modifier = Modifier.weight(1f))
+            Text(current.displayName, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.35f))
+            Icon(Icons.Filled.UnfoldMore, contentDescription = null, tint = Color.White.copy(alpha = 0.25f), modifier = Modifier.size(16.dp))
+        }
+        androidx.compose.material3.DropdownMenu(
+            expanded = open,
+            onDismissRequest = { open = false },
+            modifier = Modifier.background(Color(0xFF2C2C2E)),
+        ) {
+            com.vasilisneo.trackstar.ui.i18n.AppLanguage.entries.forEach { lang ->
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text(lang.displayName, color = Color.White) },
+                    trailingIcon = if (lang == current) {
+                        { Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White) }
+                    } else null,
+                    onClick = { open = false; com.vasilisneo.trackstar.ui.i18n.I18n.select(lang) },
+                )
             }
         }
     }

@@ -5,6 +5,7 @@ package com.vasilisneo.trackstar.ui.screens.main.workout
 // count), a labeled weight/duration/distance row, and a green "Log Set" pill + "Cancel" text
 // button. Native Android bottom sheet container (ModalBottomSheet), not a literal SwiftUI sheet.
 
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,7 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -75,7 +76,7 @@ fun LogSetSheet(
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(bottom = 28.dp)) {
                 Text("Set", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 Spacer(modifier = Modifier.padding(top = 4.dp))
-                Text("Planned: ${set.repsOrDurationText()}", fontSize = 13.sp, color = Color.White.copy(alpha = 0.4f))
+                Text(trf("Planned: %s", set.repsOrDurationText()), fontSize = 13.sp, color = Color.White.copy(alpha = 0.4f))
             }
 
             Column(horizontalAlignment = Alignment.Start, modifier = Modifier.fillMaxWidth()) {

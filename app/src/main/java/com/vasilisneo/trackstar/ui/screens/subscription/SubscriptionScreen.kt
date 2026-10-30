@@ -7,6 +7,7 @@ package com.vasilisneo.trackstar.ui.screens.subscription
 // configured), "Start Free Trial" runs a real purchase, and Restore Purchases / current-plan states
 // work. The hardcoded EUR values below are the fallbacks shown before live pricing loads.
 
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -42,7 +43,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.CircularProgressIndicator
@@ -266,7 +267,7 @@ fun SubscriptionScreen(
                     )
                     // Higher tier (or you're on Free): an upgrade.
                     else -> PillButton(
-                        text = "Join ${selectedTier.name}",
+                        text = trf("Join %s", selectedTier.name),
                         foreground = Color.Black,
                         background = Color.White,
                         onClick = {
@@ -411,7 +412,7 @@ private fun BillingSheet(
         Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             BillingRow(
                 title = "Annual",
-                subtitle = "$annual/year  ·  $annualMonthly/month",
+                subtitle = trf("%s/year  ·  %s/month", annual, annualMonthly),
                 badge = savings,
                 selected = isAnnual,
                 onClick = { isAnnual = true }
@@ -426,7 +427,7 @@ private fun BillingSheet(
 
             Spacer(modifier = Modifier.height(12.dp))
             PillButton(
-                text = if (trialDays > 0) "Start Free Trial · $priceLabel" else "Subscribe · $priceLabel",
+                text = if (trialDays > 0) trf("Start Free Trial · %s", priceLabel) else trf("Subscribe · %s", priceLabel),
                 foreground = Color.Black,
                 background = Color.White,
                 enabled = !isPurchasing,
@@ -435,7 +436,7 @@ private fun BillingSheet(
             )
             if (trialDays > 0) {
                 Text(
-                    "$trialDays-day free trial, then $priceLabel",
+                    trf("%1\$s-day free trial, then %2\$s", trialDays, priceLabel),
                     fontSize = 11.sp, color = Color.White.copy(alpha = 0.3f), textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
                 )

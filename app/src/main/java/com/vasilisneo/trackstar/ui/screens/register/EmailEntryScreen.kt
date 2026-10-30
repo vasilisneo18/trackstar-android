@@ -44,7 +44,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import com.vasilisneo.trackstar.ui.components.AuthCapsuleButton
 import com.vasilisneo.trackstar.ui.components.AuthErrorText
 import com.vasilisneo.trackstar.ui.components.AuthScreenScaffold

@@ -1,9 +1,9 @@
 package com.vasilisneo.trackstar.ui.screens.main.diet
 
-// Add/edit a single meal — ports iOS's AddMealSheet. A meal type picker (hidden when the type is
-// locked, e.g. editing an existing meal), a meal name, an expandable food list with an inline
-// add-food form (name/amount + kcal/P/C/F), and notes. Locked + slide-down-animated like the
-// exercise/superset sheets (iOS .interactiveDismissDisabled + .large detent).
+// Add/edit a single meal — mirrors iOS's AddMealSheet. One simple form with everything visible:
+// meal type, name, calories and protein/carbs/fat. Meals from the AI planner keep their food list
+// unless the numbers are changed, in which case they collapse to a single entry. Locked +
+// slide-down-animated like the exercise/superset sheets (iOS .interactiveDismissDisabled).
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -36,7 +36,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -62,6 +62,11 @@ import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
 import com.vasilisneo.trackstar.ui.theme.trackstarBackground
 import kotlinx.coroutines.launch
 import java.util.UUID
+import java.time.LocalTime
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.imePadding
 
 private val FieldFill = Color.White.copy(alpha = 0.08f)
 
@@ -69,13 +74,14 @@ private val FieldFill = Color.White.copy(alpha = 0.08f)
 @Composable
 fun AddMealSheet(
     existing: DietMeal?,
-    lockedType: MealType?,
+    // Initial type only — the picker is always shown so a meal can be moved between types.
+    lockedType: MealType? = null,
     onSave: (DietMeal) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     // Locked + animated like the exercise/superset sheets (iOS .interactiveDismissDisabled): reject
-    // a user swipe/scrim, but allow our own hide so X / checkmark slide the sheet down.
+    // a user swipe/scrim, but allow our own hide so X / Save slide the sheet down.
     var allowHide by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState(
         skipPartiallyExpanded = true,
@@ -86,13 +92,27 @@ fun AddMealSheet(
         scope.launch { sheetState.hide(); after() }
     }
 
-    var type by remember { mutableStateOf(lockedType ?: existing?.let { MealType.from(it.type) } ?: MealType.BREAKFAST) }
+    val hasFoods = !existing?.foods.isNullOrEmpty()
+    var type by remember { mutableStateOf(lockedType ?: existing?.let { MealType.from(it.type) } ?: suggestedType()) }
     var name by remember { mutableStateOf(existing?.name ?: "") }
-    var notes by remember { mutableStateOf(existing?.notes ?: "") }
-    val foods = remember { mutableStateListOf<FoodItem>().apply { existing?.foods?.let { addAll(it) } } }
-    var showFoodForm by remember { mutableStateOf(false) }
-
+    var kcal by remember { mutableStateOf(if (hasFoods) "${existing!!.totalCalories}" else "") }
+    var protein by remember { mutableStateOf(if (hasFoods) fmt(existing!!.totalProtein) else "") }
+    var carbs by remember { mutableStateOf(if (hasFoods) fmt(existing!!.totalCarbs) else "") }
+    var fat by remember { mutableStateOf(if (hasFoods) fmt(existing!!.totalFat) else "") }
     val isValid = name.isNotBlank()
+    val title = if (existing == null) "Add meal" else "Edit meal"
+
+    fun save() {
+        val k = kcal.toIntOrNull() ?: 0
+        val p = num(protein); val c = num(carbs); val f = num(fat)
+        val base = existing ?: DietMeal(id = UUID.randomUUID().toString(), type = type.label)
+        val unchanged = existing != null && hasFoods && k == existing.totalCalories &&
+            fmt(p) == fmt(existing.totalProtein) && fmt(c) == fmt(existing.totalCarbs) && fmt(f) == fmt(existing.totalFat)
+        val foods = if (unchanged) base.foods
+            else listOf(FoodItem(id = UUID.randomUUID().toString(), name = name.trim(), calories = k, protein = p, carbs = c, fat = f))
+        val meal = base.copy(type = type.label, name = name.trim(), foods = foods)
+        close { onSave(meal) }
+    }
 
     ModalBottomSheet(
         onDismissRequest = {},
@@ -107,188 +127,134 @@ fun AddMealSheet(
               .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
               .trackstarBackground()
       ) {
-        // Header: X discards, checkmark commits (dimmed until a name is entered).
+        // Header: X discards; title centered (44dp spacer balances the X).
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 8.dp)
         ) {
-            HeaderCircle(icon = Icons.Filled.Close, contentDescription = "Discard", onClick = { close(onDismiss) })
+            HeaderCircle(icon = Icons.Filled.Close, contentDescription = "Close", onClick = { close(onDismiss) })
             Spacer(modifier = Modifier.weight(1f))
-            Text(if (existing == null) "Add Meal" else "Edit Meal", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+            Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
             Spacer(modifier = Modifier.weight(1f))
-            HeaderCircle(
-                icon = Icons.Filled.Check, contentDescription = "Save", enabled = isValid, tint = TrackstarAccent,
-                onClick = {
-                    val meal = (existing ?: DietMeal(id = UUID.randomUUID().toString(), type = type.label)).copy(
-                        type = type.label, name = name.trim(), foods = foods.toList(), notes = notes.trim(),
-                    )
-                    close { onSave(meal) }
-                },
-            )
+            Spacer(modifier = Modifier.size(44.dp))
         }
 
-        LazyColumn(
-            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-            modifier = Modifier.fillMaxWidth().weight(1f)
+        Column(
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            // Meal type picker — hidden when the type is locked (editing an existing meal).
-            if (lockedType == null) {
-                item {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        MealType.entries.forEach { t ->
-                            val selected = t == type
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
-                                modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
-                                    .background(if (selected) t.color.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.06f))
-                                    .then(if (selected) Modifier.border(1.dp, t.color.copy(alpha = 0.5f), RoundedCornerShape(14.dp)) else Modifier)
-                                    .clickable { type = t }.padding(vertical = 10.dp)
-                            ) {
-                                Icon(t.icon, contentDescription = null, tint = if (selected) t.color else Color.White.copy(alpha = 0.35f), modifier = Modifier.size(16.dp))
-                                Text(t.label, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = if (selected) Color.White else Color.White.copy(alpha = 0.35f))
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Meal name.
-            item {
-                FieldLabel("Meal Name")
-                Spacer(modifier = Modifier.height(6.dp))
-                InputField(value = name, onValueChange = { name = it }, placeholder = "e.g. Chicken & Rice", fontSize = 15.sp)
-            }
-
-            // Foods.
-            item {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    FieldLabel("Foods", modifier = Modifier.weight(1f))
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier.size(24.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)).clickable { showFoodForm = !showFoodForm }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                MealType.entries.forEach { t ->
+                    val selected = t == type
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
+                            .background(if (selected) t.color.copy(alpha = 0.2f) else Color.White.copy(alpha = 0.06f))
+                            .then(if (selected) Modifier.border(1.dp, t.color.copy(alpha = 0.5f), RoundedCornerShape(14.dp)) else Modifier)
+                            .clickable { type = t }.padding(vertical = 12.dp)
                     ) {
-                        Icon(if (showFoodForm) Icons.Filled.Remove else Icons.Filled.Add, contentDescription = "Toggle add food", tint = Color.White, modifier = Modifier.size(13.dp))
-                    }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    foods.forEach { food ->
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.06f)).padding(horizontal = 12.dp, vertical = 8.dp)) {
-                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Text(food.name, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = Color.White)
-                                if (food.amount.isNotBlank()) Text(food.amount, fontSize = 11.sp, color = Color.White.copy(alpha = 0.45f))
-                            }
-                            Text("${food.calories} kcal", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.6f))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.size(20.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.08f)).clickable { foods.remove(food) }
-                            ) { Icon(Icons.Filled.Close, contentDescription = "Remove food", tint = Color.White.copy(alpha = 0.4f), modifier = Modifier.size(10.dp)) }
-                        }
-                    }
-                    AnimatedVisibility(visible = showFoodForm) {
-                        AddFoodForm(onAdd = { foods.add(it) })
+                        Icon(t.icon, contentDescription = null, tint = if (selected) t.color else Color.White.copy(alpha = 0.35f), modifier = Modifier.size(16.dp))
+                        Text(t.label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = if (selected) Color.White else Color.White.copy(alpha = 0.4f))
                     }
                 }
             }
 
-            // Notes.
-            item {
-                FieldLabel("Notes")
-                Spacer(modifier = Modifier.height(6.dp))
-                InputField(value = notes, onValueChange = { notes = it }, placeholder = "Optional notes...", fontSize = 14.sp, singleLine = false)
-                Spacer(modifier = Modifier.height(28.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                FieldLabel("Meal name")
+                InputField(value = name, onValueChange = { name = it }, placeholder = "e.g. Chicken & rice")
             }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                FieldLabel("Calories")
+                InputField(value = kcal, onValueChange = { kcal = it.filter(Char::isDigit) }, placeholder = "0", suffix = "kcal", keyboard = KeyboardType.Number)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MacroField("Protein", protein, { protein = it }, Color(0xFF0A84FF), Modifier.weight(1f))
+                MacroField("Carbs", carbs, { carbs = it }, Color(0xFF64D2FF), Modifier.weight(1f))
+                MacroField("Fat", fat, { fat = it }, Color(0xFFFF9500), Modifier.weight(1f))
+            }
+        }
+
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.navigationBarsPadding().imePadding().padding(horizontal = 16.dp, vertical = 8.dp)
+                .fillMaxWidth().clip(CircleShape)
+                .background(if (isValid) TrackstarAccent else Color.White.copy(alpha = 0.12f))
+                .clickable(enabled = isValid) { save() }
+                .padding(vertical = 16.dp)
+        ) {
+            Text(if (existing == null) "Add meal" else "Save", fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
+                color = Color.White.copy(alpha = if (isValid) 1f else 0.5f))
         }
       }
     }
 }
 
-@Composable
-private fun AddFoodForm(onAdd: (FoodItem) -> Unit) {
-    var name by remember { mutableStateOf("") }
-    var amount by remember { mutableStateOf("") }
-    var kcal by remember { mutableStateOf("") }
-    var protein by remember { mutableStateOf("") }
-    var carbs by remember { mutableStateOf("") }
-    var fat by remember { mutableStateOf("") }
+private fun num(s: String): Double = s.replace(',', '.').toDoubleOrNull() ?: 0.0
+private fun fmt(v: Double): String = if (v == Math.floor(v)) "${v.toInt()}" else String.format(java.util.Locale.US, "%.1f", v)
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.05f)).padding(12.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SmallField(value = name, onValueChange = { name = it }, placeholder = "Food name", modifier = Modifier.weight(1f))
-            SmallField(value = amount, onValueChange = { amount = it }, placeholder = "Amount", modifier = Modifier.width(90.dp))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SmallField(value = kcal, onValueChange = { kcal = it }, placeholder = "Kcal", numeric = true, center = true, modifier = Modifier.weight(1f))
-            SmallField(value = protein, onValueChange = { protein = it }, placeholder = "P (g)", numeric = true, center = true, modifier = Modifier.weight(1f))
-            SmallField(value = carbs, onValueChange = { carbs = it }, placeholder = "C (g)", numeric = true, center = true, modifier = Modifier.weight(1f))
-            SmallField(value = fat, onValueChange = { fat = it }, placeholder = "F (g)", numeric = true, center = true, modifier = Modifier.weight(1f))
-        }
-        val canAdd = name.isNotBlank()
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.12f))
-                .clickable(enabled = canAdd) {
-                    onAdd(FoodItem(
-                        id = UUID.randomUUID().toString(), name = name.trim(), amount = amount.trim(),
-                        calories = kcal.toIntOrNull() ?: 0, protein = protein.toDoubleOrNull() ?: 0.0,
-                        carbs = carbs.toDoubleOrNull() ?: 0.0, fat = fat.toDoubleOrNull() ?: 0.0,
-                    ))
-                    name = ""; amount = ""; kcal = ""; protein = ""; carbs = ""; fat = ""
-                }
-                .padding(vertical = 10.dp)
-        ) {
-            Text("Add Food", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = if (canAdd) 1f else 0.4f))
-        }
+// Breakfast before 11, lunch until 16, dinner after 18, snack otherwise (matches iOS).
+private fun suggestedType(): MealType {
+    val h = LocalTime.now().hour
+    return when {
+        h < 11 -> MealType.BREAKFAST
+        h < 16 -> MealType.LUNCH
+        h >= 18 -> MealType.DINNER
+        else -> MealType.SNACK
     }
 }
 
-// MARK: - Small shared field pieces
+// MARK: - Field pieces
 
 @Composable
 private fun FieldLabel(text: String, modifier: Modifier = Modifier) {
-    Text(text, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f), modifier = modifier)
+    Text(text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f), modifier = modifier)
 }
 
 @Composable
-private fun InputField(value: String, onValueChange: (String) -> Unit, placeholder: String, fontSize: androidx.compose.ui.unit.TextUnit, singleLine: Boolean = true) {
-    BasicTextField(
-        value = value, onValueChange = onValueChange, singleLine = singleLine,
-        textStyle = TextStyle(color = Color.White, fontSize = fontSize),
-        cursorBrush = SolidColor(Color.White),
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(FieldFill).padding(horizontal = 14.dp, vertical = 12.dp),
-        decorationBox = { inner ->
-            if (value.isEmpty()) Text(placeholder, color = Color.White.copy(alpha = 0.4f), fontSize = fontSize)
-            inner()
-        },
-    )
-}
-
-@Composable
-private fun SmallField(value: String, onValueChange: (String) -> Unit, placeholder: String, modifier: Modifier = Modifier, numeric: Boolean = false, center: Boolean = false) {
-    BasicTextField(
-        value = value, onValueChange = onValueChange, singleLine = true,
-        textStyle = TextStyle(color = Color.White, fontSize = if (numeric) 12.sp else 13.sp, textAlign = if (center) TextAlign.Center else TextAlign.Start),
-        cursorBrush = SolidColor(Color.White),
-        keyboardOptions = if (numeric) KeyboardOptions(keyboardType = KeyboardType.Decimal) else KeyboardOptions.Default,
-        modifier = modifier.clip(RoundedCornerShape(10.dp)).background(FieldFill).padding(horizontal = if (numeric) 6.dp else 10.dp, vertical = 9.dp),
-        decorationBox = { inner ->
-            Box(contentAlignment = if (center) Alignment.Center else Alignment.CenterStart) {
-                if (value.isEmpty()) Text(placeholder, color = Color.White.copy(alpha = 0.4f), fontSize = if (numeric) 12.sp else 13.sp, modifier = if (center) Modifier.fillMaxWidth() else Modifier, textAlign = if (center) TextAlign.Center else TextAlign.Start)
+private fun InputField(
+    value: String, onValueChange: (String) -> Unit, placeholder: String,
+    modifier: Modifier = Modifier, suffix: String? = null, keyboard: KeyboardType = KeyboardType.Text,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(FieldFill).padding(horizontal = 16.dp, vertical = 14.dp)
+    ) {
+        BasicTextField(
+            value = value, onValueChange = onValueChange, singleLine = true,
+            textStyle = TextStyle(color = Color.White, fontSize = 17.sp),
+            cursorBrush = SolidColor(Color.White),
+            keyboardOptions = KeyboardOptions(keyboardType = keyboard),
+            modifier = Modifier.weight(1f),
+            decorationBox = { inner ->
+                if (value.isEmpty()) Text(placeholder, color = Color.White.copy(alpha = 0.4f), fontSize = 17.sp)
                 inner()
-            }
-        },
-    )
+            },
+        )
+        if (suffix != null) Text(suffix, fontSize = 17.sp, color = Color.White.copy(alpha = 0.4f))
+    }
 }
 
 @Composable
-private fun HeaderCircle(icon: androidx.compose.ui.graphics.vector.ImageVector, contentDescription: String, enabled: Boolean = true, tint: Color? = null, onClick: () -> Unit) {
+private fun MacroField(label: String, value: String, onValueChange: (String) -> Unit, color: Color, modifier: Modifier = Modifier) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = modifier) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Box(Modifier.size(7.dp).clip(CircleShape).background(color))
+            FieldLabel(label)
+        }
+        InputField(
+            value = value, onValueChange = { v -> onValueChange(v.filter { it.isDigit() || it == '.' || it == ',' }) },
+            placeholder = "0", suffix = "g", keyboard = KeyboardType.Decimal,
+        )
+    }
+}
+
+@Composable
+private fun HeaderCircle(icon: androidx.compose.ui.graphics.vector.ImageVector, contentDescription: String, onClick: () -> Unit) {
     Box(
-        modifier = Modifier.size(44.dp).clip(CircleShape).background((tint ?: Color.White).copy(alpha = if (tint != null) 0.2f else 0.12f)).clickable(enabled = enabled, onClick = onClick),
+        modifier = Modifier.size(44.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)).clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Icon(icon, contentDescription = contentDescription, tint = (tint ?: Color.White).copy(alpha = if (enabled) 1f else 0.35f), modifier = Modifier.size(16.dp))
+        Icon(icon, contentDescription = contentDescription, tint = Color.White, modifier = Modifier.size(16.dp))
     }
 }

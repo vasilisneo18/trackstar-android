@@ -4,6 +4,7 @@ package com.vasilisneo.trackstar.ui.screens.login
 // "Forgot Password?" link. Two states: the email-entry form, then a confirmation message
 // after "sending" the reset link (simulated — see ForgotPasswordViewModel).
 
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -23,7 +24,7 @@ fun ForgotPasswordScreen(
     AuthScreenScaffold(
         title = if (viewModel.didSubmit) "Check your email" else "Forgot password?",
         subtitle = if (viewModel.didSubmit) {
-            "We've sent a reset link to ${viewModel.email}. Tap it to set a new password."
+            trf("We've sent a reset link to %s. Tap it to set a new password.", viewModel.email)
         } else {
             "Enter your email and we'll send you a reset link."
         },

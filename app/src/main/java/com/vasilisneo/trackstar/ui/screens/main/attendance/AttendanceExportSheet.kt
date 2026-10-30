@@ -1,5 +1,7 @@
 package com.vasilisneo.trackstar.ui.screens.main.attendance
 
+import com.vasilisneo.trackstar.ui.i18n.tr
+import com.vasilisneo.trackstar.ui.i18n.trf
 import android.app.DatePickerDialog
 import android.content.Context
 import androidx.compose.foundation.background
@@ -21,7 +23,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -102,7 +104,7 @@ fun AttendanceExportSheet(
             }
 
             Text(
-                "${filtered.size} check-in${if (filtered.size == 1) "" else "s"} in this period",
+                if (filtered.size == 1) tr("1 check-in in this period") else trf("%s check-ins in this period", filtered.size),
                 fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f)
             )
 

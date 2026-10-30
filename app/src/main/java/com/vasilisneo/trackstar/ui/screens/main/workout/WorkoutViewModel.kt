@@ -134,6 +134,29 @@ class WorkoutViewModel(
     var availableSlots by mutableStateOf<List<com.vasilisneo.trackstar.data.api.SlotResponse>>(emptyList())
         private set
 
+    // Coach: the sessions they run (their own slots).
+    var coachSlots by mutableStateOf<List<com.vasilisneo.trackstar.data.api.SlotResponse>>(emptyList())
+        private set
+
+    /** Coach: the next session they run on the selected day — the first not yet finished today, the
+     *  first on a future day, null on a past day or a day without sessions (mirrors iOS coachNextSlot). */
+    val coachNextSlot: com.vasilisneo.trackstar.data.api.SlotResponse?
+        get() {
+            val today = LocalDate.now()
+            if (selectedDate.isBefore(today)) return null
+            val day = coachSlots.filter { it.date == selectedDate.toString() }.sortedBy { it.startTime }
+            if (selectedDate != today) return day.firstOrNull()
+            val now = java.time.LocalTime.now().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+            return day.firstOrNull { it.endTime > now }
+        }
+
+    fun loadCoachSlots() {
+        viewModelScope.launch {
+            bookingRepository.cachedMySlots()?.let { if (coachSlots.isEmpty()) coachSlots = it }
+            (bookingRepository.mySlots() as? ApiResult.Success)?.let { coachSlots = it.data }
+        }
+    }
+
     /** The athlete's booked coaching sessions on the selected day. */
     val bookingsForCurrentDay: List<com.vasilisneo.trackstar.data.api.SlotResponse>
         get() {
@@ -152,12 +175,17 @@ class WorkoutViewModel(
                 .take(3)
         }
 
+    // False until the first network refresh finishes — booking cards shimmer over the cached slots.
+    var bookingsLoaded by mutableStateOf(false)
+        private set
+
     fun loadBookings() {
         viewModelScope.launch {
             bookingRepository.cachedMyBookings()?.let { if (bookings.isEmpty()) bookings = it }
             bookingRepository.cachedAvailableSlots()?.let { if (availableSlots.isEmpty()) availableSlots = it }
             (bookingRepository.myBookings() as? ApiResult.Success)?.let { bookings = it.data }
             (bookingRepository.availableSlots() as? ApiResult.Success)?.let { availableSlots = it.data }
+            bookingsLoaded = true
         }
     }
 

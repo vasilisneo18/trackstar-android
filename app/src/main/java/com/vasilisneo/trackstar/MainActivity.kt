@@ -190,6 +190,7 @@ class MainActivity : ComponentActivity() {
                                 onOpenAddAthlete = { navController.navigate("add_athlete") },
                                 onOpenTemplates = { navController.navigate("templates") },
                                 onOpenAvailability = { navController.navigate("coach_availability") },
+                                onOpenAvailabilityOn = { date -> navController.navigate("coach_availability?date=$date") },
                                 onOpenAllAthletes = { navController.navigate("all_athletes") },
                                 onOpenCheckIns = { navController.navigate("coach_checkins") },
                                 onOpenBookingSettings = { navController.navigate("settings_app_settings") },

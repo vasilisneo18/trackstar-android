@@ -14,11 +14,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import com.vasilisneo.trackstar.ui.components.loadingShimmer
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -68,6 +69,8 @@ fun DailyStepsCard(date: LocalDate, modifier: Modifier = Modifier) {
     var steps by remember { mutableStateOf(0) }
     var hourly by remember { mutableStateOf(List(24) { 0 }) }
     var weekTotal by remember { mutableStateOf(0) }
+    // Shimmer until the first Health Connect query returns.
+    var loaded by remember { mutableStateOf(false) }
     val weekStart = date.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
 
     val launcher = rememberLauncherForActivityResult(
@@ -83,6 +86,7 @@ fun DailyStepsCard(date: LocalDate, modifier: Modifier = Modifier) {
             steps = health.steps(date)
             hourly = health.hourlySteps(date)
             weekTotal = health.weeklySteps(weekStart).sum()
+            loaded = true
         }
     }
     // Re-query when the screen resumes (returning from another tab/app) so steps aren't stale.
@@ -105,6 +109,7 @@ fun DailyStepsCard(date: LocalDate, modifier: Modifier = Modifier) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(CardFill)
+            .loadingShimmer(!loaded, 22.dp)
             .padding(horizontal = 18.dp, vertical = 22.dp)
     ) {
         // Left column: today's steps on top, this week's total pinned to the bottom. Fixed to the

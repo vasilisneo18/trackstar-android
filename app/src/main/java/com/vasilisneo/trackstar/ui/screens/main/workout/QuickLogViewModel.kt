@@ -1,5 +1,6 @@
 package com.vasilisneo.trackstar.ui.screens.main.workout
 
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -195,7 +196,7 @@ private fun ExerciseSet.quickLogLabel(): String {
     return when {
         freq?.reps != null -> {
             val max = repsMax
-            if (max != null && max != freq.reps) "${minOf(freq.reps, max)}-${maxOf(freq.reps, max)} reps" else "${freq.reps} reps"
+            if (max != null && max != freq.reps) trf("%s reps", "${minOf(freq.reps, max)}-${maxOf(freq.reps, max)}") else trf("%s reps", freq.reps)
         }
         freq?.duration != null -> freq.duration
         freq?.distance != null -> freq.distance

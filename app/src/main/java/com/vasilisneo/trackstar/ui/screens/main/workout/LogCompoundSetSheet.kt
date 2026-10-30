@@ -5,6 +5,7 @@ package com.vasilisneo.trackstar.ui.screens.main.workout
 // Styled like LogSetSheet (dark solid background, big reps stepper) but with two independent
 // exercise blocks stacked in one sheet instead of one.
 
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,7 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -67,7 +68,7 @@ fun LogCompoundSetSheet(
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = SheetBackground) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
-            Text("Round $round", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(bottom = 20.dp))
+            Text(trf("Round %s", round), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(bottom = 20.dp))
 
             CompoundExerciseBlock(name = nameA, reps = repsA, onRepsChange = { repsA = it }, weight = weightA, onWeightChange = { weightA = it })
             Spacer(modifier = Modifier.padding(top = 14.dp))

@@ -1,5 +1,6 @@
 package com.vasilisneo.trackstar.ui.screens.main.coach
 
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
@@ -47,7 +48,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -142,7 +143,7 @@ fun CoachAvailabilityScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     if (daySlots.isEmpty()) {
-                        Text("No sessions on ${prettyDate(viewModel.selectedDate.toString())}.",
+                        Text(trf("No sessions on %s.", prettyDate(viewModel.selectedDate.toString())),
                             fontSize = 13.sp, color = Color.White.copy(alpha = 0.4f), modifier = Modifier.padding(top = 12.dp))
                     } else {
                         daySlots.take(2).forEach { slot ->
@@ -154,7 +155,7 @@ fun CoachAvailabilityScreen(
                             )
                         }
                         if (daySlots.size > 2) {
-                            ShowMoreButton("Show all ${daySlots.size} sessions") { showDaySheet = true }
+                            ShowMoreButton(trf("Show all %s sessions", daySlots.size)) { showDaySheet = true }
                         }
                     }
                 }
@@ -390,7 +391,7 @@ private fun EditSlotSheet(
             Modifier.fillMaxWidth().fillMaxHeight(0.75f).padding(horizontal = 20.dp).navigationBarsPadding().padding(bottom = 24.dp).imePadding(),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text("Edit session · ${prettyDate(slot.date)}", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text(trf("Edit session · %s", prettyDate(slot.date)), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
 
             com.vasilisneo.trackstar.ui.components.AuthTextField(value = title, onValueChange = { title = it }, placeholder = "Session title, e.g. PT session")
 
@@ -404,7 +405,7 @@ private fun EditSlotSheet(
                 StepperButton("+") { capacity++ }
             }
             Text(
-                if (minCapacity > 1) "$minCapacity already booked" else if (capacity == 1) "One-on-one session" else "Group session ($capacity spots)",
+                if (minCapacity > 1) trf("%s already booked", minCapacity) else if (capacity == 1) "One-on-one session" else trf("Group session (%s spots)", capacity),
                 fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f),
             )
 
@@ -446,7 +447,7 @@ private fun CoachSlotCard(
                 fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Color.White,
             )
             Text(
-                if (capacity == 1) (if (booked > 0) "Booked" else "Open") else "$booked/$capacity booked",
+                if (capacity == 1) (if (booked > 0) "Booked" else "Open") else trf("%1\$s/%2\$s booked", booked, capacity),
                 fontSize = 12.sp, color = TrackstarAccent, modifier = Modifier.padding(top = 4.dp),
             )
 
@@ -507,7 +508,7 @@ private fun CoachSlotCard(
 private fun attendeesSummary(names: List<String>): String {
     val first = names.first().trim().substringBefore(' ').ifBlank { names.first() }
     val rest = names.size - 1
-    return if (rest <= 0) first else "$first and $rest other${if (rest == 1) "" else "s"}"
+    return if (rest <= 0) first else if (rest == 1) trf("%s and 1 other", first) else trf("%1\$s and %2\$s others", first, rest)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -518,7 +519,7 @@ private fun AttendeesSheet(names: List<String>, onDismiss: () -> Unit) {
             Modifier.fillMaxWidth().padding(horizontal = 20.dp).navigationBarsPadding().padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Booked · ${names.size}", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text(trf("Booked · %s", names.size), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp),
@@ -572,7 +573,7 @@ private fun AddSlotSheet(
             Modifier.fillMaxWidth().fillMaxHeight(0.75f).padding(horizontal = 20.dp).navigationBarsPadding().padding(bottom = 24.dp).imePadding(),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text("New session · $dayLabel", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text(trf("New session · %s", dayLabel), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
 
             com.vasilisneo.trackstar.ui.components.AuthTextField(value = title, onValueChange = { title = it }, placeholder = "Session title, e.g. PT session")
 
@@ -585,7 +586,7 @@ private fun AddSlotSheet(
                 Text("$capacity", color = Color.White, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(36.dp), textAlign = TextAlign.Center)
                 StepperButton("+") { capacity++ }
             }
-            Text(if (capacity == 1) "One-on-one session" else "Group session ($capacity spots)",
+            Text(if (capacity == 1) "One-on-one session" else trf("Group session (%s spots)", capacity),
                 fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f))
 
             // Recurring: repeat this slot on the same weekday for N weeks.
@@ -609,7 +610,7 @@ private fun AddSlotSheet(
 
             Spacer(Modifier.weight(1f))
             com.vasilisneo.trackstar.ui.components.AuthCapsuleButton(
-                text = if (recurring) "Add $weeks sessions" else "Add session",
+                text = if (recurring) trf("Add %s sessions", weeks) else "Add session",
                 onClick = { onAdd(start, end, capacity, title, if (recurring) weeks else 1) },
                 enabled = start < end,
             )
@@ -655,7 +656,7 @@ private fun TimePickerSheet(initial: String, minExclusive: String? = null, onDis
             Column {
                 TimePicker(state = state)
                 if (!valid && minExclusive != null) {
-                    Text("Must be after ${displayTime(minExclusive)}", color = Color(0xFFE5484D), fontSize = 12.sp)
+                    Text(trf("Must be after %s", displayTime(minExclusive)), color = Color(0xFFE5484D), fontSize = 12.sp)
                 }
             }
         },

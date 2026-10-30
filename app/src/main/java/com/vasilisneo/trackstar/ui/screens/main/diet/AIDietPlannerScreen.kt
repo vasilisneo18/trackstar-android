@@ -4,6 +4,7 @@ package com.vasilisneo.trackstar.ui.screens.main.diet
 // notes) calling the same backend Claude diet endpoint iOS uses, then a 7-day preview before
 // applying the plan to the user's weekly diet. Mirrors AIWorkoutPlannerScreen's structure/visuals.
 
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
@@ -35,7 +36,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -101,7 +102,7 @@ private fun LimitReachedView(used: Int, limit: Int) {
             Icon(Icons.Filled.Lock, contentDescription = null, tint = Color.White.copy(alpha = 0.4f), modifier = Modifier.size(36.dp))
             Text("Monthly limit reached", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Text(
-                "You've used $used of $limit AI diet plans this month. Your limit resets next month.",
+                trf("You've used %1\$s of %2\$s AI diet plans this month. Your limit resets next month.", used, limit),
                 fontSize = 14.sp, color = Color.White.copy(alpha = 0.5f), textAlign = TextAlign.Center,
             )
         }
@@ -316,7 +317,7 @@ private fun dayCalories(meals: List<DietPlanMeal>): Int =
 private fun mealSummary(meal: DietPlanMeal): String {
     val kcal = meal.foods.orEmpty().sumOf { it.calories ?: 0 }
     val protein = meal.foods.orEmpty().sumOf { it.protein ?: 0 }
-    return "$kcal kcal · ${protein}g protein"
+    return trf("%1\$s kcal · %2\$sg protein", kcal, protein)
 }
 
 // MARK: - Shared step chrome (kept local so this screen is self-contained, matching the codebase's

@@ -1,5 +1,7 @@
 package com.vasilisneo.trackstar.ui.screens.main.attendance
 
+import com.vasilisneo.trackstar.ui.i18n.tr
+import com.vasilisneo.trackstar.ui.i18n.trf
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -105,7 +107,7 @@ object AttendancePdf {
 
             val totalMin = visits.mapNotNull { it.durationMin }.sum()
             text(
-                "${visits.size} check-in${if (visits.size == 1) "" else "s"}  ·  ${formatMinutes(totalMin)} total",
+                (if (visits.size == 1) tr("1 check-in") else trf("%s check-ins", visits.size)) + "  ·  " + trf("%s total", formatMinutes(totalMin)),
                 paint(13f, ink, bold = true)
             ); y += 26f
 
@@ -156,7 +158,7 @@ object AttendancePdf {
                 val groups = visits.groupBy { it.athleteName ?: "Athlete" }.toSortedMap()
                 for ((name, rows) in groups) {
                     val mins = rows.mapNotNull { it.durationMin }.sum()
-                    drawSection("$name  —  ${rows.size} session${if (rows.size == 1) "" else "s"}, ${formatMinutes(mins)}", rows)
+                    drawSection("$name  —  " + (if (rows.size == 1) tr("1 session") else trf("%s sessions", rows.size)) + ", ${formatMinutes(mins)}", rows)
                 }
             } else {
                 // Athlete report: group by month, newest first.

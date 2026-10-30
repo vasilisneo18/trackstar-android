@@ -1,5 +1,7 @@
 package com.vasilisneo.trackstar.ui.screens.main.attendance
 
+import com.vasilisneo.trackstar.ui.i18n.tr
+import com.vasilisneo.trackstar.ui.i18n.trf
 import android.app.Application
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -54,7 +56,7 @@ class CoachCheckInViewModel(
             when (val r = repo.endSession()) {
                 is ApiResult.Success -> {
                     val n = r.data["closed"] ?: 0
-                    endedMessage = if (n == 0) "No one was checked in." else "Checked out $n athlete${if (n == 1) "" else "s"}."
+                    endedMessage = if (n == 0) tr("No one was checked in.") else if (n == 1) tr("Checked out 1 athlete.") else trf("Checked out %s athletes.", n)
                 }
                 is ApiResult.Error -> error = r.message
             }

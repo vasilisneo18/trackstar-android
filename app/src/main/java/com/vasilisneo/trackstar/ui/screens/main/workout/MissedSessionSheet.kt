@@ -6,6 +6,8 @@ package com.vasilisneo.trackstar.ui.screens.main.workout
 // bottom sheet from WorkoutScreen, matching the ExerciseCommentsSheet scaffold (transparent
 // container + self-painted rounded gradient) so it reads as an elevated Midnight sheet.
 
+import com.vasilisneo.trackstar.ui.i18n.tr
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,7 +34,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -156,7 +158,7 @@ fun MissedSessionSheet(
                     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(workoutTitle, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White)
                         Text(
-                            "${exercises.size} exercise${if (exercises.size == 1) "" else "s"} · $setCount sets",
+                            if (exercises.size == 1) trf("1 exercise · %s sets", setCount) else trf("%1\$s exercises · %2\$s sets", exercises.size, setCount),
                             fontSize = 13.sp,
                             color = Color.White.copy(alpha = 0.55f)
                         )
@@ -233,6 +235,6 @@ private fun MissedExerciseRow(name: String, setCount: Int) {
             .padding(horizontal = 16.dp, vertical = 13.dp)
     ) {
         Text(name, fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Color.White, modifier = Modifier.weight(1f))
-        Text("$setCount set${if (setCount == 1) "" else "s"}", fontSize = 13.sp, color = Color.White.copy(alpha = 0.4f))
+        Text(if (setCount == 1) tr("1 set") else trf("%s sets", setCount), fontSize = 13.sp, color = Color.White.copy(alpha = 0.4f))
     }
 }

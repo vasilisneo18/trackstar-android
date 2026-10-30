@@ -8,8 +8,12 @@ package com.vasilisneo.trackstar.ui.screens.main.workout
 // content (not a pixel copy of iOS), matching this project's "iOS visuals, Android mechanics"
 // principle for new interaction surfaces.
 
+import com.vasilisneo.trackstar.ui.i18n.tr
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.composed
@@ -20,6 +24,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -40,6 +45,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.EventAvailable
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.filled.PlayArrow
@@ -50,8 +56,11 @@ import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.ui.res.painterResource
 import com.vasilisneo.trackstar.R
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.launch
+import com.vasilisneo.trackstar.ui.components.loadingShimmer
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
@@ -101,6 +110,9 @@ import com.vasilisneo.trackstar.ui.components.AuthWordmark
 import com.vasilisneo.trackstar.ui.components.ProfileAvatarButton
 import com.vasilisneo.trackstar.ui.theme.TrackstarBackground
 import com.vasilisneo.trackstar.ui.theme.trackstarBackground
+import com.vasilisneo.trackstar.ui.components.GlassCircleIconButton
+import androidx.compose.ui.draw.alpha
+import androidx.compose.foundation.layout.PaddingValues
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.TextStyle
@@ -113,6 +125,8 @@ fun WorkoutScreen(
     onProfileClick: () -> Unit = {},
     onScheduleWorkout: () -> Unit = {},
     onBookSession: () -> Unit = {},
+    // Coach: open the schedule on the selected day (yyyy-MM-dd).
+    onOpenCoachSchedule: (String) -> Unit = {},
     showBookSession: Boolean = false,
     onStartSession: (date: LocalDate, sessionId: String) -> Unit = { _, _ -> },
     onQuickLog: (date: LocalDate, sessionId: String) -> Unit = { _, _ -> },
@@ -125,6 +139,10 @@ fun WorkoutScreen(
     val viewModel: WorkoutViewModel = viewModel()
     // Re-fetch completed sessions when a session finishes elsewhere (active session / quick log
     // both live above this screen in MainAppScreen and bump refreshKey on save).
+    // Coach: their own sessions for the "Your sessions" card. Re-runs on every return to Home.
+    val plan by com.vasilisneo.trackstar.data.billing.BillingManager.currentPlan.collectAsState()
+    val isCoach = com.vasilisneo.trackstar.data.billing.FeatureGate.canCoach(plan)
+    androidx.compose.runtime.LaunchedEffect(isCoach) { if (isCoach) viewModel.loadCoachSlots() }
     androidx.compose.runtime.LaunchedEffect(refreshKey) {
         if (refreshKey > 0) viewModel.fetch()
     }
@@ -135,8 +153,6 @@ fun WorkoutScreen(
         viewModel.loadBookings()
     }
     val selectedDate = viewModel.selectedDate
-    val weekStart = selectedDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-    val weekDays = (0..6).map { weekStart.plusDays(it.toLong()) }
     val today = LocalDate.now()
     val isPast = selectedDate.isBefore(today)
     // Dashboard pinning — long-press a card to pin it above the workout (mirrors iOS @AppStorage).
@@ -147,8 +163,14 @@ fun WorkoutScreen(
     val showStepsWidget = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("widgetShowSteps", true)
     val showDietWidget = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("widgetShowDiet", true)
     val showBookWidget = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("widgetShowBook", true)
+    // The workout (planned sessions / Plan session prompt) is a widget too — booking-only users can
+    // hide it; pinned, it moves above every other card (mirrors iOS).
+    val showWorkoutWidget = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("widgetShowWorkout", true)
+    // Month shown in the Today pill while the week wheel moves (null = show "Today").
+    var monthPill by remember { mutableStateOf<String?>(null) }
+    val workoutPinned = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("dashPinWorkout", false)
     var showWidgetGallery by remember { mutableStateOf(false) }
-    val hasHiddenWidgets = !showStepsWidget.value || !showDietWidget.value || (showBookSession && !showBookWidget.value)
+    val hasHiddenWidgets = !showWorkoutWidget.value || !showStepsWidget.value || !showDietWidget.value || (showBookSession && !showBookWidget.value)
 
     val displaySessions = viewModel.displaySessions
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -182,22 +204,8 @@ fun WorkoutScreen(
     // Horizontal swipe changes the day (left = next, right = previous), matching iOS's MyWorkoutView.
     // detectHorizontalDragGestures waits for horizontal slop, so vertical list scrolling still works.
     val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
-    val swipeDays = Modifier.pointerInput(Unit) {
-        var dx = 0f
-        val threshold = 40.dp.toPx()
-        detectHorizontalDragGestures(
-            onDragStart = { dx = 0f },
-            onDragEnd = {
-                if (dx <= -threshold) {
-                    viewModel.goToDate(viewModel.selectedDate.plusDays(1)); haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                } else if (dx >= threshold) {
-                    viewModel.goToDate(viewModel.selectedDate.minusDays(1)); haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                }
-            },
-            onHorizontalDrag = { _, delta -> dx += delta },
-        )
-    }
-
+    // No day-swipe on the content any more (it fought with taps on the cards) — weeks are paged by
+    // swiping the day strip instead (CollapsingDayStrip).
     Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
         // Wordmark only on the empty rest-day state — with sessions present the cards are now
         // translucent, so a background wordmark would faintly bleed through the bottom card.
@@ -215,16 +223,26 @@ fun WorkoutScreen(
         if (displaySessions.isEmpty() && viewModel.isLoading) {
             // Loading a (usually just-swiped-to) week — don't flash the plan/no-data state before
             // the real sessions land.
-            Box(modifier = Modifier.fillMaxSize().then(swipeDays), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 androidx.compose.material3.CircularProgressIndicator(color = TrackstarAccent, strokeWidth = 2.dp)
             }
         } else if (displaySessions.isEmpty()) {
             Column(
-                modifier = Modifier.fillMaxSize().then(swipeDays).padding(
+                modifier = Modifier.fillMaxSize().padding(
                     top = (if (headerHeightDp > 0.dp) headerHeightDp else 150.dp) + 4.dp
                 ),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
+                // Coach: their next session on this day (same look as an athlete's booking).
+                val coachNext = viewModel.coachNextSlot
+                if (isCoach && coachNext != null) {
+                    Text(if (selectedDate == today) "Your next session today" else "Your next session",
+                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f),
+                        modifier = Modifier.padding(horizontal = 16.dp))
+                    Box(modifier = Modifier.padding(horizontal = 16.dp).clip(RoundedCornerShape(20.dp)).clickable { onOpenCoachSchedule(selectedDate.toString()) }) {
+                        BookedSessionCard(coachNext, detail = coachSessionDetail(coachNext), loading = !viewModel.bookingsLoaded)
+                    }
+                }
                 // Booked coaching sessions still show on an otherwise-empty day.
                 val booked = viewModel.bookingsForCurrentDay
                 if (booked.isNotEmpty()) {
@@ -234,7 +252,7 @@ fun WorkoutScreen(
                         modifier = Modifier.padding(horizontal = 16.dp)
                     )
                     booked.forEach {
-                        Box(modifier = Modifier.padding(horizontal = 16.dp)) { BookedSessionCard(it) }
+                        Box(modifier = Modifier.padding(horizontal = 16.dp)) { BookedSessionCard(it, loading = !viewModel.bookingsLoaded) }
                     }
                 }
                 if (isPast) {
@@ -256,14 +274,22 @@ fun WorkoutScreen(
                         }
                     }
                 } else {
-                    // Today / future empty day: prompt to plan, offer a copy of last week, show steps.
-                    PlanSessionCard(
-                        lastWeek = viewModel.lastWeekSessions,
-                        weekdayName = selectedDate.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH),
-                        onPlan = onScheduleWorkout,
-                        onCopyLastWeek = { viewModel.copyLastWeekPlan() },
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                    )
+                    // Today / future empty day: Plan is a half tile beside Copy-last-week when there's
+                    // something to copy, otherwise full width.
+                    if (showWorkoutWidget.value) {
+                        com.vasilisneo.trackstar.ui.components.IosContextMenu(
+                            actions = widgetMenuActions(workoutPinned.value, { workoutPinned.value = !workoutPinned.value }, { showWorkoutWidget.value = false }),
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                        ) { openMenu ->
+                            PlanSessionCard(
+                                lastWeek = viewModel.lastWeekSessions,
+                                weekdayName = selectedDate.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH),
+                                onPlan = onScheduleWorkout,
+                                onCopyLastWeek = { viewModel.copyLastWeekPlan() },
+                                onLongPress = openMenu,
+                            )
+                        }
+                    }
                     if (showStepsWidget.value) {
                         com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(
                             date = selectedDate, modifier = Modifier.padding(horizontal = 16.dp)
@@ -271,13 +297,16 @@ fun WorkoutScreen(
                     }
                     if (showBookSession && showBookWidget.value) {
                         Box(modifier = Modifier.padding(horizontal = 16.dp).clickable(onClick = onBookSession)) {
-                            BookSessionDashboardCard(viewModel.nextAvailableSlots)
+                            BookSessionDashboardCard(viewModel.nextAvailableSlots, loading = !viewModel.bookingsLoaded)
                         }
                     }
                     if (showDietWidget.value) {
                         Box(modifier = Modifier.padding(horizontal = 16.dp).clickable(onClick = onOpenDiet)) {
-                            DietDashboardCard()
+                            DietDashboardCard(date = selectedDate)
                         }
+                    }
+                    if (hasHiddenWidgets) {
+                        AddWidgetButton(onClick = { showWidgetGallery = true }, modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 6.dp))
                     }
                 }
             }
@@ -292,9 +321,65 @@ fun WorkoutScreen(
                     bottom = com.vasilisneo.trackstar.ui.components.tabBarContentBottomPadding(),
                 ),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxSize().haze(hazeState).then(swipeDays)
+                modifier = Modifier.fillMaxSize().haze(hazeState)
             ) {
                     item { com.vasilisneo.trackstar.ui.components.OfflineBanner() }
+                    // The day's sessions — called first when the workout widget is pinned, otherwise
+                    // between the pinned and unpinned cards.
+                    val workoutItems: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
+                        displaySessions.forEach { display ->
+                            when (display) {
+                                is SessionDisplay.Upcoming -> {
+                                    // If a session is already in progress for this planned session,
+                                    // show the in-progress card instead of the Start/plan cards
+                                    // (mirrors MyWorkoutView.inProgressCard on iOS).
+                                    if (activeSession != null && activeSession.planSessionId == display.planned.id) {
+                                        item {
+                                            InProgressCard(session = activeSession, onResume = onResumeSession)
+                                        }
+                                    } else {
+                                        item(key = "session-${display.planned.id}") {
+                                            val sid = display.planned.id ?: ""
+                                            SessionDashboardCard(
+                                                session = display.planned,
+                                                expanded = expandedSessionIds.contains(sid),
+                                                onToggleExpand = {
+                                                    if (expandedSessionIds.contains(sid)) expandedSessionIds.remove(sid)
+                                                    else expandedSessionIds.add(sid)
+                                                },
+                                                comments = viewModel.exerciseComments,
+                                                onCommentsTap = { commentingExercise = it },
+                                                // Free tier: 3 logged sessions/week (FeatureGate). At the
+                                                // cap, starting/quick-logging opens the paywall instead.
+                                                onStart = {
+                                                    if (!viewModel.canStartSession) onUpgrade()
+                                                    else onStartSession(selectedDate, sid.ifBlank { return@SessionDashboardCard })
+                                                },
+                                                onQuickLog = {
+                                                    if (!viewModel.canStartSession) onUpgrade()
+                                                    else onQuickLog(selectedDate, sid.ifBlank { return@SessionDashboardCard })
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+                                is SessionDisplay.Completed -> item {
+                                    CompletedSessionCard(session = display.planned, completed = display.completed)
+                                }
+                                is SessionDisplay.Missed -> item {
+                                    // If a session is already running for this planned day (e.g. started
+                                    // late from the missed sheet), show the in-progress card instead —
+                                    // matching the Upcoming branch and iOS's MyWorkoutView.
+                                    if (activeSession != null && activeSession.planSessionId == display.planned.id) {
+                                        InProgressCard(session = activeSession, onResume = onResumeSession)
+                                    } else {
+                                        MissedSessionCard(session = display.planned, onClick = { missedSession = display.planned })
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    if (showWorkoutWidget.value && workoutPinned.value) workoutItems()
                     // Pinned cards sit above the workout (long-press to pin/unpin).
                     if (stepsPinned.value && showStepsWidget.value) item {
                         PinnableCard(pinned = true, onTogglePin = { stepsPinned.value = false }, onRemove = { showStepsWidget.value = false }) {
@@ -303,12 +388,25 @@ fun WorkoutScreen(
                     }
                     if (bookPinned.value && showBookSession && !isPast && showBookWidget.value) item {
                         PinnableCard(pinned = true, onTogglePin = { bookPinned.value = false }, onClick = onBookSession, onRemove = { showBookWidget.value = false }) {
-                            BookSessionDashboardCard(viewModel.nextAvailableSlots)
+                            BookSessionDashboardCard(viewModel.nextAvailableSlots, loading = !viewModel.bookingsLoaded)
                         }
                     }
                     if (dietPinned.value && showDietWidget.value) item {
                         PinnableCard(pinned = true, onTogglePin = { dietPinned.value = false }, onClick = onOpenDiet, onRemove = { showDietWidget.value = false }) {
-                            DietDashboardCard()
+                            DietDashboardCard(date = selectedDate)
+                        }
+                    }
+                    // Coach: their next session on this day (same look as an athlete's booking).
+                    val coachNext = viewModel.coachNextSlot
+                    if (isCoach && coachNext != null) {
+                        item(key = "coach-next-label") {
+                            Text(if (selectedDate == today) "Your next session today" else "Your next session",
+                                fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f))
+                        }
+                        item(key = "coach-next") {
+                            Box(modifier = Modifier.clip(RoundedCornerShape(20.dp)).clickable { onOpenCoachSchedule(selectedDate.toString()) }) {
+                                BookedSessionCard(coachNext, detail = coachSessionDetail(coachNext), loading = !viewModel.bookingsLoaded)
+                            }
                         }
                     }
                     // Booked coaching sessions for the selected day (above the workout, like iOS).
@@ -320,59 +418,9 @@ fun WorkoutScreen(
                                 fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f)
                             )
                         }
-                        items(booked, key = { "booked-${it.id}" }) { BookedSessionCard(it) }
+                        items(booked, key = { "booked-${it.id}" }) { BookedSessionCard(it, loading = !viewModel.bookingsLoaded) }
                     }
-                    displaySessions.forEach { display ->
-                        when (display) {
-                            is SessionDisplay.Upcoming -> {
-                                // If a session is already in progress for this planned session,
-                                // show the in-progress card instead of the Start/plan cards
-                                // (mirrors MyWorkoutView.inProgressCard on iOS).
-                                if (activeSession != null && activeSession.planSessionId == display.planned.id) {
-                                    item {
-                                        InProgressCard(session = activeSession, onResume = onResumeSession)
-                                    }
-                                } else {
-                                    item(key = "session-${display.planned.id}") {
-                                        val sid = display.planned.id ?: ""
-                                        SessionDashboardCard(
-                                            session = display.planned,
-                                            expanded = expandedSessionIds.contains(sid),
-                                            onToggleExpand = {
-                                                if (expandedSessionIds.contains(sid)) expandedSessionIds.remove(sid)
-                                                else expandedSessionIds.add(sid)
-                                            },
-                                            comments = viewModel.exerciseComments,
-                                            onCommentsTap = { commentingExercise = it },
-                                            // Free tier: 3 logged sessions/week (FeatureGate). At the
-                                            // cap, starting/quick-logging opens the paywall instead.
-                                            onStart = {
-                                                if (!viewModel.canStartSession) onUpgrade()
-                                                else onStartSession(selectedDate, sid.ifBlank { return@SessionDashboardCard })
-                                            },
-                                            onQuickLog = {
-                                                if (!viewModel.canStartSession) onUpgrade()
-                                                else onQuickLog(selectedDate, sid.ifBlank { return@SessionDashboardCard })
-                                            },
-                                        )
-                                    }
-                                }
-                            }
-                            is SessionDisplay.Completed -> item {
-                                CompletedSessionCard(session = display.planned, completed = display.completed)
-                            }
-                            is SessionDisplay.Missed -> item {
-                                // If a session is already running for this planned day (e.g. started
-                                // late from the missed sheet), show the in-progress card instead —
-                                // matching the Upcoming branch and iOS's MyWorkoutView.
-                                if (activeSession != null && activeSession.planSessionId == display.planned.id) {
-                                    InProgressCard(session = activeSession, onResume = onResumeSession)
-                                } else {
-                                    MissedSessionCard(session = display.planned, onClick = { missedSession = display.planned })
-                                }
-                            }
-                        }
-                    }
+                    if (showWorkoutWidget.value && !workoutPinned.value) workoutItems()
                     // Apple Health steps for the selected day, below the workout (matches iOS).
                     // Unpinned cards sit below the workout (default).
                     if (!stepsPinned.value && showStepsWidget.value) item {
@@ -382,12 +430,18 @@ fun WorkoutScreen(
                     }
                     if (showBookSession && !isPast && !bookPinned.value && showBookWidget.value) item {
                         PinnableCard(pinned = false, onTogglePin = { bookPinned.value = true }, onClick = onBookSession, onRemove = { showBookWidget.value = false }) {
-                            BookSessionDashboardCard(viewModel.nextAvailableSlots)
+                            BookSessionDashboardCard(viewModel.nextAvailableSlots, loading = !viewModel.bookingsLoaded)
                         }
                     }
                     if (!dietPinned.value && showDietWidget.value) item {
                         PinnableCard(pinned = false, onTogglePin = { dietPinned.value = true }, onClick = onOpenDiet, onRemove = { showDietWidget.value = false }) {
-                            DietDashboardCard()
+                            DietDashboardCard(date = selectedDate)
+                        }
+                    }
+                    // Add widget — after the last card, styled like one (mirrors iOS).
+                    if (hasHiddenWidgets) item(key = "add-widget") {
+                        Box(modifier = Modifier.fillMaxWidth().padding(top = 6.dp), contentAlignment = Alignment.Center) {
+                            AddWidgetButton(onClick = { showWidgetGallery = true })
                         }
                     }
                 }
@@ -445,61 +499,59 @@ fun WorkoutScreen(
 
             CollapsingDayStrip(
                 collapse = collapse,
-                weekDays = weekDays,
                 selectedDate = selectedDate,
                 today = today,
                 dayLabel = dayLabel,
                 dateLabel = dateLabel,
                 onSelect = { viewModel.goToDate(it) },
+                onMonthPill = { monthPill = it },
+                onWeekSettled = { monday ->
+                    // Same weekday in the week the wheel came to rest on.
+                    viewModel.goToDate(monday.plusDays((selectedDate.dayOfWeek.value - 1).toLong()))
+                    haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                },
             )
         }
 
-        // "Today" pill — appears when viewing another day, jumps back to today (matches iOS).
+        // "Today" pill — appears when viewing another day, jumps back to today (matches iOS). While
+        // the week wheel moves it shows the month instead, then turns back into "Today".
         androidx.compose.animation.AnimatedVisibility(
-            visible = selectedDate != today,
+            visible = selectedDate != today || monthPill != null,
             enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically { it / 2 },
             exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically { it / 2 },
             modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
                 .padding(bottom = if (activeSession != null) 150.dp else 92.dp),
         ) {
+            // No background — just the label; a soft shadow keeps it readable over cards (matches iOS).
+            val labelShadow = androidx.compose.ui.text.TextStyle(
+                shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.6f), androidx.compose.ui.geometry.Offset(0f, 2f), 12f),
+            )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.15f))
-                    .clickable {
+                    .animateContentSize()
+                    .clickable(
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                        indication = null,
+                    ) {
                         viewModel.goToDate(today)
                         haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                     }
                     .padding(horizontal = 18.dp, vertical = 10.dp),
             ) {
-                Icon(Icons.AutoMirrored.Filled.Undo, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                Text("Today", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                val month = monthPill
+                Icon(
+                    if (month != null) Icons.Filled.CalendarMonth else Icons.AutoMirrored.Filled.Undo,
+                    contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp),
+                )
+                androidx.compose.animation.AnimatedContent(targetState = month ?: "Today", label = "todayPill") { label ->
+                    Text(label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White, style = labelShadow)
+                }
             }
         }
 
-        // "Add widget" pill — floats above the Today pill (stacks when both are visible).
-        androidx.compose.animation.AnimatedVisibility(
-            visible = hasHiddenWidgets,
-            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically { it / 2 },
-            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically { it / 2 },
-            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
-                .padding(bottom = (if (activeSession != null) 150.dp else 92.dp) + (if (selectedDate != today) 48.dp else 0.dp)),
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.15f))
-                    .clickable { showWidgetGallery = true }
-                    .padding(horizontal = 18.dp, vertical = 10.dp),
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
-                Text("Add widget", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-            }
-        }
     }
 
     missedSession?.let { planned ->
@@ -542,45 +594,20 @@ fun WorkoutScreen(
 
     if (showWidgetGallery) {
         val hidden = buildList {
+            if (!showWorkoutWidget.value) add(AddableWidget("workout") { showWorkoutWidget.value = true })
             if (!showStepsWidget.value) add(AddableWidget("steps") { showStepsWidget.value = true })
             if (!showDietWidget.value) add(AddableWidget("diet") { showDietWidget.value = true })
             if (showBookSession && !showBookWidget.value) add(AddableWidget("book") { showBookWidget.value = true })
         }
-        androidx.compose.material3.ModalBottomSheet(
-            onDismissRequest = { showWidgetGallery = false },
-            containerColor = Color(0xFF14141C),
-            dragHandle = null,
-        ) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // X close button + large title.
-                Box(
-                    modifier = Modifier.size(48.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f))
-                        .clickable { showWidgetGallery = false },
-                    contentAlignment = Alignment.Center
-                ) { Icon(Icons.Filled.Close, null, tint = Color.White, modifier = Modifier.size(20.dp)) }
-                Text("Add widget", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White)
-
-                // Each addable widget renders as its ACTUAL dashboard card, so the sheet matches Home.
-                hidden.forEach { w ->
-                    Box(modifier = Modifier.fillMaxWidth().clickable { w.onAdd() }) {
-                        when (w.id) {
-                            "steps" -> com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(date = selectedDate)
-                            "diet" -> DietDashboardCard()
-                            "book" -> BookSessionDashboardCard(viewModel.nextAvailableSlots)
-                        }
-                        Icon(
-                            Icons.Filled.AddCircle, null, tint = TrackstarAccent,
-                            modifier = Modifier.align(Alignment.TopEnd).padding(10.dp).size(26.dp)
-                        )
-                    }
-                }
-                if (hidden.isEmpty()) {
-                    Text("All widgets added. Long-press a widget on Home to remove it.",
-                        fontSize = 14.sp, color = Color.White.copy(alpha = 0.5f))
-                }
+        WidgetGallerySheet(
+            hidden = hidden,
+            onDismiss = { showWidgetGallery = false },
+        ) { id ->
+            when (id) {
+                "workout" -> FullPromptCard(Icons.Filled.FitnessCenter, "Workout", "Your planned sessions, or plan one for the day.")
+                "steps" -> com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(date = selectedDate)
+                "diet" -> DietDashboardCard()
+                "book" -> BookSessionDashboardCard(viewModel.nextAvailableSlots, loading = !viewModel.bookingsLoaded)
             }
         }
         LaunchedEffect(hidden.isEmpty()) { if (hidden.isEmpty()) showWidgetGallery = false }
@@ -593,45 +620,111 @@ private val TightText = androidx.compose.ui.text.TextStyle(
     lineHeightStyle = LineHeightStyle(alignment = LineHeightStyle.Alignment.Center, trim = LineHeightStyle.Trim.Both),
 )
 
-// Day strip that collapses on scroll (ports MyWorkoutView.dayStrip): the 7-day M-T-W… row fades
-// out and shrinks while a compact "Today 10 Jul" label fades in, so the header takes less room
-// as you read down the exercise list.
+// Day strip that collapses on scroll (ports MyWorkoutView.dayStrip): a horizontally paging wheel of
+// weeks (flick through weeks; when it settles the same weekday is selected) with a month pill under
+// it while it moves. On scroll the row fades/shrinks into a compact "Today 10 Jul" label.
+private const val WEEK_PAGES = 209          // two years back … two years ahead
+private const val THIS_WEEK_PAGE = 104
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun CollapsingDayStrip(
     collapse: Float,
-    weekDays: List<LocalDate>,
     selectedDate: LocalDate,
     today: LocalDate,
     dayLabel: String,
     dateLabel: String,
     onSelect: (LocalDate) -> Unit,
+    onMonthPill: (String?) -> Unit,
+    onWeekSettled: (monday: LocalDate) -> Unit,
 ) {
-    // No extra font padding + centered/trimmed line box, so the label/number sit tightly and
-    // centre cleanly in the pill (Compose's default font padding otherwise loosens the spacing).
-    // Declared inline via a val below.
-    // iOS DayStripRow: 76→40 tall, 3-letter uppercase labels, a rounded selection pill that fills
-    // the cell (corner 10, white@18), the number, and a today dot.
+    val thisMonday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+    fun mondayOf(page: Int) = thisMonday.plusWeeks((page - THIS_WEEK_PAGE).toLong())
+    fun pageOf(date: LocalDate) = THIS_WEEK_PAGE + java.time.temporal.ChronoUnit.WEEKS.between(
+        thisMonday, date.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))).toInt()
+
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState(initialPage = pageOf(selectedDate)) { WEEK_PAGES }
+    val selectedDateState = androidx.compose.runtime.rememberUpdatedState(selectedDate)
+
+    // Today pill / date picked elsewhere → bring that week into view.
+    LaunchedEffect(selectedDate) {
+        val target = pageOf(selectedDate).coerceIn(0, WEEK_PAGES - 1)
+        if (target != pagerState.currentPage && !pagerState.isScrollInProgress) pagerState.animateScrollToPage(target)
+    }
+    LaunchedEffect(pagerState) {
+        androidx.compose.runtime.snapshotFlow { pagerState.currentPage }.collect {
+            if (pagerState.isScrollInProgress) onMonthPill(monthTitle(mondayOf(it)))
+        }
+    }
+    // While the wheel moves, show the month; when it settles on another week, select it.
+    LaunchedEffect(pagerState) {
+        androidx.compose.runtime.snapshotFlow { pagerState.isScrollInProgress }.collect { moving ->
+            if (moving) {
+                onMonthPill(monthTitle(mondayOf(pagerState.currentPage)))
+            } else {
+                val monday = mondayOf(pagerState.settledPage)
+                onMonthPill(monthTitle(monday))
+                if (monday != selectedDateState.value.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))) onWeekSettled(monday)
+                kotlinx.coroutines.delay(900)
+                onMonthPill(null)
+            }
+        }
+    }
+
     val height = androidx.compose.ui.unit.lerp(76.dp, 40.dp, collapse)
-    Box(
-        modifier = Modifier.fillMaxWidth().height(height).padding(horizontal = 15.dp).clipToBounds(),
-        contentAlignment = Alignment.Center,
+    Box(modifier = Modifier.fillMaxWidth().height(height), contentAlignment = Alignment.Center) {
+        androidx.compose.foundation.pager.HorizontalPager(
+            state = pagerState,
+            userScrollEnabled = collapse < 0.5f,
+            beyondViewportPageCount = 1,
+            modifier = Modifier.fillMaxSize().clipToBounds()
+                .graphicsLayer { alpha = (1f - collapse * 1.6f).coerceIn(0f, 1f) },
+        ) { page ->
+            val monday = mondayOf(page)
+            WeekRow(
+                days = (0..6).map { monday.plusDays(it.toLong()) },
+                selectedDate = selectedDate,
+                today = today,
+                onSelect = onSelect,
+            )
+        }
+        val labelAlpha = ((collapse - 0.7f) / 0.3f).coerceIn(0f, 1f)
+        if (labelAlpha > 0f) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.graphicsLayer { alpha = labelAlpha }) {
+                Text(dayLabel, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.75f))
+                Text(dateLabel, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.4f))
+            }
+        }
+    }
+}
+
+// "October 2026", or "Oct – Nov 2026" when the week spans two months.
+private fun monthTitle(monday: LocalDate): String {
+    val sunday = monday.plusDays(6)
+    return if (monday.month == sunday.month) {
+        "${monday.month.getDisplayName(TextStyle.FULL, Locale.getDefault())} ${monday.year}"
+    } else {
+        "${monday.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} – ${sunday.month.getDisplayName(TextStyle.SHORT, Locale.getDefault())} ${sunday.year}"
+    }
+}
+
+// One week of the strip: 7 day pills (iOS DayStripRow — 46dp-wide rounded pill, white@18 when
+// selected, a today dot).
+@Composable
+private fun WeekRow(days: List<LocalDate>, selectedDate: LocalDate, today: LocalDate, onSelect: (LocalDate) -> Unit) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 15.dp, vertical = 4.dp)
     ) {
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight()
-                .padding(vertical = 6.dp)
-                .graphicsLayer { alpha = (1f - collapse * 1.6f).coerceIn(0f, 1f) }
-        ) {
-            for (day in weekDays) {
-                val selected = day == selectedDate
-                val isToday = day == today
+        for (day in days) {
+            val selected = day == selectedDate
+            val isToday = day == today
+            Box(modifier = Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.Center) {
                 Box(
                     modifier = Modifier
-                        .weight(1f)
+                        .width(46.dp)
                         .fillMaxHeight()
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(12.dp))
                         .background(if (selected) Color.White.copy(alpha = 0.18f) else Color.Transparent)
                         .clickable { onSelect(day) },
                     contentAlignment = Alignment.Center,
@@ -653,13 +746,6 @@ private fun CollapsingDayStrip(
                         )
                     }
                 }
-            }
-        }
-        val labelAlpha = ((collapse - 0.7f) / 0.3f).coerceIn(0f, 1f)
-        if (labelAlpha > 0f) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.graphicsLayer { alpha = labelAlpha }) {
-                Text(dayLabel, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.75f))
-                Text(dateLabel, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.4f))
             }
         }
     }
@@ -734,7 +820,7 @@ private fun SessionDashboardCard(
                 )
             ) {
                 Text(
-                    "$exerciseCount exercise${if (exerciseCount == 1) "" else "s"}",
+                    if (exerciseCount == 1) tr("1 exercise") else trf("%s exercises", exerciseCount),
                     fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.7f)
                 )
                 Spacer(Modifier.weight(1f))
@@ -775,56 +861,81 @@ private fun SessionDashboardCard(
     }
 }
 
-// Ports iOS's planSessionCard: an empty upcoming day's prompt to plan a workout, with a
-// "copy last week" row when the same weekday last week had sessions (progressive overload).
+// Ports iOS's planSessionCard. Sizing rules: Plan is a half tile beside "Copy last <day>" when the
+// same weekday last week had sessions (progressive overload), otherwise a full-width prompt.
 @Composable
 private fun PlanSessionCard(
     lastWeek: List<PlannedSessionResponse>,
     weekdayName: String,
     onPlan: () -> Unit,
     onCopyLastWeek: () -> Unit,
+    onLongPress: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    val accent = TrackstarAccent
-    Column(modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(CardFill)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            modifier = Modifier.fillMaxWidth().clickable(onClick = onPlan).padding(16.dp)
-        ) {
-            Box(
-                modifier = Modifier.size(46.dp).background(Color.White.copy(alpha = 0.08f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) { Icon(Icons.Filled.FitnessCenter, null, tint = accent, modifier = Modifier.size(18.dp)) }
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
-                Text("Plan your session", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                Text("Nothing planned — add a workout for this day.", fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f))
-            }
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(18.dp))
+    if (lastWeek.isEmpty()) {
+        Box(modifier = modifier.clip(RoundedCornerShape(20.dp)).androidx_combinedClickable(onClick = onPlan, onLongClick = onLongPress)) {
+            FullPromptCard(Icons.Filled.FitnessCenter, "Plan session", "Nothing planned — add a workout for this day.")
         }
-        if (lastWeek.isNotEmpty()) {
-            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                modifier = Modifier.fillMaxWidth().clickable(onClick = onCopyLastWeek).padding(16.dp)
-            ) {
-                Box(
-                    modifier = Modifier.size(46.dp).background(Color.White.copy(alpha = 0.08f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) { Icon(Icons.Filled.Refresh, null, tint = accent, modifier = Modifier.size(18.dp)) }
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Copy last $weekdayName's workout${if (lastWeek.size > 1) "s" else ""}",
-                        fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White
-                    )
-                    Text(
-                        "Start from last week and push a little further to keep progressing.",
-                        fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f)
-                    )
-                }
-            }
+        return
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min)) {
+        Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(20.dp)).androidx_combinedClickable(onClick = onPlan, onLongClick = onLongPress)) {
+            HalfTile(Icons.Filled.FitnessCenter, "Plan session", "Add a workout for this day.")
         }
+        Box(modifier = Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(20.dp)).androidx_combinedClickable(onClick = onCopyLastWeek, onLongClick = onLongPress)) {
+            val exercises = lastWeek.sumOf { it.exercises?.size ?: 0 }
+            val name = lastWeek.first().title?.takeIf { it.isNotBlank() } ?: "Workout"
+            val more = if (lastWeek.size > 1) " +${lastWeek.size - 1}" else ""
+            HalfTile(
+                Icons.Filled.Refresh, trf("Copy last %s", weekdayName),
+                "$name$more · " + (if (exercises == 1) tr("1 exercise") else trf("%s exercises", exercises))
+            )
+        }
+    }
+}
+
+// Full-width prompt: icon on the left, title + subtitle beside it (mirrors iOS dashboardCard).
+@Composable
+private fun FullPromptCard(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(CardFill).padding(16.dp)
+    ) {
+        Box(
+            modifier = Modifier.size(46.dp).background(Color.White.copy(alpha = 0.08f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) { Icon(icon, null, tint = TrackstarAccent, modifier = Modifier.size(18.dp)) }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
+            Text(title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+            Text(subtitle, fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f))
+        }
+    }
+}
+
+// Half-width tile: icon on top, title + short subtitle below (mirrors iOS halfTile).
+@Composable
+private fun HalfTile(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String) {
+    Column(
+        modifier = Modifier.fillMaxWidth().fillMaxHeight()
+            .clip(RoundedCornerShape(20.dp)).background(CardFill).padding(14.dp)
+    ) {
+        TileContent(icon, title, subtitle, Modifier.fillMaxHeight())
+    }
+}
+
+@Composable
+private fun TileContent(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, subtitle: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
+        Box(
+            modifier = Modifier.size(40.dp).background(Color.White.copy(alpha = 0.08f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) { Icon(icon, null, tint = TrackstarAccent, modifier = Modifier.size(16.dp)) }
+        // Icon pinned top, text pinned bottom when the card is taller (e.g. Book with slots).
+        Spacer(Modifier.weight(1f).heightIn(min = 12.dp))
+        Text(title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1)
+        Spacer(Modifier.height(2.dp))
+        Text(subtitle, fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f), maxLines = 2)
     }
 }
 
@@ -843,10 +954,14 @@ private fun NoDataForDay() {
     }
 }
 
+// Coach's next-session line: "18:00–19:00 · 3/5 booked".
+private fun coachSessionDetail(slot: com.vasilisneo.trackstar.data.api.SlotResponse): String =
+    trf("%1\$s–%2\$s · %3\$s/%4\$s booked", slot.startTime, slot.endTime, (slot.capacity - slot.remaining).coerceAtLeast(0), slot.capacity)
+
 // Ports iOS's bookedSessionCard: a coaching session the athlete has already booked on this day —
 // accent-tinted with a border so it stands out from the workout cards.
 @Composable
-private fun BookedSessionCard(slot: com.vasilisneo.trackstar.data.api.SlotResponse) {
+private fun BookedSessionCard(slot: com.vasilisneo.trackstar.data.api.SlotResponse, detail: String? = null, loading: Boolean = false) {
     val accent = TrackstarAccent
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -854,6 +969,7 @@ private fun BookedSessionCard(slot: com.vasilisneo.trackstar.data.api.SlotRespon
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp))
             .background(accent.copy(alpha = 0.12f))
             .border(1.dp, accent.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
+            .loadingShimmer(loading)
             .padding(16.dp)
     ) {
         Box(
@@ -866,7 +982,7 @@ private fun BookedSessionCard(slot: com.vasilisneo.trackstar.data.api.SlotRespon
                 fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1
             )
             Text(
-                "${slot.startTime}–${slot.endTime}${slot.coachName?.let { " · $it" } ?: ""}",
+                detail ?: "${slot.startTime}–${slot.endTime}${slot.coachName?.let { " · $it" } ?: ""}",
                 fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f), maxLines = 1
             )
         }
@@ -878,91 +994,74 @@ private fun BookedSessionCard(slot: com.vasilisneo.trackstar.data.api.SlotRespon
 @Composable
 private fun BookSessionDashboardCard(
     slots: List<com.vasilisneo.trackstar.data.api.SlotResponse>,
+    loading: Boolean = false,
 ) {
+    // No open slots → a plain full-width prompt (a lone half tile looks empty).
+    if (slots.isEmpty()) {
+        Box(Modifier.loadingShimmer(loading)) { FullPromptCard(Icons.Filled.EventAvailable, "Book session", "Reserve a slot with your coach.") }
+        return
+    }
     val accent = TrackstarAccent
-    Column(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(CardFill)
-            .padding(16.dp)
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = Modifier.fillMaxWidth().height(androidx.compose.foundation.layout.IntrinsicSize.Min)
+            .clip(RoundedCornerShape(20.dp)).background(CardFill).loadingShimmer(loading).padding(14.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            Box(
-                modifier = Modifier.size(46.dp).background(Color.White.copy(alpha = 0.08f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) { Icon(Icons.Filled.EventAvailable, null, tint = accent, modifier = Modifier.size(18.dp)) }
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
-                Text("Book a session", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                Text("Reserve a slot with your coach.", fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f))
-            }
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(18.dp))
+        // Narrow, so the slots column gets the room for session names.
+        Box(modifier = Modifier.width(112.dp).fillMaxHeight()) {
+            TileContent(Icons.Filled.EventAvailable, "Book session", "Reserve a slot with your coach.", Modifier.fillMaxHeight())
         }
-        if (slots.isNotEmpty()) {
-            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)).padding(vertical = 0.dp))
-            Spacer(Modifier.height(14.dp))
+        Box(modifier = Modifier.width(1.dp).fillMaxHeight().background(Color.White.copy(alpha = 0.08f)))
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
             Text("AVAILABLE", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.35f), letterSpacing = 1.sp)
-            Spacer(Modifier.height(8.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                slots.forEach { slot ->
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Filled.AccessTime, null, tint = accent, modifier = Modifier.size(12.dp))
-                        Text(slotAvailableLine(slot), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1, modifier = Modifier.weight(1f))
-                        Text(
-                            "${slot.remaining} spot${if (slot.remaining == 1) "" else "s"}",
-                            fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = accent
-                        )
+            slots.forEach { slot ->
+                Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(slotDayTime(slot), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1, softWrap = false)
+                        slot.title?.takeIf { it.isNotBlank() }?.let {
+                            Text(it, fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        }
                     }
+                    Text(if (slot.remaining == 1) tr("1 spot left") else trf("%s spots left", slot.remaining), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = accent)
                 }
             }
         }
     }
 }
 
-// Diet tool card for the Home dashboard — previews today's calories, opening the full Diet screen
-// on tap. Mirrors BookSessionDashboardCard / iOS's DietToolCard.
+// Diet tool card for the Home dashboard — calorie ring (consumed / planned) + macros for the day
+// selected on Home, opening the full Diet screen on tap. Mirrors iOS's DietToolCard.
 @Composable
 private fun DietDashboardCard(
+    date: LocalDate = LocalDate.now(),
     viewModel: com.vasilisneo.trackstar.ui.screens.main.diet.DietViewModel = viewModel(),
 ) {
     val accent = TrackstarAccent
-    val meals = viewModel.activeMeals
-    val consumedCal = meals.filter { it.isConsumed }.sumOf { it.totalCalories }
-    val totalCal = meals.sumOf { it.totalCalories }
-    val progress = if (totalCal > 0) (consumedCal.toFloat() / totalCal).coerceIn(0f, 1f) else 0f
+    val isToday = date == LocalDate.now()
+    val dayLabel = if (isToday) "Today" else date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())
+    // Prefer the plan published by whichever DietViewModel edited it last (the Diet screen has its
+    // own instance); read the day straight from the plan — viewModel.currentDay belongs to Diet.
+    val plan = com.vasilisneo.trackstar.ui.screens.main.diet.DietRefreshSignal.latestPlan ?: viewModel.weeklyPlan
+    val meals = plan[date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)].orEmpty()
     Column(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(CardFill).padding(16.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(CardFill).loadingShimmer(!viewModel.hasFetched).padding(16.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            Box(
-                modifier = Modifier.size(46.dp).background(Color.White.copy(alpha = 0.08f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) { Icon(Icons.Filled.Restaurant, null, tint = accent, modifier = Modifier.size(18.dp)) }
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.weight(1f)) {
-                Text("Diet", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                Text(
-                    if (meals.isEmpty()) "Plan & track today's meals." else "Track today's meals.",
-                    fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f)
-                )
-            }
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(18.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(Icons.Filled.Restaurant, null, tint = accent, modifier = Modifier.size(15.dp))
+            Text("Diet", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White, modifier = Modifier.weight(1f))
+            Text(dayLabel.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.35f), letterSpacing = 1.sp)
         }
-        if (meals.isNotEmpty()) {
-            Spacer(Modifier.height(14.dp))
-            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)))
-            Spacer(Modifier.height(12.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("TODAY", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.35f), letterSpacing = 1.sp, modifier = Modifier.weight(1f))
-                Text("$consumedCal / $totalCal kcal", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-            }
-            Spacer(Modifier.height(8.dp))
-            Box(modifier = Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f))) {
-                Box(modifier = Modifier.fillMaxWidth(progress).height(6.dp).clip(CircleShape).background(accent))
-            }
+        if (meals.isEmpty()) {
+            Text(trf("No meals planned for %s. Tap to plan your meals.", if (isToday) tr("today") else dayLabel), fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f))
+        } else {
+            com.vasilisneo.trackstar.ui.screens.main.diet.NutritionSummary(meals)
         }
     }
 }
 
 // Wraps a dashboard card so a long-press opens a Pin/Unpin menu (mirrors iOS's contextMenu on the
 // steps and book cards). Tapping runs onClick; the whole thing is ripple-free.
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun PinnableCard(
     pinned: Boolean,
@@ -971,32 +1070,102 @@ private fun PinnableCard(
     onRemove: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
-    var menuOpen by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
-    Box {
-        Box(
-            modifier = Modifier.androidx_combinedClickable(
-                onClick = onClick,
-                onLongClick = { menuOpen = true },
-            )
-        ) { content() }
-        androidx.compose.material3.DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-            androidx.compose.material3.DropdownMenuItem(
-                text = { Text(if (pinned) "Unpin" else "Pin to top") },
-                leadingIcon = { Icon(Icons.Filled.PushPin, null) },
-                onClick = { onTogglePin(); menuOpen = false },
-            )
-            if (onRemove != null) {
-                androidx.compose.material3.DropdownMenuItem(
-                    text = { Text("Remove from Home") },
-                    leadingIcon = { Icon(Icons.Filled.RemoveCircleOutline, null) },
-                    onClick = { onRemove(); menuOpen = false },
+    com.vasilisneo.trackstar.ui.components.IosContextMenu(
+        actions = widgetMenuActions(pinned, onTogglePin, onRemove),
+        onClick = onClick,
+    ) { content() }
+}
+
+// Pin/Unpin + Remove from Home, as an iOS-style context menu.
+private fun widgetMenuActions(pinned: Boolean, onTogglePin: () -> Unit, onRemove: (() -> Unit)?) = buildList {
+    add(com.vasilisneo.trackstar.ui.components.ContextMenuAction(if (pinned) "Unpin" else "Pin to top", Icons.Filled.PushPin, onClick = onTogglePin))
+    if (onRemove != null) add(com.vasilisneo.trackstar.ui.components.ContextMenuAction("Remove from Home", Icons.Filled.RemoveCircleOutline, destructive = true, onClick = onRemove))
+}
+
+private data class AddableWidget(val id: String, val onAdd: () -> Unit)
+
+// Add widget sheet — mirrors iOS's widgetGallerySheet: full height, X on the left, a large title
+// that scrolls up and hands over to a centered inline title, and the real Home cards — tap a card
+// to add it (no + badge).
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun WidgetGallerySheet(
+    hidden: List<AddableWidget>,
+    onDismiss: () -> Unit,
+    card: @Composable (String) -> Unit,
+) {
+    val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    val collapse by androidx.compose.runtime.remember {
+        androidx.compose.runtime.derivedStateOf {
+            val info = listState.layoutInfo.visibleItemsInfo
+            val title = info.firstOrNull { it.index == 0 } ?: return@derivedStateOf if (info.isEmpty()) 0f else 1f
+            val h = title.size.toFloat()
+            if (h <= 0f) 0f else ((-title.offset).toFloat() / h).coerceIn(0f, 1f)
+        }
+    }
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = Color.Transparent,
+        dragHandle = null,
+        contentWindowInsets = { androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0) },
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(0.93f)
+                .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
+                .trackstarBackground()
+        ) {
+            // Nav bar: X, centered inline title (fades in as the large title scrolls away), 44dp balance.
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp, bottom = 8.dp)
+            ) {
+                GlassCircleIconButton(onClick = onDismiss, contentDescription = "Close", icon = Icons.Filled.Close)
+                Text(
+                    "Add widget", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    modifier = Modifier.weight(1f).alpha(collapse)
                 )
+                Spacer(Modifier.size(44.dp))
+            }
+            androidx.compose.foundation.lazy.LazyColumn(
+                state = listState,
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 40.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier.fillMaxWidth().weight(1f)
+            ) {
+                item {
+                    Text("Add widget", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp).alpha(1f - collapse))
+                }
+                items(hidden, key = { it.id }) { w ->
+                    Box(modifier = Modifier.fillMaxWidth().androidx_combinedClickable(onClick = { w.onAdd() }, onLongClick = {})) {
+                        card(w.id)
+                    }
+                }
+                if (hidden.isEmpty()) item {
+                    Text("All widgets added. Long-press a widget on Home to remove it.",
+                        fontSize = 14.sp, color = Color.White.copy(alpha = 0.5f))
+                }
             }
         }
     }
 }
 
-private data class AddableWidget(val id: String, val onAdd: () -> Unit)
+// Add widget pill — card-coloured, after the last card on Home (mirrors iOS addWidgetButton).
+@Composable
+private fun AddWidgetButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = modifier.clip(CircleShape).background(CardFill).clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 12.dp),
+    ) {
+        Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+        Text("Add widget", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+    }
+}
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 private fun Modifier.androidx_combinedClickable(onClick: () -> Unit, onLongClick: () -> Unit): Modifier =
@@ -1009,12 +1178,12 @@ private fun Modifier.androidx_combinedClickable(onClick: () -> Unit, onLongClick
         )
     }
 
-private fun slotAvailableLine(slot: com.vasilisneo.trackstar.data.api.SlotResponse): String {
+// "Sat 24 · 18:00" — compact line for the Book card's slot column (matches iOS).
+private fun slotDayTime(slot: com.vasilisneo.trackstar.data.api.SlotResponse): String {
     val day = runCatching {
-        LocalDate.parse(slot.date).format(java.time.format.DateTimeFormatter.ofPattern("EEE, MMM d", Locale.ENGLISH))
+        LocalDate.parse(slot.date).format(java.time.format.DateTimeFormatter.ofPattern("EEE d", Locale.ENGLISH))
     }.getOrDefault(slot.date)
-    val title = slot.title?.takeIf { it.isNotBlank() }?.let { " · $it" } ?: ""
-    return "$day · ${slot.startTime}$title"
+    return "$day · ${slot.startTime}"
 }
 
 private val MissedOrange = Color(0xFFFF9500)
@@ -1130,7 +1299,7 @@ private fun InProgressCard(session: ActiveSessionViewModel, onResume: () -> Unit
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)))
 
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Text("${session.completedSets}/${session.totalSets} sets completed", fontSize = 12.sp, color = Color.White.copy(alpha = 0.35f))
+            Text(trf("%1\$s/%2\$s sets completed", session.completedSets, session.totalSets), fontSize = 12.sp, color = Color.White.copy(alpha = 0.35f))
             Spacer(modifier = Modifier.weight(1f))
             Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = CompletedGreen.copy(alpha = 0.9f), modifier = Modifier.size(14.dp))
             Spacer(modifier = Modifier.padding(start = 4.dp))
@@ -1380,7 +1549,7 @@ private fun CompletedSessionCard(session: PlannedSessionResponse, completed: Wor
 
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(
-                "$completedSets/$totalSets sets · ${exercises.size} exercises",
+                trf("%1\$s/%2\$s sets · %3\$s exercises", completedSets, totalSets, exercises.size),
                 fontSize = 12.sp,
                 color = Color.White.copy(alpha = 0.4f)
             )

@@ -4,6 +4,8 @@ package com.vasilisneo.trackstar.ui.screens.main.coach
 // the coach's saved templates. Picking one bubbles up to a confirmation before it replaces the
 // athlete's current week. Reuses TemplatesViewModel for the same list + day/exercise summaries.
 
+import com.vasilisneo.trackstar.ui.i18n.tr
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,7 +33,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -125,7 +127,7 @@ private fun TemplatePickerRow(template: TemplateSummary, onClick: () -> Unit) {
             } else {
                 val days = template.activeDays.joinToString(" · ") { it.take(1) }
                 val count = template.exerciseCount
-                Text("$days · $count exercise${if (count == 1) "" else "s"}", fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f), maxLines = 1)
+                Text("$days · " + (if (count == 1) tr("1 exercise") else trf("%s exercises", count)), fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f), maxLines = 1)
             }
         }
         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Color.White.copy(alpha = 0.25f), modifier = Modifier.size(18.dp))

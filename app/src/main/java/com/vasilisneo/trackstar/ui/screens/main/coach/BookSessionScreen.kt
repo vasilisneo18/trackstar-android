@@ -1,5 +1,7 @@
 package com.vasilisneo.trackstar.ui.screens.main.coach
 
+import com.vasilisneo.trackstar.ui.i18n.tr
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
@@ -39,7 +41,7 @@ import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -120,7 +122,7 @@ fun BookSessionScreen(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     if (daySlots.isEmpty()) {
-                        Text("No sessions on ${prettyBookDate(viewModel.selectedDate.toString())}.",
+                        Text(trf("No sessions on %s.", prettyBookDate(viewModel.selectedDate.toString())),
                             fontSize = 13.sp, color = Color.White.copy(alpha = 0.4f), modifier = Modifier.padding(top = 12.dp))
                     } else {
                         daySlots.take(2).forEach { slot ->
@@ -133,7 +135,7 @@ fun BookSessionScreen(
                             )
                         }
                         if (daySlots.size > 2) {
-                            ShowMoreBookButton("Show all ${daySlots.size} sessions") { showDaySheet = true }
+                            ShowMoreBookButton(trf("Show all %s sessions", daySlots.size)) { showDaySheet = true }
                         }
                     }
                 }
@@ -222,8 +224,8 @@ fun BookSessionScreen(
             title = { Text("Withdraw from session?", color = Color.White) },
             text = {
                 Text(
-                    "You'll give up your spot for ${displayTime(slot.startTime)} – ${displayTime(slot.endTime)}" +
-                        (slot.coachName?.takeIf { it.isNotBlank() }?.let { " with $it" } ?: "") + ".",
+                    trf("You'll give up your spot for %1\$s – %2\$s%3\$s.", displayTime(slot.startTime), displayTime(slot.endTime),
+                        slot.coachName?.takeIf { it.isNotBlank() }?.let { " " + trf("with %s", it) } ?: ""),
                     color = Color.White.copy(alpha = 0.75f),
                 )
             },
@@ -318,9 +320,9 @@ private fun AthleteSlotCard(slot: SlotResponse, busy: Boolean, past: Boolean = f
     ) {
         Column(Modifier.weight(1f)) {
             Text(slot.title?.takeIf { it.isNotBlank() } ?: "Session", fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            slot.coachName?.takeIf { it.isNotBlank() }?.let { Text("with $it", fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f), modifier = Modifier.padding(top = 2.dp)) }
+            slot.coachName?.takeIf { it.isNotBlank() }?.let { Text(trf("with %s", it), fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f), modifier = Modifier.padding(top = 2.dp)) }
             if (!past && slot.capacity > 1) {
-                Text("${slot.remaining} spot${if (slot.remaining == 1) "" else "s"} left", fontSize = 12.sp, color = TrackstarAccent, modifier = Modifier.padding(top = 4.dp))
+                Text(if (slot.remaining == 1) tr("1 spot left") else trf("%s spots left", slot.remaining), fontSize = 12.sp, color = TrackstarAccent, modifier = Modifier.padding(top = 4.dp))
             }
         }
         Spacer(Modifier.size(12.dp))

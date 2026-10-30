@@ -49,12 +49,14 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Replay
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
@@ -151,9 +153,9 @@ fun DietScreen(
     val meals = viewModel.activeMeals
     val canConsume = viewModel.canConsumeToday
 
-    // Long-press "Edit" opens the single-meal sheet; the ✎ opens the bulk day editor.
+    // Long-press "Edit" and the floating "Add meal" pill both open AddMealSheet.
     var editingMeal by remember { mutableStateOf<DietMeal?>(null) }
-    var showPlanSheet by remember { mutableStateOf(false) }
+    var showAddMeal by remember { mutableStateOf(false) }
 
     // Re-fetch when the AI planner (a separate route) applies a new plan and bumps the signal, so
     // it shows immediately on return. Keyed on the version, so it only fires on an actual change.
@@ -179,8 +181,6 @@ fun DietScreen(
                     Text("Diet Plan", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White, modifier = Modifier.alpha(frostProgress))
                     Spacer(modifier = Modifier.weight(1f))
                     GlassCircleIconButton(onClick = { if (canUseAI) onOpenAiPlanner() else onUpgrade() }, contentDescription = "AI planner", icon = Icons.Filled.AutoAwesome)
-                    Spacer(modifier = Modifier.size(10.dp))
-                    GlassCircleIconButton(onClick = { showPlanSheet = true }, contentDescription = "Edit plan", icon = Icons.Filled.Edit)
                 }
             }
 
@@ -221,14 +221,10 @@ fun DietScreen(
                         Box(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(Color.White.copy(alpha = 0.08f * frostProgress)))
                     }
                 }
-                if (meals.isNotEmpty()) {
-                    item {
-                        NutritionCard(meals, modifier = Modifier.padding(horizontal = 16.dp).padding(top = 16.dp, bottom = 28.dp))
-                    }
-                }
+                // Calorie ring + macros live on the Home Diet card now.
                 item {
                     Text("Meals", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.6f),
-                        modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 12.dp))
+                        modifier = Modifier.padding(horizontal = 16.dp).padding(top = 16.dp, bottom = 12.dp))
                 }
                 if (meals.isEmpty()) {
                     item { EmptyMeals() }
@@ -247,24 +243,35 @@ fun DietScreen(
             }
             }
         }
+
+        // Floating "Add meal" pill — same style as Home's Add widget / Today pills.
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp)
+                .clip(CircleShape).background(Color.White.copy(alpha = 0.15f))
+                .clickable { showAddMeal = true }
+                .padding(horizontal = 18.dp, vertical = 10.dp)
+        ) {
+            Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+            Text("Add meal", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+        }
     }
 
-    // Long-press → Edit a single meal (type locked).
-    editingMeal?.let { target ->
+    if (showAddMeal) {
         AddMealSheet(
-            existing = target,
-            lockedType = MealType.from(target.type),
-            onSave = { viewModel.addMeal(it); editingMeal = null },
-            onDismiss = { editingMeal = null },
+            existing = null,
+            onSave = { viewModel.addMeal(it); showAddMeal = false },
+            onDismiss = { showAddMeal = false },
         )
     }
 
-    // ✎ → bulk day editor. Saving replaces the whole day's meal list (iOS setMeals).
-    if (showPlanSheet) {
-        PlanDietSheet(
-            initialMeals = meals,
-            onSave = { viewModel.setMeals(it); showPlanSheet = false },
-            onDismiss = { showPlanSheet = false },
+    // Long-press → Edit a single meal.
+    editingMeal?.let { target ->
+        AddMealSheet(
+            existing = target,
+            onSave = { viewModel.addMeal(it); editingMeal = null },
+            onDismiss = { editingMeal = null },
         )
     }
 }
@@ -327,13 +334,19 @@ private fun DayTabPill(day: String, isActive: Boolean, hasMeals: Boolean, active
 
 @Composable
 internal fun NutritionCard(meals: List<DietMeal>, modifier: Modifier = Modifier) {
+    NutritionSummary(meals, modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(CardFill).padding(20.dp))
+}
+
+// Calorie ring (consumed / planned) + macro bars, no card chrome — used by the Home Diet card.
+@Composable
+internal fun NutritionSummary(meals: List<DietMeal>, modifier: Modifier = Modifier) {
     val consumed = meals.filter { it.isConsumed }
     val consumedCal = consumed.sumOf { it.totalCalories }
     val totalCal = meals.sumOf { it.totalCalories }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(20.dp),
-        modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(CardFill).padding(20.dp)
+        modifier = modifier.fillMaxWidth()
     ) {
         CalorieRing(consumedCal, totalCal)
         Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.weight(1f)) {
@@ -555,7 +568,7 @@ internal fun EmptyMeals() {
         modifier = Modifier.fillMaxWidth().padding(top = 60.dp)) {
         Icon(Icons.Filled.Restaurant, contentDescription = null, tint = Color.White.copy(alpha = 0.2f), modifier = Modifier.size(40.dp))
         Text("No meals planned", fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.4f))
-        Text("Tap + Add meal to get started", fontSize = 13.sp, color = Color.White.copy(alpha = 0.25f))
+        Text("Tap Add meal to get started", fontSize = 13.sp, color = Color.White.copy(alpha = 0.25f))
     }
 }
 

@@ -6,6 +6,8 @@ package com.vasilisneo.trackstar.ui.screens.main.stats
 // Canvas (no chart library). Exercise switching is via the pill picker (iOS also swipes between
 // exercises — omitted here; the picker covers selection).
 
+import com.vasilisneo.trackstar.ui.i18n.tr
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -37,7 +39,7 @@ import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -352,7 +354,7 @@ private fun InsufficientData(exercise: String, modifier: Modifier = Modifier) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp), modifier = modifier.fillMaxWidth()) {
         Icon(Icons.Filled.ShowChart, contentDescription = null, tint = Color.White.copy(alpha = 0.2f), modifier = Modifier.size(36.dp))
         Text("Not enough data yet", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-        Text("Log at least 2 sessions with $exercise to see your progress chart.", fontSize = 13.sp, color = Color.White.copy(alpha = 0.4f), textAlign = TextAlign.Center)
+        Text(trf("Log at least 2 sessions with %s to see your progress chart.", exercise), fontSize = 13.sp, color = Color.White.copy(alpha = 0.4f), textAlign = TextAlign.Center)
     }
 }
 
@@ -370,7 +372,7 @@ internal fun ListPage(exercise: String, sessions: List<WorkoutSessionResponse>) 
         if (entries.isEmpty()) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().padding(40.dp)) {
                 Icon(Icons.AutoMirrored.Filled.List, contentDescription = null, tint = Color.White.copy(alpha = 0.2f), modifier = Modifier.size(36.dp))
-                Text("No logged sets for $exercise yet.", fontSize = 14.sp, color = Color.White.copy(alpha = 0.4f), textAlign = TextAlign.Center)
+                Text(trf("No logged sets for %s yet.", exercise), fontSize = 14.sp, color = Color.White.copy(alpha = 0.4f), textAlign = TextAlign.Center)
             }
         } else {
             entries.forEach { entry -> SessionCard(entry) }
@@ -386,12 +388,12 @@ private fun SessionCard(entry: ListEntry) {
     Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(CardFill)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp)) {
             Text(entry.date.format(dateFmt), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White, modifier = Modifier.weight(1f))
-            Text("${entry.rows.size} set${if (entry.rows.size == 1) "" else "s"}", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.4f))
+            Text(if (entry.rows.size == 1) tr("1 set") else trf("%s sets", entry.rows.size), fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.4f))
         }
         entry.rows.forEachIndexed { i, row ->
             Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = if (i == 0) 0.08f else 0.05f)))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 9.dp)) {
-                Text("Set ${row.index + 1}", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.35f), modifier = Modifier.width(44.dp))
+                Text(trf("Set %s", row.index + 1), fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.35f), modifier = Modifier.width(44.dp))
                 SetRowDetail(row)
             }
         }

@@ -5,6 +5,7 @@ package com.vasilisneo.trackstar.ui.screens.main.stats
 // listing every set's actual result vs the plan. Ad/delete paths from iOS are omitted (no ad or
 // local-store infra on Android yet).
 
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -31,7 +32,7 @@ import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -126,7 +127,7 @@ private fun ExerciseDetailCard(ex: ExerciseSummary) {
     Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(CardFill)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp)) {
             Text(ex.name, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.weight(1f))
-            Text("$done/$total sets", fontSize = 13.sp, color = if (done == total && total > 0) Green else Color.White.copy(alpha = 0.45f))
+            Text(trf("%1\$s/%2\$s sets", done, total), fontSize = 13.sp, color = if (done == total && total > 0) Green else Color.White.copy(alpha = 0.45f))
         }
         ex.sets.forEach { result ->
             Divider()
@@ -141,14 +142,14 @@ private fun SetRow(result: SetResult) {
     Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
         StatusIcon(logged, Modifier.width(20.dp))
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("Set ${result.index}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.4f))
+            Text(trf("Set %s", result.index), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.4f))
             if (!logged) {
                 Text("Skipped", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.25f))
             } else {
                 val actual = result.actualPerformance!!.formatLabel().ifBlank { result.label }
                 Text(actual, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                 if (result.label.isNotBlank() && result.label != actual) {
-                    Text("Planned: ${result.label}", fontSize = 11.sp, color = Color.White.copy(alpha = 0.3f))
+                    Text(trf("Planned: %s", result.label), fontSize = 11.sp, color = Color.White.copy(alpha = 0.3f))
                 }
                 result.note?.takeIf { it.isNotBlank() }?.let { Text(it, fontSize = 11.sp, color = Color.White.copy(alpha = 0.5f)) }
             }
@@ -170,7 +171,7 @@ private fun CompoundDetailCard(a: ExerciseSummary, b: ExerciseSummary) {
                 Icon(Icons.Filled.Link, contentDescription = null, tint = SupersetCyan, modifier = Modifier.size(11.dp))
                 Text("SUPERSET", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = SupersetCyan, letterSpacing = 1.sp)
             }
-            Text("$done/$total sets", fontSize = 13.sp, color = if (done == total && total > 0) Green else Color.White.copy(alpha = 0.45f))
+            Text(trf("%1\$s/%2\$s sets", done, total), fontSize = 13.sp, color = if (done == total && total > 0) Green else Color.White.copy(alpha = 0.45f))
         }
         Text("${a.name} + ${b.name}", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 4.dp))
         for (i in 0 until rounds) {
@@ -183,7 +184,7 @@ private fun CompoundDetailCard(a: ExerciseSummary, b: ExerciseSummary) {
 @Composable
 private fun CompoundRoundRow(round: Int, nameA: String, resultA: SetResult?, nameB: String, resultB: SetResult?) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-        Text("Set $round", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.4f))
+        Text(trf("Set %s", round), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.4f))
         if (resultA != null) CompoundResultLine(nameA, resultA)
         if (resultA != null && resultB != null) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {

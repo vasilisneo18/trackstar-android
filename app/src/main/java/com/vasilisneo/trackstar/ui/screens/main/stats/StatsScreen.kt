@@ -7,6 +7,8 @@ package com.vasilisneo.trackstar.ui.screens.main.stats
 // swapped for locked upgrade cards (iOS's WorkoutStatsView isFree gating; any paid tier unlocks
 // them — FeatureGate.hasFullHistory).
 
+import com.vasilisneo.trackstar.ui.i18n.tr
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -36,7 +38,7 @@ import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -267,7 +269,7 @@ private fun StreakCard(streak: Int) {
     ) {
         Icon(Icons.Filled.LocalFireDepartment, contentDescription = null, tint = Color(0xFFFF9500), modifier = Modifier.size(28.dp))
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("$streak week${if (streak == 1) "" else "s"} in a row", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text(if (streak == 1) tr("1 week in a row") else trf("%s weeks in a row", streak), fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Text("Keep it up — consistency is everything", fontSize = 13.sp, color = Color.White.copy(alpha = 0.45f))
         }
     }
@@ -390,7 +392,7 @@ private fun PrRow(pr: StatsViewModel.PREntry, metric: StatsViewModel.PRMetric, e
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(pr.name, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = Color.White, maxLines = 1)
             if (expanded && date != null) {
-                Text("Set on ${date.format(DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.ENGLISH))}", fontSize = 11.sp, color = Color.White.copy(alpha = 0.45f))
+                Text(trf("Set on %s", date.format(DateTimeFormatter.ofPattern("d MMM yyyy", com.vasilisneo.trackstar.ui.i18n.I18n.locale))), fontSize = 11.sp, color = Color.White.copy(alpha = 0.45f))
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {

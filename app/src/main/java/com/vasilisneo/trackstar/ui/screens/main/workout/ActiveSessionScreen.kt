@@ -7,6 +7,7 @@ package com.vasilisneo.trackstar.ui.screens.main.workout
 // LogCompoundSetSheet). Presented as a full-screen overlay from MainAppScreen, mirroring iOS's
 // fullScreenCover.
 
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -37,7 +38,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
@@ -289,11 +290,11 @@ private fun ProgressSection(viewModel: ActiveSessionViewModel) {
         Spacer(modifier = Modifier.height(6.dp))
         Row(modifier = Modifier.fillMaxWidth()) {
             Text(
-                "Exercise ${(currentIndex ?: (units.size - 1)) + 1} of ${units.size}",
+                trf("Exercise %1\$s of %2\$s", (currentIndex ?: (units.size - 1)) + 1, units.size),
                 fontSize = 12.sp, color = Color.White.copy(alpha = 0.4f)
             )
             Spacer(modifier = Modifier.weight(1f))
-            Text("${viewModel.completedSets} / ${viewModel.totalSets} sets logged", fontSize = 12.sp, color = Color.White.copy(alpha = 0.4f))
+            Text(trf("%1\$s / %2\$s sets logged", viewModel.completedSets, viewModel.totalSets), fontSize = 12.sp, color = Color.White.copy(alpha = 0.4f))
         }
     }
 }
@@ -628,7 +629,7 @@ private fun DurationHelperCard(viewModel: ActiveSessionViewModel) {
                         )
                     }
                 }
-                DurationPillButton("Start in ${viewModel.startDelay}s", TrackstarAccent) { viewModel.beginDurationCountdown() }
+                DurationPillButton(trf("Start in %ss", viewModel.startDelay), TrackstarAccent) { viewModel.beginDurationCountdown() }
                 CancelText { viewModel.cancelDurationHelper() }
             }
         }
@@ -670,12 +671,12 @@ private fun BottomCTA(viewModel: ActiveSessionViewModel, onLogCurrentSet: () -> 
             if (set != null) {
                 val r = set.repsOrDurationText()
                 val w = set.weightText()
-                if (w == "—" || w.isBlank()) "Log set · $r" else "Log set · $w × $r"
+                if (w == "—" || w.isBlank()) trf("Log set · %s", r) else trf("Log set · %1\$s × %2\$s", w, r)
             } else "Log set"
         }
         is ExerciseDisplayUnit.Pair -> {
             val round = viewModel.currentCompoundRoundIndex(currentUnit.a, currentUnit.b)
-            if (round != null) "Log Round ${round + 1}" else "Log set"
+            if (round != null) trf("Log Round %s", round + 1) else "Log set"
         }
         null -> "Log set"
     }
@@ -808,7 +809,7 @@ fun ActiveSessionMiniBar(viewModel: ActiveSessionViewModel, onExpand: () -> Unit
                     viewModel.title.ifBlank { "Active Session" },
                     fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1
                 )
-                Text("${viewModel.completedSets}/${viewModel.totalSets} sets", fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f))
+                Text(trf("%1\$s/%2\$s sets", viewModel.completedSets, viewModel.totalSets), fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f))
             }
             Text(
                 formatElapsed(viewModel.elapsedSeconds),

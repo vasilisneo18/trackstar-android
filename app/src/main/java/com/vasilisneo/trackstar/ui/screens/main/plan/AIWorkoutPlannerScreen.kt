@@ -6,6 +6,7 @@ package com.vasilisneo.trackstar.ui.screens.main.plan
 // Deviations from iOS, both flagged in the approved plan: no equipment step (backend ignores
 // it — zero effect on generation) and a checkbox review list instead of swipe-accept/reject cards.
 
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -35,7 +36,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -100,7 +101,7 @@ private fun LimitReachedView(used: Int, limit: Int) {
             Icon(Icons.Filled.Lock, contentDescription = null, tint = Color.White.copy(alpha = 0.4f), modifier = Modifier.size(36.dp))
             Text("Monthly limit reached", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Text(
-                "You've used $used of $limit AI workout plans this month. Your limit resets next month.",
+                trf("You've used %1\$s of %2\$s AI workout plans this month. Your limit resets next month.", used, limit),
                 fontSize = 14.sp, color = Color.White.copy(alpha = 0.5f), textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             )
         }
@@ -345,7 +346,7 @@ private fun exerciseGenSummary(exercise: com.vasilisneo.trackstar.data.api.Worko
         exercise.distanceMeters != null -> "${exercise.distanceMeters}m"
         else -> "${exercise.reps ?: 10} reps"
     }
-    return "$setCount sets · $valuePart"
+    return trf("%1\$s sets · %2\$s", setCount, valuePart)
 }
 
 @Composable

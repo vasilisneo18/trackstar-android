@@ -7,6 +7,7 @@ package com.vasilisneo.trackstar.ui.screens.main.workout
 // LogCompoundSetSheet for both halves at once). When every set is handled, a Finish button
 // POSTs the session. Presented as a modal slide-up from MainAppScreen.
 
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -38,7 +39,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -132,7 +133,7 @@ fun QuickLogSheet(viewModel: QuickLogViewModel, onClose: () -> Unit, onFinished:
                 Spacer(modifier = Modifier.weight(1f))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Quick Log", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                    Text("${viewModel.handledSets} / ${viewModel.totalSets} sets logged", fontSize = 12.sp, color = Color.White.copy(alpha = 0.4f))
+                    Text(trf("%1\$s / %2\$s sets logged", viewModel.handledSets, viewModel.totalSets), fontSize = 12.sp, color = Color.White.copy(alpha = 0.4f))
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 Spacer(modifier = Modifier.size(44.dp))

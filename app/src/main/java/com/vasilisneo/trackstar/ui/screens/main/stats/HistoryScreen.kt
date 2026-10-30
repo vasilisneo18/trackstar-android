@@ -4,6 +4,7 @@ package com.vasilisneo.trackstar.ui.screens.main.stats
 // toggle into a week-by-week session list (iOS's AthleteHistoryTabView). Data is the completed-
 // session list from StatsViewModel. Tapping a session opens the Session Report (Phase 3).
 
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -37,7 +38,7 @@ import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.NightsStay
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -284,7 +285,7 @@ private fun SessionSummaryCard(session: WorkoutSessionResponse, onClick: () -> U
         }
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatPill(Icons.Filled.Timer, formatDuration(session.durationSecondsOrData))
-            StatPill(Icons.Filled.CheckCircle, "${session.completedSets}/${session.totalSets} sets")
+            StatPill(Icons.Filled.CheckCircle, trf("%1\$s/%2\$s sets", session.completedSets, session.totalSets))
             StatPill(Icons.Filled.FitnessCenter, "${session.exerciseSummaries.size} exercises")
         }
         Text(session.exerciseSummaries.joinToString(" · ") { it.name }, fontSize = 13.sp, color = Color.White.copy(alpha = 0.45f), maxLines = 2)
@@ -300,7 +301,7 @@ private fun NoSessionCard(date: LocalDate) {
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(CardFill).padding(16.dp)
     ) {
         Icon(Icons.Filled.NightsStay, contentDescription = null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(20.dp))
-        Text("No session on ${date.format(fmt)}", fontSize = 14.sp, color = Color.White.copy(alpha = 0.4f))
+        Text(trf("No session on %s", date.format(fmt)), fontSize = 14.sp, color = Color.White.copy(alpha = 0.4f))
     }
 }
 
@@ -376,7 +377,7 @@ private fun WeekSessionCard(date: LocalDate, session: WorkoutSessionResponse, on
             Text(session.sessionData?.title?.ifBlank { "Workout" } ?: "Workout", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White, maxLines = 1)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SmallChip(Icons.Filled.Timer, formatDuration(session.durationSecondsOrData))
-                SmallChip(Icons.Filled.CheckCircle, "${session.completedSets}/${session.totalSets} sets")
+                SmallChip(Icons.Filled.CheckCircle, trf("%1\$s/%2\$s sets", session.completedSets, session.totalSets))
                 SmallChip(Icons.Filled.FitnessCenter, "${session.exerciseSummaries.size} ex")
             }
         }

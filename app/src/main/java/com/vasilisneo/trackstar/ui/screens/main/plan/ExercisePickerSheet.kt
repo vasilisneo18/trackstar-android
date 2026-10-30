@@ -8,6 +8,8 @@ package com.vasilisneo.trackstar.ui.screens.main.plan
 // is responsible for immediately opening ExerciseEditorSheet to configure each one, matching
 // iOS's effective flow (the picker itself has no configuration step).
 
+import com.vasilisneo.trackstar.ui.i18n.tr
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.BasicTextField
@@ -50,7 +52,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -341,7 +343,7 @@ fun ExercisePickerSheet(onAdd: (List<ExerciseData>) -> Unit, onDismiss: () -> Un
                     .clickable { close { onAdd(stubExercisesFromNames(selected.toList())); onDismiss() } }
             ) {
                 Text(
-                    "Add ${selected.size} Exercise${if (selected.size == 1) "" else "s"}",
+                    if (selected.size == 1) tr("Add 1 Exercise") else trf("Add %s Exercises", selected.size),
                     fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White
                 )
             }

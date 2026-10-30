@@ -28,6 +28,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.ui.graphics.Brush
+import dev.chrisbanes.haze.hazeChild
+import dev.chrisbanes.haze.haze
 import com.vasilisneo.trackstar.ui.theme.TrackstarBackground
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -36,11 +38,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.annotation.DrawableRes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.runtime.Composable
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.collectAsState
@@ -87,15 +90,16 @@ private data class MainTab(
 )
 
 private val MainTabs = listOf(
-    MainTab("workout", "Home", icon = Icons.Filled.Home, iconSize = 26.dp),
-    MainTab("stats", "Stats", icon = Icons.Filled.BarChart, iconSize = 24.dp),
-    MainTab("myteam", "MyTeam", icon = Icons.Filled.Groups, iconSize = 28.dp),
+    // Slimmer glyphs, closer to iOS's tab bar (house.fill / chart.bar.fill / person.3).
+    MainTab("workout", "Home", icon = Icons.Filled.Home, iconSize = 30.dp),
+    MainTab("stats", "Stats", icon = Icons.Filled.BarChart, iconSize = 29.dp),
+    MainTab("myteam", "MyTeam", icon = Icons.Outlined.Groups, iconSize = 32.dp),
 )
 
 // Lighter, translucent "liquid glass" capsule (was a near-black #17171F that vanished on the dark
 // background) with a faint white rim for the glass edge.
-private val TabBarSurface = Color(0xFF2A2A32).copy(alpha = 0.94f)
-private val TabBarRim = Color.White.copy(alpha = 0.14f)
+private val TabBarSurface = Color(0xFF3A3D52).copy(alpha = 0.92f)
+private val TabBarRim = Color.White.copy(alpha = 0.12f)
 
 @Composable
 fun MainAppScreen(
@@ -108,6 +112,8 @@ fun MainAppScreen(
     onOpenAddAthlete: () -> Unit = {},
     onOpenTemplates: () -> Unit = {},
     onOpenAvailability: () -> Unit = {},
+    // Coach: open the schedule on a given day (yyyy-MM-dd).
+    onOpenAvailabilityOn: (String) -> Unit = {},
     onOpenAllAthletes: () -> Unit = {},
     onOpenBookingSettings: () -> Unit = {},
     onOpenCheckIns: () -> Unit = {},
@@ -116,6 +122,7 @@ fun MainAppScreen(
     onOpenDiet: () -> Unit = {},
 ) {
     val tabNavController = rememberNavController()
+    val tabBarHaze = remember { dev.chrisbanes.haze.HazeState() }
 
     // MyTeam tab is shown whenever the plan is Gold, matching iOS (MainAppCoordinator.buildTabs
     // adds the athletes tab only when FeatureGate.canCoach, which is plan-only). Collecting
@@ -133,7 +140,11 @@ fun MainAppScreen(
     // Profile and back). Plain remember would reset these to false on return, hiding the Schedule
     // button for a frame until the async refetch completes — a visible flicker.
     var myBookingEnabled by rememberSaveable { mutableStateOf(false) }      // coach: do I offer booking?
-    var coachBookingEnabled by rememberSaveable { mutableStateOf(false) }   // athlete: does my coach offer it?
+    // Persisted per user so the Book card is on Home from the first frame next launch (it then
+    // shimmers until the bookings refresh).
+    var coachBookingEnabled by com.vasilisneo.trackstar.ui.util.rememberBooleanPref(
+        "homeCoachBooking.${com.vasilisneo.trackstar.data.auth.AuthTokenHolder.userId ?: "anon"}", false
+    )   // athlete: does my coach offer it?
     var bookingResumeTick by remember { androidx.compose.runtime.mutableIntStateOf(0) }
     androidx.lifecycle.compose.LifecycleResumeEffect(Unit) {
         bookingResumeTick++
@@ -148,7 +159,9 @@ fun MainAppScreen(
         }
     }
     val showAvailabilityEntry = isCoach && myBookingEnabled
-    val showBookEntry = !isCoach && coachBookingEnabled
+    // Anyone whose linked coach offers booking can book — coaches included (a coach can have a coach
+    // too). Matches iOS, which gates the Book card only on coachBookingEnabled.
+    val showBookEntry = coachBookingEnabled
 
     // Active session is owned here (not inside the Workout tab or a nav route) so it survives
     // being minimized: the full-screen UI dismisses to a mini-bar while the session keeps
@@ -170,13 +183,15 @@ fun MainAppScreen(
         NavHost(
             navController = tabNavController,
             startDestination = "workout",
-            modifier = Modifier.fillMaxSize()
+            // Source for the tab bar's frosted-glass blur.
+            modifier = Modifier.fillMaxSize().haze(tabBarHaze)
         ) {
             composable("workout") {
                 WorkoutScreen(
                     onProfileClick = onProfileClick,
                     onScheduleWorkout = onScheduleWorkout,
                     onBookSession = onOpenBookSession,
+                    onOpenCoachSchedule = onOpenAvailabilityOn,
                     showBookSession = showBookEntry,
                     onStartSession = { date, sessionId -> startSession(date, sessionId) },
                     onQuickLog = { date, sessionId -> quickLog = QuickLogViewModel(date, sessionId) },
@@ -221,23 +236,6 @@ fun MainAppScreen(
             // (see the "diet" route in MainActivity).
         }
 
-        // Scroll-edge fade behind the floating tab bar: content scrolling toward the bar softly
-        // dissolves into the background instead of sharply cutting off — approximates the way
-        // iOS's liquid-glass tab bar blurs/hides content passing beneath it.
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(130.dp)
-                .background(
-                    Brush.verticalGradient(
-                        0f to Color.Transparent,
-                        0.55f to TrackstarBackground.copy(alpha = 0.55f),
-                        1f to TrackstarBackground,
-                    )
-                )
-        )
-
         // Mini-bar (when minimized) sits directly above the floating tab bar. When present, the
         // mini-bar + the whole bottom region (behind/around the floating tab pill, down to the
         // screen edge) share one continuous translucent surface, matching iOS.
@@ -249,12 +247,13 @@ fun MainAppScreen(
                     .background(Color(0xFF14141C).copy(alpha = 0.95f))
             ) {
                 ActiveSessionMiniBar(viewModel = session, onExpand = { showActiveFull = true })
-                FloatingTabBar(tabNavController = tabNavController, tabs = visibleTabs)
+                FloatingTabBar(tabNavController = tabNavController, tabs = visibleTabs, hazeState = tabBarHaze)
             }
         } else {
             FloatingTabBar(
                 tabNavController = tabNavController,
                 tabs = visibleTabs,
+                hazeState = tabBarHaze,
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
         }
@@ -302,6 +301,7 @@ fun MainAppScreen(
 private fun FloatingTabBar(
     tabNavController: NavHostController,
     tabs: List<MainTab>,
+    hazeState: dev.chrisbanes.haze.HazeState,
     modifier: Modifier = Modifier,
 ) {
     val backStackEntry by tabNavController.currentBackStackEntryAsState()
@@ -311,10 +311,10 @@ private fun FloatingTabBar(
     // overflow and clip the edge pills (the "Diet looks shorter" bug on narrower/denser phones).
     val screenWidth = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.dp
     val sideMargin = 12.dp                    // breathing room each side of the capsule
-    val capsuleOverhead = 8.dp + 2.dp         // inner padding (4+4) + border (1+1)
+    val capsuleOverhead = 8.dp + 1.dp         // inner padding (4+4) + border (0.5+0.5)
     val spacing = 4.dp * (tabs.size - 1)      // gaps between tabs
     val available = screenWidth - sideMargin * 2 - capsuleOverhead - spacing
-    val tabWidth = minOf(96.dp, available / tabs.size)
+    val tabWidth = minOf(92.dp, available / tabs.size)
 
     // The pill hugs its tabs and centers, so it narrows with fewer tabs (3 for athletes, 4 for a
     // Gold coach), matching iOS's content-sized floating tab bar rather than stretching edge to
@@ -333,8 +333,20 @@ private fun FloatingTabBar(
                 // background(color, shape) draws an antialiased rounded fill; using clip() here
                 // instead would give hard, jagged corners because hardware clipPath isn't
                 // antialiased on Android.
-                .background(TabBarSurface, RoundedCornerShape(percent = 50))
-                .border(1.dp, TabBarRim, RoundedCornerShape(percent = 50))
+                // Frosted glass like iOS's tab bar: the screen behind is blurred and lightened, so
+                // the bar picks up the page's colour instead of sitting on it as a dark slab.
+                .clip(RoundedCornerShape(percent = 50))
+                .hazeChild(
+                    state = hazeState,
+                    style = dev.chrisbanes.haze.HazeStyle(
+                        backgroundColor = Color.Transparent,
+                        tint = dev.chrisbanes.haze.HazeTint(Color.White.copy(alpha = 0.10f)),
+                        blurRadius = 24.dp,
+                        // No-blur devices (API < 31 / emulators): a light frosted fill.
+                        fallbackTint = dev.chrisbanes.haze.HazeTint(TabBarSurface),
+                    ),
+                )
+                .border(0.5.dp, TabBarRim, RoundedCornerShape(percent = 50))
                 .padding(4.dp) // inner inset between the capsule's edge and the tab row
         ) {
             tabs.forEach { tab ->
@@ -364,7 +376,8 @@ private fun TabBarItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val contentColor = if (selected) Color.White else Color.White.copy(alpha = 0.5f)
+    // Unselected stays bright (like iOS) — only slightly dimmer than the selected tab.
+    val contentColor = if (selected) Color.White else Color.White.copy(alpha = 0.82f)
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(0.dp),
@@ -381,11 +394,11 @@ private fun TabBarItem(
             )
             .clip(RoundedCornerShape(percent = 50))
             .clickable(onClick = onClick)
-            .padding(vertical = 4.dp)
+            .padding(top = 7.dp, bottom = 6.dp)
     ) {
         // Fixed-height icon slot so every tab is the same height even though the optically-small
         // Workout/MyTeam glyphs render at a larger size than the solid Stats/Diet ones.
-        Box(modifier = Modifier.height(28.dp), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.height(30.dp), contentAlignment = Alignment.Center) {
             if (tab.iconRes != null) {
                 Icon(
                     painter = painterResource(tab.iconRes),
@@ -397,6 +410,17 @@ private fun TabBarItem(
                 Icon(tab.icon!!, contentDescription = tab.label, tint = contentColor, modifier = Modifier.size(tab.iconSize))
             }
         }
-        Text(tab.label, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = contentColor)
+        // Trimmed line box (no font padding) so the label sits right under the icon, like iOS.
+        Text(
+            tab.label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = contentColor,
+            style = androidx.compose.ui.text.TextStyle(
+                platformStyle = androidx.compose.ui.text.PlatformTextStyle(includeFontPadding = false),
+                lineHeightStyle = androidx.compose.ui.text.style.LineHeightStyle(
+                    alignment = androidx.compose.ui.text.style.LineHeightStyle.Alignment.Center,
+                    trim = androidx.compose.ui.text.style.LineHeightStyle.Trim.Both,
+                ),
+            ),
+            modifier = Modifier.padding(top = 2.dp),
+        )
     }
 }

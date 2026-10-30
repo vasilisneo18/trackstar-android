@@ -1,5 +1,6 @@
 package com.vasilisneo.trackstar.ui.screens.main.plan
 
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -269,4 +270,4 @@ private fun com.vasilisneo.trackstar.data.api.WorkoutPlanExercise.toExerciseData
 }
 
 private fun formatSeconds(seconds: Int): String =
-    if (seconds >= 60) "${seconds / 60} minute${if (seconds % 60 != 0) " ${seconds % 60} sec" else ""}" else "$seconds sec"
+    if (seconds >= 60) trf("%s min", seconds / 60) + (if (seconds % 60 != 0) " " + trf("%s sec", seconds % 60) else "") else trf("%s sec", seconds)

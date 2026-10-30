@@ -42,6 +42,9 @@ class DietViewModel(
     var currentDay by mutableStateOf(todayName())
     var isLoading by mutableStateOf(false)
         private set
+    // False until the first backend fetch finishes — the Home Diet card shimmers meanwhile.
+    var hasFetched by mutableStateOf(false)
+        private set
 
     val userInitials: String = com.vasilisneo.trackstar.ui.components.initialsFrom(
         listOfNotNull(tokenStore.firstName?.ifBlank { null }, tokenStore.lastName?.ifBlank { null })
@@ -63,10 +66,14 @@ class DietViewModel(
             if (weeklyPlan.isEmpty()) repo.cachedDiet(athleteId)?.let { weeklyPlan = it.meals }
             isLoading = weeklyPlan.isEmpty()
             when (val r = repo.getDiet(athleteId)) {
-                is ApiResult.Success -> weeklyPlan = r.data.meals
+                is ApiResult.Success -> {
+                    weeklyPlan = r.data.meals
+                    if (athleteId == null) DietRefreshSignal.publish(weeklyPlan)
+                }
                 is ApiResult.Error -> Unit // keep stale data on failure
             }
             isLoading = false
+            hasFetched = true
         }
     }
 
@@ -87,6 +94,7 @@ class DietViewModel(
 
     private fun update(day: String, meals: List<DietMeal>) {
         weeklyPlan = weeklyPlan.toMutableMap().apply { put(day, meals) }
+        if (athleteId == null) DietRefreshSignal.publish(weeklyPlan)
         sync()
     }
 

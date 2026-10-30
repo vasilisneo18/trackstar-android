@@ -6,6 +6,7 @@ package com.vasilisneo.trackstar.ui.screens.main.coach
 // pointing the athlete at their QR code (a coach scans it) — accepting an invite link is the other
 // path, handled by AcceptInviteSheet via the trackstar://invite/{token} deep link.
 
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -26,7 +27,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -172,5 +173,5 @@ private fun coachingSinceLabel(iso: String?): String? {
     if (iso.isNullOrBlank()) return null
     val date = runCatching { LocalDate.parse(iso) }.getOrNull() ?: return null
     val month = date.format(DateTimeFormatter.ofPattern("MMMM yyyy", Locale.getDefault()))
-    return "Coaching since $month"
+    return trf("Coaching since %s", month)
 }

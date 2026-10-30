@@ -9,6 +9,8 @@ package com.vasilisneo.trackstar.ui.screens.main.plan
 //     SessionEditScreen, the full-screen session/exercise editor.
 // Week/day navigation and session deletion live here in both modes.
 
+import com.vasilisneo.trackstar.ui.i18n.tr
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
@@ -52,7 +54,7 @@ import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -670,7 +672,7 @@ internal fun PlanSessionCard(session: PlannedSessionResponse, onClick: () -> Uni
             Text(session.title?.takeIf { it.isNotBlank() } ?: "Workout", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White)
             val count = session.exercises.orEmpty().size
             Text(
-                if (count == 0) "No exercises" else "$count exercise${if (count == 1) "" else "s"}",
+                if (count == 0) "No exercises" else if (count == 1) tr("1 exercise") else trf("%s exercises", count),
                 fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f)
             )
         }

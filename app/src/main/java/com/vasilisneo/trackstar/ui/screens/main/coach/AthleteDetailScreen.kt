@@ -5,6 +5,8 @@ package com.vasilisneo.trackstar.ui.screens.main.coach
 // workouts, reusing the Stats history week list + SessionReportScreen); Plan and Diet tabs are
 // placeholders until their athlete-scoped editing lands.
 
+import com.vasilisneo.trackstar.ui.i18n.tr
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.shape.CircleShape
@@ -41,7 +43,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -154,7 +156,7 @@ fun AthleteDetailScreen(athleteId: String, onBack: () -> Unit) {
             onDismissRequest = { pendingTemplate = null; showTemplatePicker = false },
             containerColor = Color(0xFF1A1A26),
             title = { Text("Apply Template?", color = Color.White) },
-            text = { Text("\"${template.name}\" will replace this week's plan for $firstName. This cannot be undone.", color = Color.White.copy(alpha = 0.7f)) },
+            text = { Text(trf("\"%1\$s\" will replace the current week's plan for %2\$s. This cannot be undone.", template.name, firstName), color = Color.White.copy(alpha = 0.7f)) },
             confirmButton = {
                 TextButton(onClick = {
                     planVm.applyTemplate(template.id)
@@ -184,14 +186,14 @@ private fun AthleteDashboard(
     val planCount = weekSessions.size
     val exCount = weekSessions.sumOf { it.exercises?.size ?: 0 }
     val planSub = if (planCount == 0) "No plan yet — tap to build one"
-        else "$planCount session${if (planCount == 1) "" else "s"} · $exCount exercise${if (exCount == 1) "" else "s"} this week"
+        else (if (planCount == 1) tr("1 session") else trf("%s sessions", planCount)) + " · " + (if (exCount == 1) tr("1 exercise this week") else trf("%s exercises this week", exCount))
 
     val last = sessions.maxByOrNull { it.sessionData?.completedAt ?: it.sessionData?.date ?: 0.0 }
     val sessionsSub = if (sessions.isEmpty()) "No sessions logged yet"
         else "${sessions.size} logged" + (last?.sessionData?.completedAt?.let { " · last " + epochSecDate(it) } ?: "")
 
     val meals = dietVm.weeklyPlan.values.sumOf { it.size }
-    val dietSub = if (meals == 0) "No diet plan yet" else "$meals meal${if (meals == 1) "" else "s"} planned across the week"
+    val dietSub = if (meals == 0) "No diet plan yet" else if (meals == 1) tr("1 meal planned across the week") else trf("%s meals planned across the week", meals)
 
     val profileSub = buildList {
         add(notes.fitnessLevel)
@@ -202,16 +204,16 @@ private fun AthleteDashboard(
     // Detail footers.
     val planDetail = last?.let { s ->
         val t = s.sessionData?.title?.ifBlank { "Workout" } ?: "Workout"
-        "Last done: $t" + (s.sessionData?.completedAt?.let { " · " + epochSecDate(it) } ?: "")
+        trf("Last done: %s", t) + (s.sessionData?.completedAt?.let { " · " + epochSecDate(it) } ?: "")
     }
     val sessionsDetail = last?.let { s ->
         val t = s.sessionData?.title?.ifBlank { "Workout" } ?: "Workout"
         val sets = s.sessionData?.exercises?.sumOf { it.sets.size } ?: 0
-        "$t · ${durationLabel(s.sessionData?.durationSeconds ?: 0)} · $sets sets"
+        trf("%1\$s · %2\$s · %3\$s sets", t, durationLabel(s.sessionData?.durationSeconds ?: 0), sets)
     }
     val trackedCount = sessions.flatMap { it.sessionData?.exercises?.map { e -> e.name.lowercase() } ?: emptyList() }.toSet().size
-    val progressDetail = if (trackedCount == 0) null else "$trackedCount exercise${if (trackedCount == 1) "" else "s"} tracked"
-    val profileDetail = notes.injuries.trim().takeIf { it.isNotEmpty() }?.let { "Injuries: $it" }
+    val progressDetail = if (trackedCount == 0) null else if (trackedCount == 1) tr("1 exercise tracked") else trf("%s exercises tracked", trackedCount)
+    val profileDetail = notes.injuries.trim().takeIf { it.isNotEmpty() }?.let { trf("Injuries: %s", it) }
 
     CollapsingTitleScaffold(title = name, onBack = onBack) {
         item {
@@ -274,7 +276,7 @@ private fun coachingSinceLine(notes: com.vasilisneo.trackstar.data.api.AthleteNo
         val d = java.time.LocalDate.parse(notes.startDate)
         d.format(java.time.format.DateTimeFormatter.ofPattern("MMM yyyy", java.util.Locale.ENGLISH))
     }.getOrNull()
-    return if (started != null) "Coaching since $started · ${notes.fitnessLevel}" else notes.fitnessLevel
+    return if (started != null) trf("Coaching since %s", started) + " · " + tr(notes.fitnessLevel) else notes.fitnessLevel
 }
 
 @Composable

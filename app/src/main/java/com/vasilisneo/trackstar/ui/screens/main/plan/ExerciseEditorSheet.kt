@@ -8,6 +8,7 @@ package com.vasilisneo.trackstar.ui.screens.main.plan
 // type selectors, a labelled scrollable set-type row, rep steppers / rep-range control, and
 // scroll-wheel pickers (WheelPickerRow) for duration, distance, and rest.
 
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.BasicTextField
@@ -39,7 +40,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetValue
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -539,7 +540,7 @@ private fun RepsRangeControl(min: Int, max: Int, onMinChange: (Int) -> Unit, onM
             onIncrement = { onMinChange(min + 1) },
         )
         Text(
-            "$min to $max", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White,
+            trf("%1\$s to %2\$s", min, max), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White,
             modifier = Modifier.padding(horizontal = 4.dp)
         )
         StepperButtons(

@@ -8,6 +8,7 @@ package com.vasilisneo.trackstar.ui.screens.main.plan
 // Deviation: tap-to-edit + trailing delete icon per row, not iOS's swipe-to-reveal actions
 // (Android has no equivalently clean swipe-actions primitive) — same capability, different gesture.
 
+import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -44,7 +45,7 @@ import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -719,7 +720,7 @@ private fun setSessionLabel(set: ExerciseSet): String {
     val valuePart = when {
         freq?.reps != null -> {
             val max = set.repsMax
-            if (max != null && max != freq.reps) "${minOf(freq.reps, max)}-${maxOf(freq.reps, max)} reps" else "${freq.reps} reps"
+            if (max != null && max != freq.reps) trf("%s reps", "${minOf(freq.reps, max)}-${maxOf(freq.reps, max)}") else trf("%s reps", freq.reps)
         }
         freq?.duration != null -> compactDuration(freq.duration)
         freq?.distance != null -> freq.distance

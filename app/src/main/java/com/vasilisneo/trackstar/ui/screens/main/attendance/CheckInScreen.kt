@@ -1,5 +1,6 @@
 package com.vasilisneo.trackstar.ui.screens.main.attendance
 
+import com.vasilisneo.trackstar.ui.i18n.trf
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -32,7 +33,7 @@ import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Text
+import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -172,7 +173,7 @@ private fun ActiveVisitCard(visit: VisitResponse, busy: Boolean, onCheckOut: () 
         }
         Text(visit.locationLabel, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
         visit.checkInAt?.let {
-            Text("Checked in at ${fmtTime(it)}", fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.6f))
+            Text(trf("Checked in at %s", fmtTime(it)), fontSize = 16.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.6f))
         }
         Box(
             modifier = Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(27.dp))
