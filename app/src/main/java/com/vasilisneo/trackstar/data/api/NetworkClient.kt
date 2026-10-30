@@ -44,12 +44,13 @@ object NetworkClient {
         .addInterceptor { chain ->
             val request = chain.request()
             val token = AuthTokenHolder.token
-            val authed = if (token != null && request.header("Authorization") == null) {
-                request.newBuilder().header("Authorization", "Bearer $token").build()
-            } else {
-                request
+            val builder = request.newBuilder()
+                // App language, so the backend sends pushes/emails and AI plans in it.
+                .header("Accept-Language", com.vasilisneo.trackstar.ui.i18n.I18n.effectiveCode)
+            if (token != null && request.header("Authorization") == null) {
+                builder.header("Authorization", "Bearer $token")
             }
-            chain.proceed(authed)
+            chain.proceed(builder.build())
         }
         .addInterceptor(HttpLoggingInterceptor().apply {
             // Only log in debug builds — release shouldn't write request URLs to logcat.
