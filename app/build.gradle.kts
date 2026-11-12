@@ -33,6 +33,17 @@ val googleServerClientId: String = run {
     props.getProperty("google.serverClientId") ?: System.getenv("GOOGLE_SERVER_CLIENT_ID") ?: ""
 }
 
+// Google Maps API key (Maps SDK for Android, restricted to this package + signing SHA-1s) — kept out
+// of git in local.properties as `MAPS_API_KEY=AIza...`, falling back to the MAPS_API_KEY env var
+// for CI. Blank builds fine; the map just shows an empty grid until a key is set.
+val mapsApiKey: String = run {
+    val props = Properties().apply {
+        val f = rootProject.file("local.properties")
+        if (f.exists()) f.inputStream().use { load(it) }
+    }
+    props.getProperty("MAPS_API_KEY") ?: System.getenv("MAPS_API_KEY") ?: ""
+}
+
 // Release signing config, read from the gitignored keystore.properties. Absent on machines/CI
 // without the upload key — release builds there fall back to unsigned (debug builds unaffected).
 val keystoreProps = Properties().apply {
@@ -55,6 +66,7 @@ android {
         versionName = "1.1.0"
 
         buildConfigField("String", "REVENUECAT_API_KEY", "\"$revenueCatApiKey\"")
+        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
         buildConfigField("String", "GOOGLE_SERVER_CLIENT_ID", "\"$googleServerClientId\"")
     }
 
@@ -136,6 +148,9 @@ dependencies {
     implementation("androidx.health.connect:connect-client:1.1.0-alpha07")
     // Fused location — a fresh, accurate GPS fix for the gym check-in geofence.
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    // Google Maps in Compose (activity routes, piste maps, group live map).
+    implementation("com.google.maps.android:maps-compose:6.2.1")
+    implementation("com.google.android.gms:play-services-maps:19.0.0")
     // Health Connect forces the `listenablefuture` coordinate to Guava's empty marker; add real
     // Guava so CameraX (QR scanner) still finds ListenableFuture on the compile classpath.
     implementation("com.google.guava:guava:33.3.1-android")
