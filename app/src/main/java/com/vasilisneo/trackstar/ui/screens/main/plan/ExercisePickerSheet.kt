@@ -77,6 +77,23 @@ import com.vasilisneo.trackstar.data.api.ResistanceUnit
 import com.vasilisneo.trackstar.data.api.ResistanceValue
 import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
 import com.vasilisneo.trackstar.ui.theme.trackstarBackground
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import com.vasilisneo.trackstar.data.workout.CatalogExercise
+import com.vasilisneo.trackstar.data.workout.ExerciseCatalog
+import com.vasilisneo.trackstar.data.workout.MuscleGroup
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -155,10 +172,37 @@ private val allGroups = listOf(
     ExerciseGroup("Dynamic", "Stretching", listOf("Leg Swings", "Arm Circles", "Hip Circles", "Inchworm", "World's Greatest Stretch", "Lateral Lunge", "Walking Knee Hug")),
 )
 
+// MARK: - Library mapping
+
+/** Which library exercises appear under each picker category (same rules as iOS). */
+private fun libraryIncludes(e: CatalogExercise, category: String): Boolean = when (category) {
+    "All" -> true
+    "Gym" -> e.category == "strength" && e.equipment != "body only"
+    "Calisthenics" -> e.equipment == "body only" && (e.category == "strength" || e.category == "plyometrics")
+    "Powerlifting" -> e.category == "powerlifting" || e.category == "strongman"
+    "Olympic" -> e.category == "olympic weightlifting"
+    "HIIT" -> e.category == "plyometrics" || e.category == "cardio"
+    "Stretching" -> e.category == "stretching"
+    else -> false
+}
+
+/** "muscle.Back" etc. — a namespaced key so "Back" the muscle isn't "Back" the button. */
+private fun trPrefixed(prefix: String, s: String): String {
+    val key = prefix + s
+    val v = tr(key)
+    return if (v == key) s else v
+}
+
+private fun subtitle(e: CatalogExercise): String = listOfNotNull(
+    e.equipment?.takeIf { it != "other" }?.let { tr(ExerciseCatalog.equipmentLabel(it)) },
+    e.primary.firstOrNull()?.let { m -> trPrefixed("muscle.", m.split(" ").joinToString(" ") { w -> w.replaceFirstChar { it.uppercase() } }) },
+).joinToString(" · ")
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ExercisePickerSheet(onAdd: (List<ExerciseData>) -> Unit, onDismiss: () -> Unit) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     // Locked + animated like the superset sheet: reject user swipe/scrim (confirmValueChange), but
     // allow our own hide so the X / "Add N" buttons slide the sheet down before it's removed.
     var allowHide by remember { mutableStateOf(false) }
@@ -175,12 +219,30 @@ fun ExercisePickerSheet(onAdd: (List<ExerciseData>) -> Unit, onDismiss: () -> Un
     }
     var searchText by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf("All") }
+    var muscle by remember { mutableStateOf<MuscleGroup?>(null) }
+    var catalogReady by remember { mutableStateOf(ExerciseCatalog.exercises.isNotEmpty()) }
+    var detail by remember { mutableStateOf<Pair<CatalogExercise, String>?>(null) }
     val selected = remember { androidx.compose.runtime.mutableStateListOf<String>() }
     val customExercises = remember { androidx.compose.runtime.mutableStateListOf<String>() }
 
-    val filtered = remember(searchText, selectedCategory, customExercises.size) {
-        filteredGroups(searchText, selectedCategory)
+    LaunchedEffect(Unit) {
+        if (!catalogReady) {
+            withContext(Dispatchers.IO) { ExerciseCatalog.load(context.applicationContext) }
+            catalogReady = true
+        }
     }
+
+    val query = searchText.trim().lowercase()
+    val filtered = remember(query, selectedCategory, muscle, catalogReady) {
+        filteredGroups(query, selectedCategory, muscle)
+    }
+    val library = remember(query, selectedCategory, muscle, catalogReady) {
+        libraryGroups(query, selectedCategory, muscle)
+    }
+    val categoryHasLibrary = remember(selectedCategory, catalogReady) {
+        ExerciseCatalog.exercises.any { libraryIncludes(it, selectedCategory) }
+    }
+    fun toggle(name: String) { if (selected.contains(name)) selected.remove(name) else selected.add(name) }
 
     ModalBottomSheet(
         onDismissRequest = {},
@@ -224,8 +286,7 @@ fun ExercisePickerSheet(onAdd: (List<ExerciseData>) -> Unit, onDismiss: () -> Un
             ) {
                 Icon(Icons.Filled.Search, contentDescription = null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(18.dp))
                 // BasicTextField (not Material3 TextField) so the search bar's height is set purely
-                // by the container's 11dp vertical padding — matching iOS's compact search bar
-                // (h14/v11, corner 16, white@10%) instead of Material's ~56dp min height.
+                // by the container's 11dp vertical padding — matching iOS's compact search bar.
                 BasicTextField(
                     value = searchText,
                     onValueChange = { searchText = it },
@@ -251,7 +312,7 @@ fun ExercisePickerSheet(onAdd: (List<ExerciseData>) -> Unit, onDismiss: () -> Un
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp),
-                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
             ) {
                 items(categories) { cat ->
                     val active = selectedCategory == cat.name
@@ -262,8 +323,6 @@ fun ExercisePickerSheet(onAdd: (List<ExerciseData>) -> Unit, onDismiss: () -> Un
                             .clip(RoundedCornerShape(50))
                             .background(if (active) TrackstarAccent else Color.White.copy(alpha = 0.08f))
                             .clickable { selectedCategory = cat.name }
-                            // iOS chip is h14/v8 with a 12pt icon; Compose's text line-box runs a
-                            // few dp taller, so v6 + a 12dp icon lands the chip at iOS's height.
                             .padding(horizontal = 14.dp, vertical = 6.dp)
                     ) {
                         Icon(cat.icon, contentDescription = null, tint = if (active) Color.White else Color.White.copy(alpha = 0.5f), modifier = Modifier.size(12.dp))
@@ -272,15 +331,42 @@ fun ExercisePickerSheet(onAdd: (List<ExerciseData>) -> Unit, onDismiss: () -> Un
                 }
             }
 
+            // Secondary filter: muscle group (applies to familiar exercises and the library).
+            if (categoryHasLibrary) {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)
+                ) {
+                    val chips: List<MuscleGroup?> = listOf(null) + MuscleGroup.entries.filter { it != MuscleGroup.Other }
+                    items(chips) { g ->
+                        val active = muscle == g
+                        Text(
+                            if (g == null) tr("All muscles") else trPrefixed("muscle.", g.label),
+                            fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                            color = if (active) Color.White else Color.White.copy(alpha = 0.5f),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(50))
+                                .background(if (active) TrackstarAccent.copy(alpha = 0.25f) else Color.Transparent)
+                                .border(1.dp, if (active) TrackstarAccent else Color.White.copy(alpha = 0.15f), RoundedCornerShape(50))
+                                .clickable { muscle = g }
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
+                    }
+                }
+            } else {
+                Spacer(modifier = Modifier.height(4.dp))
+            }
+
             LazyColumn(
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 20.dp, vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
                 modifier = Modifier.weight(1f)
             ) {
                 if (customExercises.isNotEmpty()) {
                     item {
-                        ExerciseGroupSection(title = "CUSTOM", names = customExercises, selected = selected) { name ->
-                            if (selected.contains(name)) selected.remove(name) else selected.add(name)
+                        Box(modifier = Modifier.padding(bottom = 20.dp)) {
+                            ExerciseGroupSection(title = tr("Custom").uppercase(), names = customExercises, selected = selected,
+                                onToggle = ::toggle, onInfo = null)
                         }
                     }
                 }
@@ -291,6 +377,7 @@ fun ExercisePickerSheet(onAdd: (List<ExerciseData>) -> Unit, onDismiss: () -> Un
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
+                                .padding(bottom = 20.dp)
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(18.dp))
                                 .background(TrackstarAccent.copy(alpha = 0.15f))
@@ -314,8 +401,39 @@ fun ExercisePickerSheet(onAdd: (List<ExerciseData>) -> Unit, onDismiss: () -> Un
                 }
 
                 items(filtered, key = { it.id }) { group ->
-                    ExerciseGroupSection(title = group.name.uppercase(), names = group.exercises, selected = selected) { name ->
-                        if (selected.contains(name)) selected.remove(name) else selected.add(name)
+                    Box(modifier = Modifier.padding(bottom = 20.dp)) {
+                    ExerciseGroupSection(
+                        title = trPrefixed("group.", group.name).uppercase(),
+                        names = group.exercises, selected = selected, onToggle = ::toggle,
+                        onInfo = { name -> ExerciseCatalog.exercise(name)?.let { detail = it to name } },
+                    )
+                    }
+                }
+
+                // Library — every other exercise in the bundled database, grouped by muscle. One lazy
+                // item per row (the "All" library is ~750 rows), drawn as a rounded card per section.
+                library.forEach { (group, list) ->
+                    item(key = "lib-h-" + group.name) {
+                        Text(
+                            "${tr("Library")} · ${trPrefixed("muscle.", group.label)}".uppercase(),
+                            fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.45f),
+                            modifier = Modifier.padding(horizontal = 4.dp).padding(bottom = 8.dp)
+                        )
+                    }
+                    itemsIndexed(list, key = { _, e -> "lib-" + e.id }) { index, e ->
+                        val top = if (index == 0) 18.dp else 0.dp
+                        val bottom = if (index == list.lastIndex) 18.dp else 0.dp
+                        Column(
+                            modifier = Modifier
+                                .padding(bottom = if (index == list.lastIndex) 20.dp else 0.dp)
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(topStart = top, topEnd = top, bottomStart = bottom, bottomEnd = bottom))
+                                .background(Color.White.copy(alpha = 0.07f))
+                        ) {
+                            PickerRow(name = e.name, exercise = e, isSelected = selected.contains(e.name),
+                                onTap = { toggle(e.name) }, onInfo = { detail = e to e.name })
+                            if (index != list.lastIndex) RowDivider()
+                        }
                     }
                 }
 
@@ -350,33 +468,229 @@ fun ExercisePickerSheet(onAdd: (List<ExerciseData>) -> Unit, onDismiss: () -> Un
         }
         }
     }
+
+    detail?.let { (exercise, name) ->
+        ExerciseDetailSheet(
+            exercise = exercise, displayName = name, isSelected = selected.contains(name),
+            onToggle = { toggle(name); detail = null },
+            onDismiss = { detail = null },
+        )
+    }
 }
 
 @Composable
-private fun ExerciseGroupSection(title: String, names: List<String>, selected: List<String>, onToggle: (String) -> Unit) {
+private fun ExerciseGroupSection(
+    title: String, names: List<String>, selected: List<String>,
+    onToggle: (String) -> Unit, onInfo: ((String) -> Unit)?,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(title, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.45f), modifier = Modifier.padding(horizontal = 4.dp))
         Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Color.White.copy(alpha = 0.07f))) {
             names.forEachIndexed { index, name ->
-                val isSelected = selected.contains(name)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.fillMaxWidth().clickable { onToggle(name) }.padding(horizontal = 14.dp, vertical = 13.dp)
+                val exercise = ExerciseCatalog.exercise(name)
+                PickerRow(
+                    name = name, exercise = exercise, isSelected = selected.contains(name),
+                    onTap = { onToggle(name) },
+                    onInfo = if (exercise != null && onInfo != null) ({ onInfo(name) }) else null,
+                )
+                if (index != names.lastIndex) RowDivider()
+            }
+        }
+    }
+}
+
+@Composable
+private fun LibrarySection(
+    title: String, exercises: List<CatalogExercise>, selected: List<String>,
+    onToggle: (String) -> Unit, onInfo: (CatalogExercise) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(title, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.45f), modifier = Modifier.padding(horizontal = 4.dp))
+        Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Color.White.copy(alpha = 0.07f))) {
+            exercises.forEachIndexed { index, e ->
+                PickerRow(name = e.name, exercise = e, isSelected = selected.contains(e.name),
+                    onTap = { onToggle(e.name) }, onInfo = { onInfo(e) })
+                if (index != exercises.lastIndex) RowDivider()
+            }
+        }
+    }
+}
+
+@Composable
+private fun RowDivider() {
+    Box(modifier = Modifier.fillMaxWidth().padding(start = 72.dp).height(1.dp).background(Color.White.copy(alpha = 0.08f)))
+}
+
+/** Thumbnail (with a selection badge), name and "Barbell · Chest", plus ⓘ for the details. */
+@Composable
+private fun PickerRow(name: String, exercise: CatalogExercise?, isSelected: Boolean, onTap: () -> Unit, onInfo: (() -> Unit)?) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.weight(1f).clickable(onClick = onTap).padding(start = 12.dp, top = 9.dp, bottom = 9.dp, end = 8.dp)
+        ) {
+            Box {
+                ExerciseThumbnail(exercise = exercise, size = 46.dp)
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .offset(x = 5.dp, y = 5.dp)
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .background(if (isSelected) TrackstarAccent else Color.Black.copy(alpha = 0.55f))
+                        .border(1.2.dp, if (isSelected) Color.Transparent else Color.White.copy(alpha = 0.5f), CircleShape),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier.size(28.dp).clip(CircleShape).background(if (isSelected) TrackstarAccent else Color.White.copy(alpha = 0.12f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (isSelected) Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(11.dp))
-                    }
-                    Text(name, fontSize = 16.sp, color = Color.White, modifier = Modifier.weight(1f))
+                    if (isSelected) Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(11.dp))
                 }
-                if (index != names.lastIndex) {
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.08f)).padding(start = 52.dp))
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(name, fontSize = 15.sp, fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal, color = Color.White, maxLines = 2)
+                if (exercise != null) {
+                    val sub = subtitle(exercise)
+                    if (sub.isNotEmpty()) Text(sub, fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f), maxLines = 1)
                 }
             }
         }
+        if (onInfo != null) {
+            Box(modifier = Modifier.size(width = 44.dp, height = 48.dp).clickable(onClick = onInfo), contentAlignment = Alignment.Center) {
+                Icon(Icons.Outlined.Info, contentDescription = tr("Exercise details"), tint = Color.White.copy(alpha = 0.45f), modifier = Modifier.size(20.dp))
+            }
+        }
+    }
+}
+
+/** Rounded-square exercise photo, or a neutral glyph when there's no photo. */
+@Composable
+fun ExerciseThumbnail(exercise: CatalogExercise?, size: androidx.compose.ui.unit.Dp) {
+    val shape = RoundedCornerShape(size * 0.24f)
+    Box(modifier = Modifier.size(size).clip(shape).background(Color.White.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+        if (exercise != null) {
+            Icon(Icons.Filled.FitnessCenter, contentDescription = null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(size * 0.36f))
+            AsyncImage(model = exercise.thumbnailUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        } else {
+            Icon(Icons.Filled.FitnessCenter, contentDescription = null, tint = Color.White.copy(alpha = 0.35f), modifier = Modifier.size(size * 0.4f))
+        }
+    }
+}
+
+/** Library exercise details: the two photos alternate like a slow animation, then muscles,
+ *  equipment, level and steps. Mirrors ExerciseDetailSheet.swift. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ExerciseDetailSheet(exercise: CatalogExercise, displayName: String, isSelected: Boolean, onToggle: () -> Unit, onDismiss: () -> Unit) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var frame by remember { mutableStateOf(0) }
+    LaunchedEffect(exercise.id) {
+        if (exercise.images > 1) while (true) { delay(1100); frame = (frame + 1) % exercise.images }
+    }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss, sheetState = sheetState, containerColor = Color.Transparent,
+        dragHandle = null, contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
+    ) {
+        Box(modifier = Modifier.fillMaxHeight(0.93f).clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)).trackstarBackground()) {
+            LazyColumn(
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 20.dp, end = 20.dp, top = 72.dp, bottom = 110.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().aspectRatio(850f / 567f).clip(RoundedCornerShape(22.dp)).background(Color.White)
+                    ) {
+                        for (i in 0 until maxOf(exercise.images, 1)) {
+                            val alpha by animateFloatAsState(if (frame == i) 1f else 0f, label = "photo")
+                            AsyncImage(model = exercise.imageUrl(i), contentDescription = null, contentScale = ContentScale.Fit,
+                                modifier = Modifier.fillMaxSize().alpha(alpha))
+                        }
+                    }
+                }
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(displayName, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        if (!displayName.equals(exercise.name, ignoreCase = true)) {
+                            Text(exercise.name, fontSize = 14.sp, color = Color.White.copy(alpha = 0.45f))
+                        }
+                    }
+                }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOfNotNull(
+                            exercise.equipment?.takeIf { it != "other" }?.let { tr(ExerciseCatalog.equipmentLabel(it)) },
+                            exercise.level?.let { tr(it.replaceFirstChar { c -> c.uppercase() }) },
+                            exercise.mechanic?.let { tr(it.replaceFirstChar { c -> c.uppercase() }) },
+                        ).forEach { fact ->
+                            Text(fact, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.75f),
+                                modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.1f)).padding(horizontal = 10.dp, vertical = 6.dp))
+                        }
+                    }
+                }
+                item {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color.White.copy(alpha = 0.07f)).padding(16.dp)
+                    ) {
+                        MuscleLine(tr("Primary"), exercise.primary, strong = true)
+                        if (exercise.secondary.isNotEmpty()) MuscleLine(tr("Secondary"), exercise.secondary, strong = false)
+                    }
+                }
+                if (exercise.instructions.isNotEmpty()) {
+                    item {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
+                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color.White.copy(alpha = 0.07f)).padding(16.dp)
+                        ) {
+                            Text("How to do it", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                            exercise.instructions.forEachIndexed { i, step ->
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Box(modifier = Modifier.size(22.dp).clip(CircleShape).background(TrackstarAccent.copy(alpha = 0.8f)), contentAlignment = Alignment.Center) {
+                                        Text("${i + 1}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                    }
+                                    Text(step, fontSize = 15.sp, color = Color.White.copy(alpha = 0.8f))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Box(
+                modifier = Modifier.padding(16.dp).size(44.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.12f)).clickable(onClick = onDismiss),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.White, modifier = Modifier.size(16.dp))
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 8.dp, bottom = 16.dp)
+                    .height(54.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(if (isSelected) Color.White.copy(alpha = 0.15f) else Color.White)
+                    .clickable(onClick = onToggle)
+            ) {
+                Text(
+                    if (isSelected) tr("Remove from selection") else tr("Select exercise"),
+                    fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = if (isSelected) Color.White else Color.Black
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MuscleLine(title: String, names: List<String>, strong: Boolean) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(title.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.45f))
+        Text(
+            names.joinToString(", ") { m -> trPrefixed("muscle.", m.split(" ").joinToString(" ") { w -> w.replaceFirstChar { it.uppercase() } }) },
+            fontSize = 15.sp, fontWeight = if (strong) FontWeight.SemiBold else FontWeight.Normal,
+            color = Color.White.copy(alpha = if (strong) 0.95f else 0.7f)
+        )
     }
 }
 
@@ -388,18 +702,33 @@ private fun deduplicated(groups: List<ExerciseGroup>): List<ExerciseGroup> {
     }
 }
 
-private fun filteredGroups(searchText: String, selectedCategory: String): List<ExerciseGroup> {
+private fun filteredGroups(query: String, selectedCategory: String, muscle: MuscleGroup?): List<ExerciseGroup> {
     val categoryFiltered = if (selectedCategory == "All") allGroups else allGroups.filter { it.category == selectedCategory }
     val inAllMode = selectedCategory == "All"
-    if (searchText.isEmpty()) {
+    if (query.isEmpty() && muscle == null) {
         return if (inAllMode) deduplicated(categoryFiltered) else categoryFiltered
     }
-    val query = searchText.lowercase()
     val result = categoryFiltered.mapNotNull { group ->
-        val matches = group.exercises.filter { it.lowercase().contains(query) }
+        val matches = group.exercises.filter {
+            (query.isEmpty() || it.lowercase().contains(query)) &&
+                (muscle == null || ExerciseCatalog.exercise(it)?.muscleGroup == muscle)
+        }
         if (matches.isEmpty()) null else group.copy(exercises = matches)
     }
     return if (inAllMode) deduplicated(result) else result
+}
+
+/** Library exercises for the current category / muscle / search, grouped by muscle. */
+private fun libraryGroups(query: String, category: String, muscle: MuscleGroup?): List<Pair<MuscleGroup, List<CatalogExercise>>> {
+    val items = ExerciseCatalog.exercises.filter { e ->
+        e.id !in ExerciseCatalog.aliasedIds &&
+            libraryIncludes(e, category) &&
+            (muscle == null || e.muscleGroup == muscle) &&
+            (query.isEmpty() || e.name.lowercase().contains(query) ||
+                e.primary.any { it.contains(query) } || (e.equipment?.contains(query) == true))
+    }
+    val grouped = items.groupBy { it.muscleGroup }
+    return MuscleGroup.entries.mapNotNull { g -> grouped[g]?.takeIf { it.isNotEmpty() }?.let { g to it } }
 }
 
 // Builds the stub ExerciseData list from selected names — matches iOS's addButton action

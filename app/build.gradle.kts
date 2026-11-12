@@ -125,6 +125,8 @@ dependencies {
     // QR code generation (the "My QR" tab) + decoding (the Scan tab reuses zxing's
     // MultiFormatReader on CameraX frames, so no separate ML Kit dependency is needed).
     implementation("com.google.zxing:core:3.5.3")
+    // Remote images with memory + disk cache (exercise library photos).
+    implementation("io.coil-kt:coil-compose:2.7.0")
     // CameraX — live camera preview + frame analysis for the QR scanner.
     implementation("androidx.camera:camera-core:1.4.1")
     implementation("androidx.camera:camera-camera2:1.4.1")
