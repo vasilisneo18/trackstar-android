@@ -94,6 +94,8 @@ object TrailMapStore {
                 byId[t.id] = if (existing == null) t else existing.copy(lines = existing.lines + t.lines)
             }
         }
+        // No signal (or nothing loaded yet): use downloaded trail packs.
+        if (byId.isEmpty()) return TrailCatalog.packedTrails(minLat, minLon, maxLat, maxLon)
         return byId.values.toList()
     }
 

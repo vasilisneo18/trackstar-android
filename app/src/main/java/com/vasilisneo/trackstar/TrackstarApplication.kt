@@ -35,6 +35,7 @@ class TrackstarApplication : Application() {
         com.vasilisneo.trackstar.data.activity.ActivityStore.init(this)
         com.vasilisneo.trackstar.data.activity.PisteMapStore.init(this)
         com.vasilisneo.trackstar.data.activity.TrailMapStore.init(this)
+        com.vasilisneo.trackstar.data.activity.TrailCatalog.init(this)
         ConnectivityMonitor.start(this)
         // Replays any offline writes queued in the outbox once connectivity is available.
         PendingSyncService.start()

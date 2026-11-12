@@ -359,7 +359,7 @@ fun RouteSketch(points: List<LatLng>, modifier: Modifier = Modifier) {
 
 /** Full-screen recorder. Asks for location (and notifications) first; the summary replaces it in place. */
 @Composable
-fun ActivityRecorderDialog(initialType: ActivityType, onClose: () -> Unit) {
+fun ActivityRecorderDialog(initialType: ActivityType, onClose: () -> Unit, guide: com.vasilisneo.trackstar.data.activity.Trail? = null) {
     val context = LocalContext.current
     val snapshot by ActivityRecorder.snapshot.collectAsState()
     var finished by remember { mutableStateOf<RecordedActivity?>(null) }
@@ -406,7 +406,7 @@ fun ActivityRecorderDialog(initialType: ActivityType, onClose: () -> Unit) {
             )
         } else {
             RecorderContent(
-                snapshot = snapshot, initialType = initialType, permissionDenied = permissionDenied,
+                snapshot = snapshot, initialType = initialType, permissionDenied = permissionDenied, guide = guide,
                 onClose = {
                     if (snapshot.state == ActivityRecorder.State.Idle) { ActivityRecorder.cancel(); onClose() } else confirmDiscard = true
                 },
@@ -433,6 +433,7 @@ fun ActivityRecorderDialog(initialType: ActivityType, onClose: () -> Unit) {
 @Composable
 private fun RecorderContent(
     snapshot: ActivityRecorder.Snapshot, initialType: ActivityType, permissionDenied: Boolean,
+    guide: com.vasilisneo.trackstar.data.activity.Trail? = null,
     onClose: () -> Unit, onStart: () -> Unit, onFinish: () -> Unit,
 ) {
     val camera = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(LatLng(35.17, 33.36), 15f) }
@@ -475,6 +476,11 @@ private fun RecorderContent(
             val showPistes = snapshot.type.isSlope && pistes.isNotEmpty()
             if (showPistes) PisteLines(pistes)
             if (isHike) TrailLines(trails)
+            // The trail picked in the trail browser, on top with a white casing.
+            guide?.lines?.forEach { line ->
+                MapPolyline(points = line.coordinates, color = Color.White, width = 16f, zIndex = 1f)
+                MapPolyline(points = line.coordinates, color = guide.color, width = 10f, zIndex = 2f)
+            }
             if (shareLive) LiveMemberMarkers(liveMembers,
                 initials = { id -> (memberNames[id] ?: "?").split(" ").filter { it.isNotBlank() }.take(2).joinToString("") { it.take(1) }.uppercase() },
                 name = { id -> memberNames[id] ?: "" })
