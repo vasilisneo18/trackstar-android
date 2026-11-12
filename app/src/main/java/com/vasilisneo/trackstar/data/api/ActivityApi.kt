@@ -55,9 +55,12 @@ data class SlopeRun(
     val seconds: Int get() = ((endedAt - startedAt) / 1000).toInt()
 }
 
+/** One point of the elevation profile: distance along the route (d) and altitude (a), in meters. */
+data class ElevationSample(val d: Double, val a: Double)
+
 data class RecordedActivity(
     val clientId: String,
-    val type: String,            // run | walk | ride | ski | snowboard
+    val type: String,            // run | walk | hike | ride | ski | snowboard
     val title: String? = null,
     val date: String,            // "yyyy-MM-dd", local start day
     val startedAt: Long,         // epoch ms
@@ -66,6 +69,9 @@ data class RecordedActivity(
     val elapsedSeconds: Int,
     val distanceMeters: Double,
     val elevationGainMeters: Double,
+    /** Total descent and the altitude along the route (newer recordings; null on older ones). */
+    val elevationLossMeters: Double? = null,
+    val elevationProfile: List<ElevationSample>? = null,
     val polyline: String,
     val splits: List<ActivitySplit>? = emptyList(),
     val slopes: SlopeStats? = null,

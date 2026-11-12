@@ -52,6 +52,9 @@ object ActivityRecorder {
         val distanceMeters: Double = 0.0,
         val movingSeconds: Int = 0,
         val elevationGainMeters: Double = 0.0,
+        val elevationLossMeters: Double = 0.0,
+        /** Current altitude (barometer-steadied when available), for the hike recorder. */
+        val currentAltitude: Double? = null,
         val currentPaceSecondsPerKm: Double? = null,
         val currentSpeedKmh: Double = 0.0,
         val splits: List<ActivitySplit> = emptyList(),
@@ -77,6 +80,7 @@ object ActivityRecorder {
     private var previousInSegment: Location? = null
     private val recentWindow = ArrayDeque<Pair<Long, Double>>()
     private var smoothedAltitude: Double? = null
+    private val profile = ArrayList<com.vasilisneo.trackstar.data.api.ElevationSample>()
     private var lastSplitDistance = 0.0
     private var lastSplitSeconds = 0
     private var totalDistance = 0.0
@@ -126,7 +130,8 @@ object ActivityRecorder {
         segmentStartMs = now
         update { copy(state = State.Recording, startedAtMs = now) }
         ContextCompat.startForegroundService(ctx, Intent(ctx, ActivityRecordingService::class.java))
-        if (_snapshot.value.type.isSlope) startBarometer(ctx)
+        // Slopes need the barometer for runs vs lifts; hikes for a steady climb / descent.
+        if (_snapshot.value.type.isSlope || _snapshot.value.type == ActivityType.Hike) startBarometer(ctx)
         startTimer()
     }
 
@@ -168,6 +173,8 @@ object ActivityRecorder {
             elapsedSeconds = ((end - started) / 1000).toInt(),
             distanceMeters = slopes?.runs?.sumOf { it.distanceMeters } ?: s.distanceMeters,
             elevationGainMeters = s.elevationGainMeters,
+            elevationLossMeters = if (s.type.isSlope) null else s.elevationLossMeters,
+            elevationProfile = if (s.type.isSlope) null else downsample(profile),
             polyline = Polyline.encode(s.route),
             splits = if (s.type.isSlope) emptyList() else allSplits,
             slopes = slopes,
@@ -182,7 +189,7 @@ object ActivityRecorder {
 
     private fun reset(type: ActivityType) {
         startedAtMs = null; segmentStartMs = null; accumulatedMovingMs = 0
-        previousInSegment = null; recentWindow.clear(); smoothedAltitude = null
+        previousInSegment = null; recentWindow.clear(); smoothedAltitude = null; profile.clear()
         lastSplitDistance = 0.0; lastSplitSeconds = 0; totalDistance = 0.0
         slopeAnalyzer = SlopeAnalyzer(); baroAltitude = null; baroBase = null
         _snapshot.value = Snapshot(type = type, lastLocation = _snapshot.value.lastLocation,
@@ -278,14 +285,48 @@ object ActivityRecorder {
         if (splits.size != s.splits.size) update { copy(splits = splits) }
     }
 
-    /** Sums climbs from a smoothed altitude so GPS noise doesn't inflate the total. */
+    /** Sums climbs and descents from a smoothed altitude so noise doesn't inflate the totals. Uses the
+     *  barometer (anchored to GPS altitude) when it runs — far steadier than GPS altitude. */
     private fun updateElevation(location: Location) {
-        if (!location.hasAltitude()) return
-        if (location.hasVerticalAccuracy() && location.verticalAccuracyMeters > 15f) return
-        val smoothed = smoothedAltitude ?: run { smoothedAltitude = location.altitude; return }
-        val next = smoothed * 0.8 + location.altitude * 0.2
-        if (next > smoothed) update { copy(elevationGainMeters = elevationGainMeters + (next - smoothed)) }
+        val gpsOk = location.hasAltitude() && (!location.hasVerticalAccuracy() || location.verticalAccuracyMeters <= 15f)
+        val baro = baroAltitude
+        val raw = if (baro != null) {
+            if (baroBase == null) { if (!gpsOk) return; baroBase = location.altitude - baro }
+            (baroBase ?: 0.0) + baro
+        } else {
+            if (!gpsOk) return
+            location.altitude
+        }
+        val smoothed = smoothedAltitude ?: run {
+            smoothedAltitude = raw
+            update { copy(currentAltitude = raw) }
+            addProfilePoint(raw)
+            return
+        }
+        val next = smoothed * 0.8 + raw * 0.2
+        update {
+            if (next > smoothed) copy(elevationGainMeters = elevationGainMeters + (next - smoothed), currentAltitude = next)
+            else copy(elevationLossMeters = elevationLossMeters + (smoothed - next), currentAltitude = next)
+        }
         smoothedAltitude = next
+        addProfilePoint(next)
+    }
+
+    /** A profile point every ~10 m of distance (slopes keep their own analysis). */
+    private fun addProfilePoint(altitude: Double) {
+        val s = _snapshot.value
+        if (s.type.isSlope) return
+        val last = profile.lastOrNull()
+        if (last != null && s.distanceMeters - last.d < 10) return
+        profile.add(com.vasilisneo.trackstar.data.api.ElevationSample(Math.round(s.distanceMeters * 10) / 10.0, Math.round(altitude * 10) / 10.0))
+    }
+
+    /** At most `limit` evenly spread points (keeps the first and last). */
+    private fun downsample(points: List<com.vasilisneo.trackstar.data.api.ElevationSample>, limit: Int = 300): List<com.vasilisneo.trackstar.data.api.ElevationSample>? {
+        if (points.size < 2) return null
+        if (points.size <= limit) return points.toList()
+        val step = (points.size - 1).toDouble() / (limit - 1)
+        return (0 until limit).map { points[Math.round(it * step).toInt()] }
     }
 
     private fun addSlopeSample(location: Location) {

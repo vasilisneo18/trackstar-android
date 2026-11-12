@@ -69,6 +69,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -530,9 +531,15 @@ private fun EverydayLiveStats(s: ActivityRecorder.Snapshot) {
     }
     Row(modifier = Modifier.fillMaxWidth()) {
         Metric(ActivityFormat.duration(s.movingSeconds), "Time", Modifier.weight(1f))
-        if (s.type.usesPace) Metric(ActivityFormat.pace(s.currentPaceSecondsPerKm), "Pace /km", Modifier.weight(1f))
-        else Metric(ActivityFormat.speed(s.currentSpeedKmh), "km/h", Modifier.weight(1f))
-        Metric("${s.elevationGainMeters.toInt()} m", "Elevation", Modifier.weight(1f))
+        if (s.type == ActivityType.Hike) {
+            // On a hike the climb matters more than pace.
+            Metric("${s.elevationGainMeters.toInt()} m", "Climbed", Modifier.weight(1f))
+            Metric(s.currentAltitude?.let { "${it.toInt()} m" } ?: "–", "Altitude", Modifier.weight(1f))
+        } else {
+            if (s.type.usesPace) Metric(ActivityFormat.pace(s.currentPaceSecondsPerKm), "Pace /km", Modifier.weight(1f))
+            else Metric(ActivityFormat.speed(s.currentSpeedKmh), "km/h", Modifier.weight(1f))
+            Metric("${s.elevationGainMeters.toInt()} m", "Elevation", Modifier.weight(1f))
+        }
     }
 }
 
@@ -698,6 +705,22 @@ fun ActivityDetailContent(
                     ))
                 }
                 if (slopes.runs.isNotEmpty()) item { SlopeRunsSection(activity, runPistes, convention) }
+            } else if (activity.activityType == ActivityType.Hike) {
+                // Hikes lead with the climb: up, down and the highest point, then pace.
+                item {
+                    TileGrid(buildList {
+                        add(Triple(ActivityFormat.distance(activity.distanceMeters), "km", "Distance"))
+                        add(Triple(ActivityFormat.duration(activity.movingSeconds), null, "Moving time"))
+                        add(Triple("${activity.elevationGainMeters.toInt()}", "m", "Ascent"))
+                        activity.elevationLossMeters?.let { add(Triple("${it.toInt()}", "m", "Descent")) }
+                        activity.elevationProfile?.maxOfOrNull { it.a }?.let { add(Triple("${it.toInt()}", "m", "Highest point")) }
+                        add(Triple(ActivityFormat.pace(activity.paceSecondsPerKm), "/km", "Avg pace"))
+                    })
+                }
+                activity.elevationProfile?.takeIf { it.size >= 2 }?.let { profile ->
+                    item { ElevationProfileCard(profile, activity.elevationGainMeters, activity.elevationLossMeters) }
+                }
+                if (activity.splits.orEmpty().isNotEmpty()) item { SplitsSection(activity) }
             } else {
                 item {
                     TileGrid(listOf(
@@ -707,6 +730,9 @@ fun ActivityDetailContent(
                         else Triple(ActivityFormat.speed(activity.speedKmh), "km/h", "Avg speed"),
                         Triple("${activity.elevationGainMeters.toInt()}", "m", "Elevation gain"),
                     ))
+                }
+                activity.elevationProfile?.takeIf { it.size >= 2 }?.let { profile ->
+                    item { ElevationProfileCard(profile, activity.elevationGainMeters, activity.elevationLossMeters) }
                 }
                 val splits = activity.splits.orEmpty()
                 if (splits.isNotEmpty()) item { SplitsSection(activity) }
@@ -861,4 +887,68 @@ private fun LiveShareLoop(enabled: Boolean, state: ActivityRecorder.State) {
             }
         }
     }
+}
+
+// MARK: - Elevation profile
+
+/** Altitude along the route (distance on x), with ascent / descent in the header. */
+@Composable
+fun ElevationProfileCard(profile: List<com.vasilisneo.trackstar.data.api.ElevationSample>, gain: Double, loss: Double?) {
+    val lo0 = profile.minOf { it.a }; val hi0 = profile.maxOf { it.a }
+    // Keep flat walks from looking like cliffs: at least a 40 m tall window.
+    val pad = maxOf(40 - (hi0 - lo0), 0.0) / 2 + 5
+    val lo = lo0 - pad; val hi = hi0 + pad
+    val maxD = profile.last().d.coerceAtLeast(1.0)
+    val textMeasurer = androidx.compose.ui.text.rememberTextMeasurer()
+    val labelStyle = androidx.compose.ui.text.TextStyle(color = Color.White.copy(alpha = 0.45f), fontSize = 11.sp)
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(CardFill).padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Elevation", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.weight(1f))
+            androidx.compose.material3.Text("↑ ${gain.toInt()} m", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.75f))
+            if (loss != null) {
+                Spacer(Modifier.width(10.dp))
+                androidx.compose.material3.Text("↓ ${loss.toInt()} m", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.75f))
+            }
+        }
+        androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(150.dp)) {
+            val axisW = 52.dp.toPx(); val axisH = 18.dp.toPx()
+            val w = size.width - axisW; val h = size.height - axisH
+            fun x(d: Double) = (d / maxD * w).toFloat()
+            fun y(a: Double) = (h - (a - lo) / (hi - lo) * h).toFloat()
+            // Grid + altitude labels (3 steps).
+            val step = niceStep((hi - lo) / 3)
+            var g = kotlin.math.ceil(lo / step) * step
+            while (g <= hi) {
+                drawLine(Color.White.copy(alpha = 0.08f), androidx.compose.ui.geometry.Offset(0f, y(g)), androidx.compose.ui.geometry.Offset(w, y(g)), 1.dp.toPx())
+                val t = textMeasurer.measure("${g.toInt()} m", labelStyle)
+                drawText(t, topLeft = androidx.compose.ui.geometry.Offset(w + 6.dp.toPx(), y(g) - t.size.height / 2))
+                g += step
+            }
+            // Distance labels.
+            val kmStep = niceStep(maxD / 1000 / 3).coerceAtLeast(0.5)
+            var k = 0.0
+            while (k * 1000 <= maxD) {
+                val t = textMeasurer.measure(if (k % 1.0 == 0.0) "${k.toInt()} km" else "$k km", labelStyle)
+                drawText(t, topLeft = androidx.compose.ui.geometry.Offset((x(k * 1000) - if (k == 0.0) 0f else t.size.width / 2f).coerceAtMost(w - t.size.width), h + 4.dp.toPx()))
+                k += kmStep
+            }
+            val line = androidx.compose.ui.graphics.Path()
+            profile.forEachIndexed { i, p -> if (i == 0) line.moveTo(x(p.d), y(p.a)) else line.lineTo(x(p.d), y(p.a)) }
+            val area = androidx.compose.ui.graphics.Path().apply {
+                addPath(line); lineTo(x(profile.last().d), h); lineTo(x(profile.first().d), h); close()
+            }
+            drawPath(area, Brush.verticalGradient(listOf(TrackstarAccent.copy(alpha = 0.45f), TrackstarAccent.copy(alpha = 0.05f)), startY = 0f, endY = h))
+            drawPath(line, TrackstarAccent, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx(),
+                cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+        }
+    }
+}
+
+/** 1, 2, 5 × 10ⁿ — round axis steps. */
+private fun niceStep(raw: Double): Double {
+    if (raw <= 0) return 1.0
+    val mag = Math.pow(10.0, kotlin.math.floor(kotlin.math.log10(raw)))
+    val f = raw / mag
+    return mag * when { f <= 1 -> 1.0; f <= 2 -> 2.0; f <= 5 -> 5.0; else -> 10.0 }
 }
