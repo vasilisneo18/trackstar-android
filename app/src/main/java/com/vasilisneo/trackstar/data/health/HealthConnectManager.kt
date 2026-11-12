@@ -4,7 +4,10 @@ import android.content.Context
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.aggregate.AggregationResultGroupedByDuration
 import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.DistanceRecord
+import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.units.Length
 import androidx.health.connect.client.request.AggregateGroupByDurationRequest
 import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.request.AggregateRequest
@@ -30,6 +33,56 @@ class HealthConnectManager(private val context: Context) {
     /** True when the Health Connect provider is installed and usable on this device. */
     val isAvailable: Boolean
         get() = HealthConnectClient.getSdkStatus(context) == HealthConnectClient.SDK_AVAILABLE
+
+    /** Write access for saving recorded activities (exercise session + distance). */
+    val workoutPermissions = setOf(
+        HealthPermission.getWritePermission(ExerciseSessionRecord::class),
+        HealthPermission.getWritePermission(DistanceRecord::class),
+    )
+
+    suspend fun hasWorkoutPermission(): Boolean {
+        val c = client ?: return false
+        return runCatching { c.permissionController.getGrantedPermissions().containsAll(workoutPermissions) }
+            .getOrDefault(false)
+    }
+
+    /**
+     * Saves a recorded activity as an exercise session with its distance. Best effort — skipped
+     * without permission or Health Connect; Trackstar keeps its own copy either way.
+     */
+    suspend fun saveWorkout(activity: com.vasilisneo.trackstar.data.api.RecordedActivity) {
+        val c = client ?: return
+        if (!hasWorkoutPermission()) return
+        val zone = ZoneId.systemDefault()
+        val start = java.time.Instant.ofEpochMilli(activity.startedAt)
+        val end = java.time.Instant.ofEpochMilli(maxOf(activity.endedAt, activity.startedAt + 1000))
+        val startOffset = zone.rules.getOffset(start)
+        val endOffset = zone.rules.getOffset(end)
+        val exerciseType = when (activity.type) {
+            "walk" -> ExerciseSessionRecord.EXERCISE_TYPE_WALKING
+            "ride" -> ExerciseSessionRecord.EXERCISE_TYPE_BIKING
+            "ski" -> ExerciseSessionRecord.EXERCISE_TYPE_SKIING
+            "snowboard" -> ExerciseSessionRecord.EXERCISE_TYPE_SNOWBOARDING
+            else -> ExerciseSessionRecord.EXERCISE_TYPE_RUNNING
+        }
+        runCatching {
+            val records = mutableListOf<androidx.health.connect.client.records.Record>(
+                ExerciseSessionRecord(
+                    startTime = start, startZoneOffset = startOffset,
+                    endTime = end, endZoneOffset = endOffset,
+                    exerciseType = exerciseType, title = activity.title,
+                )
+            )
+            if (activity.distanceMeters > 0) {
+                records.add(DistanceRecord(
+                    startTime = start, startZoneOffset = startOffset,
+                    endTime = end, endZoneOffset = endOffset,
+                    distance = Length.meters(activity.distanceMeters),
+                ))
+            }
+            c.insertRecords(records)
+        }
+    }
 
     suspend fun hasStepsPermission(): Boolean {
         val c = client ?: return false

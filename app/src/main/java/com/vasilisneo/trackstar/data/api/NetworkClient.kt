@@ -89,5 +89,6 @@ object NetworkClient {
     val notificationApi: NotificationApi = retrofit.create(NotificationApi::class.java)
     val bookingApi: BookingApi = retrofit.create(BookingApi::class.java)
     val checkInApi: CheckInApi = retrofit.create(CheckInApi::class.java)
+    val activityApi: ActivityApi = retrofit.create(ActivityApi::class.java)
     val aiApi: AiApi = aiRetrofit.create(AiApi::class.java)
 }

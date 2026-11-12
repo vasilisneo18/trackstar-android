@@ -166,11 +166,19 @@ fun WorkoutScreen(
     // The workout (planned sessions / Plan session prompt) is a widget too — booking-only users can
     // hide it; pinned, it moves above every other card (mirrors iOS).
     val showWorkoutWidget = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("widgetShowWorkout", true)
+    // GPS activities (run / walk / ride): the Activity card records; the day's activities follow.
+    val showActivityWidget = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("widgetShowActivity", true)
+    var recordActivityType by remember { mutableStateOf<com.vasilisneo.trackstar.data.activity.ActivityType?>(null) }
+    var openedActivity by remember { mutableStateOf<com.vasilisneo.trackstar.data.api.RecordedActivity?>(null) }
+    val allActivities by com.vasilisneo.trackstar.data.activity.ActivityStore.activities.collectAsState()
+    val activityPrefs = androidx.compose.ui.platform.LocalContext.current.let { ctx ->
+        remember { ctx.getSharedPreferences("trackstar_prefs", android.content.Context.MODE_PRIVATE) }
+    }
     // Month shown in the Today pill while the week wheel moves (null = show "Today").
     var monthPill by remember { mutableStateOf<String?>(null) }
     val workoutPinned = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("dashPinWorkout", false)
     var showWidgetGallery by remember { mutableStateOf(false) }
-    val hasHiddenWidgets = !showWorkoutWidget.value || !showStepsWidget.value || !showDietWidget.value || (showBookSession && !showBookWidget.value)
+    val hasHiddenWidgets = !showWorkoutWidget.value || !showStepsWidget.value || !showActivityWidget.value || !showDietWidget.value || (showBookSession && !showBookWidget.value)
 
     val displaySessions = viewModel.displaySessions
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -294,6 +302,31 @@ fun WorkoutScreen(
                         com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(
                             date = selectedDate, modifier = Modifier.padding(horizontal = 16.dp)
                         )
+                    }
+                    if (showActivityWidget.value) {
+                        com.vasilisneo.trackstar.ui.components.IosContextMenu(
+                            actions = listOf(com.vasilisneo.trackstar.ui.components.ContextMenuAction(
+                                "Remove from Home", Icons.Filled.RemoveCircleOutline, destructive = true,
+                                onClick = { showActivityWidget.value = false })),
+                            modifier = Modifier.padding(horizontal = 16.dp),
+                            onClick = {
+                                recordActivityType = com.vasilisneo.trackstar.data.activity.ActivityType.of(
+                                    activityPrefs.getString("activityLastType", "run"))
+                            },
+                        ) {
+                            com.vasilisneo.trackstar.ui.screens.main.activity.ActivityHomeCard(
+                                date = selectedDate,
+                                onRecord = {
+                                    recordActivityType = com.vasilisneo.trackstar.data.activity.ActivityType.of(
+                                        activityPrefs.getString("activityLastType", "run"))
+                                },
+                            )
+                        }
+                        val dayActivities = com.vasilisneo.trackstar.data.activity.ActivityStore.activitiesOn(selectedDate, allActivities)
+                        if (dayActivities.isNotEmpty()) {
+                            com.vasilisneo.trackstar.ui.screens.main.activity.ActivityCarouselCard(
+                                dayActivities, onOpen = { openedActivity = it }, modifier = Modifier.padding(horizontal = 16.dp))
+                        }
                     }
                     if (showBookSession && showBookWidget.value) {
                         Box(modifier = Modifier.padding(horizontal = 16.dp).clickable(onClick = onBookSession)) {
@@ -427,6 +460,30 @@ fun WorkoutScreen(
                         PinnableCard(pinned = false, onTogglePin = { stepsPinned.value = true }, onRemove = { showStepsWidget.value = false }) {
                             com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(date = selectedDate)
                         }
+                    }
+                    if (showActivityWidget.value) item(key = "activity-card") {
+                        // Long-press: Remove from Home (no pinning for this card yet).
+                        com.vasilisneo.trackstar.ui.components.IosContextMenu(
+                            actions = listOf(com.vasilisneo.trackstar.ui.components.ContextMenuAction(
+                                "Remove from Home", Icons.Filled.RemoveCircleOutline, destructive = true,
+                                onClick = { showActivityWidget.value = false })),
+                            onClick = {
+                                recordActivityType = com.vasilisneo.trackstar.data.activity.ActivityType.of(
+                                    activityPrefs.getString("activityLastType", "run"))
+                            },
+                        ) {
+                            com.vasilisneo.trackstar.ui.screens.main.activity.ActivityHomeCard(
+                                date = selectedDate,
+                                onRecord = {
+                                    recordActivityType = com.vasilisneo.trackstar.data.activity.ActivityType.of(
+                                        activityPrefs.getString("activityLastType", "run"))
+                                },
+                            )
+                        }
+                    }
+                    val dayActivities = com.vasilisneo.trackstar.data.activity.ActivityStore.activitiesOn(selectedDate, allActivities)
+                    if (showActivityWidget.value && dayActivities.isNotEmpty()) item(key = "activity-carousel") {
+                        com.vasilisneo.trackstar.ui.screens.main.activity.ActivityCarouselCard(dayActivities, onOpen = { openedActivity = it })
                     }
                     if (showBookSession && !isPast && !bookPinned.value && showBookWidget.value) item {
                         PinnableCard(pinned = false, onTogglePin = { bookPinned.value = true }, onClick = onBookSession, onRemove = { showBookWidget.value = false }) {
@@ -592,10 +649,18 @@ fun WorkoutScreen(
         )
     }
 
+    recordActivityType?.let { type ->
+        com.vasilisneo.trackstar.ui.screens.main.activity.ActivityRecorderDialog(initialType = type, onClose = { recordActivityType = null })
+    }
+    openedActivity?.let { a ->
+        com.vasilisneo.trackstar.ui.screens.main.activity.ActivityDetailDialog(activity = a, onClose = { openedActivity = null })
+    }
+
     if (showWidgetGallery) {
         val hidden = buildList {
             if (!showWorkoutWidget.value) add(AddableWidget("workout") { showWorkoutWidget.value = true })
             if (!showStepsWidget.value) add(AddableWidget("steps") { showStepsWidget.value = true })
+            if (!showActivityWidget.value) add(AddableWidget("activity") { showActivityWidget.value = true })
             if (!showDietWidget.value) add(AddableWidget("diet") { showDietWidget.value = true })
             if (showBookSession && !showBookWidget.value) add(AddableWidget("book") { showBookWidget.value = true })
         }
@@ -606,6 +671,7 @@ fun WorkoutScreen(
             when (id) {
                 "workout" -> FullPromptCard(Icons.Filled.FitnessCenter, "Workout", "Your planned sessions, or plan one for the day.")
                 "steps" -> com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(date = selectedDate)
+                "activity" -> com.vasilisneo.trackstar.ui.screens.main.activity.ActivityHomeCard(date = selectedDate, onRecord = {})
                 "diet" -> DietDashboardCard()
                 "book" -> BookSessionDashboardCard(viewModel.nextAvailableSlots, loading = !viewModel.bookingsLoaded)
             }

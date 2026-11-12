@@ -17,6 +17,12 @@
     <!-- Location for gym check-in geofence (scan a gym QR → verify the athlete is at the gym). -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Activity recording keeps going with the screen off through a location foreground service. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!-- Save recorded activities to Health Connect as exercise sessions. -->
+    <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
+    <uses-permission android:name="android.permission.health.WRITE_DISTANCE" />
     <!-- Location is optional — only gym check-in uses it (session-code check-in works without a
          GPS fix). Declared required=false so GPS-less devices aren't excluded from the store. -->
     <uses-feature android:name="android.hardware.location" android:required="false" />
@@ -145,6 +151,12 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!-- Keeps an activity recording (GPS) alive with the screen off. -->
+        <service
+            android:name=".data.activity.ActivityRecordingService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
 
         <!-- Receives FCM push messages (token refresh + incoming notifications). -->
         <service

@@ -32,6 +32,7 @@ class TrackstarApplication : Application() {
         // runs, so cache-then-network reads and the offline banner work from the first frame.
         com.vasilisneo.trackstar.ui.i18n.I18n.init(this)
         LocalStore.init(this)
+        com.vasilisneo.trackstar.data.activity.ActivityStore.init(this)
         ConnectivityMonitor.start(this)
         // Replays any offline writes queued in the outbox once connectivity is available.
         PendingSyncService.start()
