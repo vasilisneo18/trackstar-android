@@ -99,6 +99,12 @@ class QuickLogViewModel(
         loggedSets = loggedSets + (setId to LoggedSet(freq, resistance))
     }
 
+    /** "Skip exercise": every set of these that isn't logged yet. */
+    fun skipRemaining(sets: List<ExerciseSet>) {
+        val ids = sets.mapNotNull { it.id }.filter { !loggedSets.containsKey(it) }
+        skippedSetIds = skippedSetIds + ids
+    }
+
     fun skipSet(set: ExerciseSet) {
         val setId = set.id ?: return
         loggedSets = loggedSets - setId

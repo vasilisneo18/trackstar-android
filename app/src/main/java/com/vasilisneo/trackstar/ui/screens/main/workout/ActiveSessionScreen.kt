@@ -7,6 +7,7 @@ package com.vasilisneo.trackstar.ui.screens.main.workout
 // LogCompoundSetSheet). Presented as a full-screen overlay from MainAppScreen, mirroring iOS's
 // fullScreenCover.
 
+import com.vasilisneo.trackstar.ui.i18n.tr
 import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,6 +30,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -109,7 +113,9 @@ fun ActiveSessionScreen(
                             is ExerciseDisplayUnit.Single -> item {
                                 CurrentExerciseSection(
                                     exercise = current.exercise,
-                                    loggedSetIds = viewModel.loggedSets.keys,
+                                    loggedSetIds = viewModel.loggedSets.keys + viewModel.skippedSetIds,
+                                    skippedSetIds = viewModel.skippedSetIds,
+                                    onSkipExercise = { viewModel.skip(current.exercise.sets.orEmpty()) },
                                     currentSetId = viewModel.currentSet?.id,
                                     isResting = viewModel.isResting,
                                     onSetClick = { set ->
@@ -123,7 +129,8 @@ fun ActiveSessionScreen(
                             is ExerciseDisplayUnit.Pair -> item {
                                 CurrentCompoundSection(
                                     a = current.a, b = current.b,
-                                    loggedSetIds = viewModel.loggedSets.keys,
+                                    loggedSetIds = viewModel.loggedSets.keys + viewModel.skippedSetIds,
+                                    onSkipExercise = { viewModel.skip(current.a.sets.orEmpty() + current.b.sets.orEmpty()) },
                                     currentRound = viewModel.currentCompoundRoundIndex(current.a, current.b),
                                     isResting = viewModel.isResting,
                                     onRoundClick = { round -> loggingRound = Triple(current.a, current.b, round) },
@@ -143,7 +150,11 @@ fun ActiveSessionScreen(
                         if (completed.isNotEmpty()) {
                             item { SectionLabel("Completed") }
                             items(completed, key = { it.id }) { unit ->
-                                CompletedRow(unit = unit)
+                                val sets = when (unit) {
+                                    is ExerciseDisplayUnit.Single -> unit.exercise.sets.orEmpty()
+                                    is ExerciseDisplayUnit.Pair -> unit.a.sets.orEmpty() + unit.b.sets.orEmpty()
+                                }
+                                CompletedRow(unit = unit, skipped = viewModel.isAllSkipped(sets))
                             }
                         }
                     }
@@ -294,18 +305,28 @@ private fun ProgressSection(viewModel: ActiveSessionViewModel) {
                 fontSize = 12.sp, color = Color.White.copy(alpha = 0.4f)
             )
             Spacer(modifier = Modifier.weight(1f))
-            Text(trf("%1\$s / %2\$s sets logged", viewModel.completedSets, viewModel.totalSets), fontSize = 12.sp, color = Color.White.copy(alpha = 0.4f))
+            val logged = trf("%1\$s / %2\$s sets logged", viewModel.loggedCount, viewModel.totalSets)
+            Text(
+                if (viewModel.skippedSetIds.isEmpty()) logged else logged + " · " + trf("%s skipped", viewModel.skippedSetIds.size),
+                fontSize = 12.sp, color = Color.White.copy(alpha = 0.4f)
+            )
         }
     }
 }
 
 @Composable
-private fun CurrentExerciseSection(exercise: ExerciseData, loggedSetIds: Set<String>, currentSetId: String?, isResting: Boolean, onSetClick: (ExerciseSet) -> Unit) {
+private fun CurrentExerciseSection(
+    exercise: ExerciseData, loggedSetIds: Set<String>, skippedSetIds: Set<String>, currentSetId: String?,
+    isResting: Boolean, onSetClick: (ExerciseSet) -> Unit, onSkipExercise: () -> Unit,
+) {
     val isDuration = exercise.sets?.firstOrNull()?.frequencyValue?.duration != null
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Column(modifier = Modifier.padding(horizontal = 4.dp)) {
-            Text(exercise.name ?: "Exercise", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
-            Text("${exercise.sets.orEmpty().size} sets planned", fontSize = 14.sp, color = Color.White.copy(alpha = 0.4f))
+        Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(horizontal = 4.dp)) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(exercise.name ?: "Exercise", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("${exercise.sets.orEmpty().size} sets planned", fontSize = 14.sp, color = Color.White.copy(alpha = 0.4f))
+            }
+            SkipExerciseMenu(label = "Skip exercise", onSkip = onSkipExercise)
         }
 
         Column(
@@ -322,6 +343,7 @@ private fun CurrentExerciseSection(exercise: ExerciseData, loggedSetIds: Set<Str
                     index = index + 1,
                     set = set,
                     isLogged = logged,
+                    isSkipped = skippedSetIds.contains(set.id),
                     isCurrent = !logged && set.id == currentSetId,
                     isResting = isResting,
                     onClick = { onSetClick(set) },
@@ -335,7 +357,7 @@ private fun CurrentExerciseSection(exercise: ExerciseData, loggedSetIds: Set<Str
 // joined with " + ", and one row per round showing both exercises' rep/weight stacked with an
 // arrow divider between them (instead of one line per set like the single-exercise table).
 @Composable
-private fun CurrentCompoundSection(a: ExerciseData, b: ExerciseData, loggedSetIds: Set<String>, currentRound: Int?, isResting: Boolean, onRoundClick: (Int) -> Unit) {
+private fun CurrentCompoundSection(a: ExerciseData, b: ExerciseData, loggedSetIds: Set<String>, onSkipExercise: () -> Unit, currentRound: Int?, isResting: Boolean, onRoundClick: (Int) -> Unit) {
     val rounds = maxOf(a.sets.orEmpty().size, b.sets.orEmpty().size)
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(modifier = Modifier.padding(horizontal = 4.dp)) {
@@ -344,7 +366,10 @@ private fun CurrentCompoundSection(a: ExerciseData, b: ExerciseData, loggedSetId
                 Spacer(modifier = Modifier.padding(start = 5.dp))
                 Text("SUPERSET", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp, color = Color(0xFF64D2FF))
             }
-            Text("${a.name ?: "Exercise"} + ${b.name ?: "Exercise"}", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Row(verticalAlignment = Alignment.Top) {
+                Text("${a.name ?: "Exercise"} + ${b.name ?: "Exercise"}", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.weight(1f))
+                SkipExerciseMenu(label = "Skip superset", onSkip = onSkipExercise)
+            }
             Text("$rounds rounds planned", fontSize = 14.sp, color = Color.White.copy(alpha = 0.4f))
         }
 
@@ -446,7 +471,7 @@ private fun BoxScope.ActiveSetHighlight(flashing: Boolean) {
 }
 
 @Composable
-private fun SetRow(index: Int, set: ExerciseSet, isLogged: Boolean, isCurrent: Boolean, isResting: Boolean, onClick: () -> Unit) {
+private fun SetRow(index: Int, set: ExerciseSet, isLogged: Boolean, isSkipped: Boolean = false, isCurrent: Boolean, isResting: Boolean, onClick: () -> Unit) {
     Box(modifier = Modifier.fillMaxWidth()) {
         // Active-set highlight — steady while resting, flashing once the rest timer ends (iOS parity).
         if (isCurrent) ActiveSetHighlight(flashing = !isResting)
@@ -454,12 +479,13 @@ private fun SetRow(index: Int, set: ExerciseSet, isLogged: Boolean, isCurrent: B
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(enabled = !isLogged, onClick = onClick)
+                .clickable(enabled = !isLogged || isSkipped, onClick = onClick)   // a skipped set can still be logged
                 .padding(horizontal = 16.dp, vertical = 18.dp)
         ) {
             Box(
                 modifier = Modifier.size(28.dp).clip(CircleShape).background(
                     when {
+                        isSkipped -> Color.White.copy(alpha = 0.08f)
                         isLogged -> CompletedGreen
                         isCurrent -> TrackstarAccent
                         else -> Color.White.copy(alpha = 0.1f)
@@ -467,7 +493,9 @@ private fun SetRow(index: Int, set: ExerciseSet, isLogged: Boolean, isCurrent: B
                 ),
                 contentAlignment = Alignment.Center
             ) {
-                if (isLogged) {
+                if (isSkipped) {
+                    Icon(Icons.Filled.FastForward, contentDescription = null, tint = Color.White.copy(alpha = 0.35f), modifier = Modifier.size(12.dp))
+                } else if (isLogged) {
                     Icon(Icons.Filled.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(13.dp))
                 } else {
                     Text(
@@ -479,18 +507,22 @@ private fun SetRow(index: Int, set: ExerciseSet, isLogged: Boolean, isCurrent: B
                 }
             }
             Spacer(modifier = Modifier.padding(start = 12.dp))
-            Text(
-                set.repsOrDurationText(),
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Normal,
-                color = Color.White.copy(alpha = if (isLogged) 0.3f else 1f),
-                modifier = Modifier.weight(1f)
-            )
-            Text(
-                set.weightText(),
-                fontSize = 17.sp,
-                color = Color.White.copy(alpha = if (isLogged) 0.3f else 1f)
-            )
+            if (isSkipped) {
+                Text("Skipped", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.3f), modifier = Modifier.weight(1f))
+            } else {
+                Text(
+                    set.repsOrDurationText(),
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = Color.White.copy(alpha = if (isLogged) 0.3f else 1f),
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    set.weightText(),
+                    fontSize = 17.sp,
+                    color = Color.White.copy(alpha = if (isLogged) 0.3f else 1f)
+                )
+            }
             if (!isLogged) {
                 Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Color.White.copy(alpha = if (isCurrent) 0.6f else 0.35f), modifier = Modifier.size(16.dp).padding(start = 8.dp))
             }
@@ -518,15 +550,16 @@ private fun UpNextRow(unit: ExerciseDisplayUnit, done: Int, total: Int) {
 }
 
 @Composable
-private fun CompletedRow(unit: ExerciseDisplayUnit) {
+private fun CompletedRow(unit: ExerciseDisplayUnit, skipped: Boolean = false) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Box(modifier = Modifier.size(34.dp).clip(CircleShape).background(CompletedGreen.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
-            Icon(Icons.Filled.Check, contentDescription = null, tint = CompletedGreen, modifier = Modifier.size(14.dp))
+        Box(modifier = Modifier.size(34.dp).clip(CircleShape).background(if (skipped) Color.White.copy(alpha = 0.08f) else CompletedGreen.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+            if (skipped) Icon(Icons.Filled.FastForward, contentDescription = null, tint = Color.White.copy(alpha = 0.35f), modifier = Modifier.size(14.dp))
+            else Icon(Icons.Filled.Check, contentDescription = null, tint = CompletedGreen, modifier = Modifier.size(14.dp))
         }
         Spacer(modifier = Modifier.padding(start = 12.dp))
         Column {
             Text(unitName(unit), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.35f))
-            Text(unitSummary(unit), fontSize = 12.sp, color = Color.White.copy(alpha = 0.2f))
+            Text(if (skipped) tr("Skipped") else unitSummary(unit), fontSize = 12.sp, color = Color.White.copy(alpha = 0.2f))
         }
     }
 }
@@ -695,6 +728,16 @@ private fun BottomCTA(viewModel: ActiveSessionViewModel, onLogCurrentSet: () -> 
         ) {
             Icon(Icons.Filled.Timer, contentDescription = null, tint = if (isDuration) Color.White else Color.White.copy(alpha = 0.2f), modifier = Modifier.size(20.dp))
         }
+        Box(
+            modifier = Modifier
+                .size(54.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.1f))
+                .clickable(onClick = viewModel::skipCurrent),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Filled.FastForward, contentDescription = tr("Skip set"), tint = Color.White.copy(alpha = 0.75f), modifier = Modifier.size(20.dp))
+        }
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
@@ -817,6 +860,32 @@ fun ActiveSessionMiniBar(viewModel: ActiveSessionViewModel, onExpand: () -> Unit
                 color = Color.White.copy(alpha = 0.6f)
             )
             Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Expand", tint = Color.White.copy(alpha = 0.4f), modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+
+/** "⋯" on the current exercise: skip all of its sets that aren't logged yet. */
+@Composable
+private fun SkipExerciseMenu(label: String, onSkip: () -> Unit) {
+    var open by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    Box {
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(Color.White.copy(alpha = 0.1f))
+                .clickable { open = true },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Filled.MoreHoriz, contentDescription = tr(label), tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(18.dp))
+        }
+        androidx.compose.material3.DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            androidx.compose.material3.DropdownMenuItem(
+                text = { Text(label) },
+                leadingIcon = { Icon(Icons.Filled.SkipNext, contentDescription = null) },
+                onClick = { open = false; onSkip() },
+            )
         }
     }
 }

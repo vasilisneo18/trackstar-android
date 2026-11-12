@@ -74,6 +74,8 @@ class ActiveSessionViewModel(
     var activeSetId by mutableStateOf<String?>(null)
         private set
     var loggedSets by mutableStateOf<Map<String, LoggedSet>>(emptyMap())
+    /** Sets the athlete skipped: handled (the session can finish) but without a result. */
+    var skippedSetIds by mutableStateOf<Set<String>>(emptySet())
         private set
     var isResting by mutableStateOf(false)
         private set
@@ -83,7 +85,11 @@ class ActiveSessionViewModel(
         private set
 
     val totalSets: Int get() = exercises.sumOf { it.sets?.size ?: 0 }
-    val completedSets: Int get() = loggedSets.size
+    /** Logged + skipped — what "handled" means for progress and finishing. */
+    val completedSets: Int get() = loggedSets.size + skippedSetIds.size
+    val loggedCount: Int get() = loggedSets.size
+
+    fun isHandled(id: String?): Boolean = id != null && (loggedSets.containsKey(id) || skippedSetIds.contains(id))
     val isSessionComplete: Boolean get() = totalSets > 0 && completedSets >= totalSets
 
     // Single-UNIT focus, mirroring ActiveSessionView on iOS: work through one exercise (or
@@ -93,12 +99,12 @@ class ActiveSessionViewModel(
     // completeSet.
     fun isExerciseComplete(exercise: ExerciseData): Boolean {
         val sets = exercise.sets.orEmpty()
-        return sets.isNotEmpty() && sets.all { loggedSets.containsKey(it.id) }
+        return sets.isNotEmpty() && sets.all { isHandled(it.id) }
     }
 
     fun exerciseProgress(exercise: ExerciseData): Pair<Int, Int> {
         val sets = exercise.sets.orEmpty()
-        return sets.count { loggedSets.containsKey(it.id) } to sets.size
+        return sets.count { isHandled(it.id) } to sets.size
     }
 
     val units: List<ExerciseDisplayUnit>
@@ -129,15 +135,15 @@ class ActiveSessionViewModel(
         get() = (currentUnit as? ExerciseDisplayUnit.Single)?.exercise
 
     val currentSet: ExerciseSet?
-        get() = currentExercise?.sets.orEmpty().firstOrNull { !loggedSets.containsKey(it.id) }
+        get() = currentExercise?.sets.orEmpty().firstOrNull { !isHandled(it.id) }
 
     // Index of the first not-yet-fully-logged round in a superset pair — mirrors
     // currentCompoundRoundIndex on iOS. Null once every round is logged.
     fun currentCompoundRoundIndex(a: ExerciseData, b: ExerciseData): Int? {
         val rounds = maxOf(a.sets.orEmpty().size, b.sets.orEmpty().size)
         for (i in 0 until rounds) {
-            val doneA = a.sets.orEmpty().getOrNull(i)?.let { loggedSets.containsKey(it.id) } ?: true
-            val doneB = b.sets.orEmpty().getOrNull(i)?.let { loggedSets.containsKey(it.id) } ?: true
+            val doneA = a.sets.orEmpty().getOrNull(i)?.let { isHandled(it.id) } ?: true
+            val doneB = b.sets.orEmpty().getOrNull(i)?.let { isHandled(it.id) } ?: true
             if (!(doneA && doneB)) return i
         }
         return null
@@ -189,10 +195,35 @@ class ActiveSessionViewModel(
         activeSetId = null
     }
 
+    /** Skips sets that aren't logged yet (one set, a superset round, or the rest of an exercise). */
+    fun skip(sets: List<ExerciseSet>) {
+        val ids = sets.mapNotNull { it.id }.filter { !isHandled(it) }
+        if (ids.isEmpty()) return
+        if (activeSetId in ids) activeSetId = null
+        if (durationSet?.id in ids) cancelDurationHelper()
+        skippedSetIds = skippedSetIds + ids
+    }
+
+    /** The ⏭ button: the current set, or both sets of the current superset round. */
+    fun skipCurrent() {
+        when (val unit = currentUnit) {
+            is ExerciseDisplayUnit.Single -> currentSet?.let { skip(listOf(it)) }
+            is ExerciseDisplayUnit.Pair -> {
+                val round = currentCompoundRoundIndex(unit.a, unit.b) ?: return
+                skip(listOfNotNull(unit.a.sets.orEmpty().getOrNull(round), unit.b.sets.orEmpty().getOrNull(round)))
+            }
+            null -> Unit
+        }
+    }
+
+    fun isAllSkipped(sets: List<ExerciseSet>): Boolean =
+        sets.isNotEmpty() && sets.all { it.id != null && skippedSetIds.contains(it.id) }
+
     fun completeSet(set: ExerciseSet, reps: Int?, weight: String?, durationText: String?, distanceText: String? = null) {
         val setId = set.id ?: return
         if (loggedSets.containsKey(setId)) return
         activeSetId = null
+        skippedSetIds = skippedSetIds - setId   // logging a skipped set after all
 
         val freq = when {
             durationText != null -> FrequencyValue(duration = durationText)

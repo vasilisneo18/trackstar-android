@@ -7,6 +7,7 @@ package com.vasilisneo.trackstar.ui.screens.main.workout
 // LogCompoundSetSheet for both halves at once). When every set is handled, a Finish button
 // POSTs the session. Presented as a modal slide-up from MainAppScreen.
 
+import com.vasilisneo.trackstar.ui.i18n.tr
 import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FastForward
+import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -133,7 +135,11 @@ fun QuickLogSheet(viewModel: QuickLogViewModel, onClose: () -> Unit, onFinished:
                 Spacer(modifier = Modifier.weight(1f))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Quick Log", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
-                    Text(trf("%1\$s / %2\$s sets logged", viewModel.handledSets, viewModel.totalSets), fontSize = 12.sp, color = Color.White.copy(alpha = 0.4f))
+                    val logged = trf("%1\$s / %2\$s sets logged", viewModel.loggedSets.size, viewModel.totalSets)
+                    Text(
+                        if (viewModel.skippedSetIds.isEmpty()) logged else logged + " · " + trf("%s skipped", viewModel.skippedSetIds.size),
+                        fontSize = 12.sp, color = Color.White.copy(alpha = 0.4f)
+                    )
                 }
                 Spacer(modifier = Modifier.weight(1f))
                 Spacer(modifier = Modifier.size(44.dp))
@@ -292,23 +298,13 @@ private fun QuickLogCompoundSection(viewModel: QuickLogViewModel, a: ExerciseDat
             val hasUnhandled = viewModel.hasUnhandledSets(a) || viewModel.hasUnhandledSets(b)
             if (isBulk || hasUnhandled) {
                 Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.06f)).padding(horizontal = 16.dp))
-                val label = if (isBulk) "Undo log all" else "Log all as planned"
-                val icon = if (isBulk) Icons.AutoMirrored.Filled.Undo else Icons.Filled.CheckCircle
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            if (isBulk) { viewModel.undoBulkLog(a); viewModel.undoBulkLog(b) }
-                            else { viewModel.logExerciseAsPlanned(a); viewModel.logExerciseAsPlanned(b) }
-                        }
-                        .padding(vertical = 14.dp)
-                ) {
-                    Icon(icon, contentDescription = null, tint = Color.White.copy(alpha = 0.45f), modifier = Modifier.size(15.dp))
-                    Spacer(modifier = Modifier.padding(start = 8.dp))
-                    Text(label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.45f))
-                }
+                BulkActions(
+                    isBulk = isBulk,
+                    onUndo = { viewModel.undoBulkLog(a); viewModel.undoBulkLog(b) },
+                    onLogAll = { viewModel.logExerciseAsPlanned(a); viewModel.logExerciseAsPlanned(b) },
+                    onSkipAll = { viewModel.skipRemaining(a.sets.orEmpty() + b.sets.orEmpty()) },
+                    skipLabel = "Skip superset",
+                )
             }
         }
     }
@@ -349,7 +345,10 @@ private fun QuickLogRoundRow(
         when {
             isSkipped -> ActionChip(text = "Undo", filled = false, onClick = onUndo)
             isLogged -> ActionChip(text = "Undo", filled = false, onClick = onUndo)
-            else -> ActionChip(text = "Log", filled = true, onClick = onLog)
+            else -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                SkipSetButton(onClick = onSkip)
+                ActionChip(text = "Log", filled = true, onClick = onLog)
+            }
         }
     }
 }
@@ -389,20 +388,13 @@ private fun QuickLogExerciseSection(
             val isBulk = exercise.id?.let { viewModel.bulkLoggedExerciseIds.contains(it) } == true
             if (isBulk || viewModel.hasUnhandledSets(exercise)) {
                 Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.06f)).padding(horizontal = 16.dp))
-                val label = if (isBulk) "Undo log all" else "Log all as planned"
-                val icon = if (isBulk) Icons.AutoMirrored.Filled.Undo else Icons.Filled.CheckCircle
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { if (isBulk) viewModel.undoBulkLog(exercise) else viewModel.logExerciseAsPlanned(exercise) }
-                        .padding(vertical = 14.dp)
-                ) {
-                    Icon(icon, contentDescription = null, tint = Color.White.copy(alpha = 0.45f), modifier = Modifier.size(15.dp))
-                    Spacer(modifier = Modifier.padding(start = 8.dp))
-                    Text(label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.45f))
-                }
+                BulkActions(
+                    isBulk = isBulk,
+                    onUndo = { viewModel.undoBulkLog(exercise) },
+                    onLogAll = { viewModel.logExerciseAsPlanned(exercise) },
+                    onSkipAll = { viewModel.skipRemaining(exercise.sets.orEmpty()) },
+                    skipLabel = "Skip exercise",
+                )
             }
         }
     }
@@ -452,7 +444,10 @@ private fun QuickLogSetRow(viewModel: QuickLogViewModel, index: Int, set: Exerci
         Box(modifier = Modifier.width(96.dp), contentAlignment = Alignment.CenterEnd) {
             when {
                 isSkipped -> ActionChip(text = "Undo", filled = false) { viewModel.undoSet(set) }
-                !isLogged -> ActionChip(text = "Log", filled = true, onClick = onLog)
+                !isLogged -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SkipSetButton { viewModel.skipSet(set) }
+                    ActionChip(text = "Log", filled = true, onClick = onLog)
+                }
                 else -> ActionChip(text = "Undo", filled = false) { viewModel.undoSet(set) }
             }
         }
@@ -502,4 +497,42 @@ private fun loggedRepsText(logged: LoggedSet): String {
 private fun loggedWeightText(logged: LoggedSet): String {
     val w = logged.resistanceValue.weight
     return if (!w.isNullOrBlank()) "$w kg" else "—"
+}
+
+
+/** "Undo log all", or "Log all as planned | Skip exercise" under an exercise's sets. */
+@Composable
+private fun BulkActions(isBulk: Boolean, onUndo: () -> Unit, onLogAll: () -> Unit, onSkipAll: () -> Unit, skipLabel: String) {
+    @Composable
+    fun action(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, modifier: Modifier, onClick: () -> Unit) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = modifier.clickable(onClick = onClick).padding(vertical = 14.dp)
+        ) {
+            Icon(icon, contentDescription = null, tint = Color.White.copy(alpha = 0.45f), modifier = Modifier.size(15.dp))
+            Spacer(modifier = Modifier.padding(start = 8.dp))
+            Text(label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.45f))
+        }
+    }
+    if (isBulk) {
+        action(Icons.AutoMirrored.Filled.Undo, "Undo log all", Modifier.fillMaxWidth(), onUndo)
+    } else {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            action(Icons.Filled.CheckCircle, "Log all as planned", Modifier.weight(1f), onLogAll)
+            Box(modifier = Modifier.width(1.dp).height(22.dp).background(Color.White.copy(alpha = 0.06f)))
+            action(Icons.Filled.SkipNext, skipLabel, Modifier.weight(1f), onSkipAll)
+        }
+    }
+}
+
+/** Small ⏭ next to "Log" — skip just this set (Undo brings it back). */
+@Composable
+private fun SkipSetButton(onClick: () -> Unit) {
+    Box(
+        modifier = Modifier.size(30.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.08f)).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(Icons.Filled.FastForward, contentDescription = tr("Skip set"), tint = Color.White.copy(alpha = 0.55f), modifier = Modifier.size(14.dp))
+    }
 }
