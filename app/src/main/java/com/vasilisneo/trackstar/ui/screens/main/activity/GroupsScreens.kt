@@ -133,6 +133,7 @@ enum class LeaderboardCategory(val raw: String, val label: String, val type: Act
     Slopes("slopes", "Slopes", ActivityType.Ski, listOf(LeaderboardMetric.TopSpeed, LeaderboardMetric.Vertical, LeaderboardMetric.Runs, LeaderboardMetric.Distance)),
     Run("run", "Run", ActivityType.Run, listOf(LeaderboardMetric.Distance, LeaderboardMetric.Pace, LeaderboardMetric.Time)),
     Walk("walk", "Walk", ActivityType.Walk, listOf(LeaderboardMetric.Distance, LeaderboardMetric.Pace, LeaderboardMetric.Time)),
+    Hike("hike", "Hike", ActivityType.Hike, listOf(LeaderboardMetric.Distance, LeaderboardMetric.Elevation, LeaderboardMetric.Time)),
     Ride("ride", "Ride", ActivityType.Ride, listOf(LeaderboardMetric.Distance, LeaderboardMetric.TopSpeed, LeaderboardMetric.Elevation)),
 }
 

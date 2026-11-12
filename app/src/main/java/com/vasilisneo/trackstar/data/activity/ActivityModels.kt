@@ -11,15 +11,15 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 enum class ActivityType(val raw: String, val label: String) {
-    Run("run", "Run"), Walk("walk", "Walk"), Ride("ride", "Ride"),
+    Run("run", "Run"), Walk("walk", "Walk"), Hike("hike", "Hike"), Ride("ride", "Ride"),
     Ski("ski", "Ski"), Snowboard("snowboard", "Snowboard");
 
     val isSlope: Boolean get() = this == Ski || this == Snowboard
-    /** Runs and walks read naturally as pace (min/km); rides and slopes as speed (km/h). */
-    val usesPace: Boolean get() = this == Run || this == Walk
+    /** Runs, walks and hikes read naturally as pace (min/km); rides and slopes as speed (km/h). */
+    val usesPace: Boolean get() = this == Run || this == Walk || this == Hike
 
     companion object {
-        val everyday = listOf(Run, Walk, Ride)
+        val everyday = listOf(Run, Walk, Hike, Ride)
         val slopes = listOf(Ski, Snowboard)
         fun of(raw: String?): ActivityType = entries.firstOrNull { it.raw == raw } ?: Run
     }

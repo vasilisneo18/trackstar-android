@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.DownhillSkiing
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Hiking
 import androidx.compose.material.icons.filled.GroupOff
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Pause
@@ -175,6 +176,7 @@ fun AppSheet(onDismissRequest: () -> Unit, content: @Composable () -> Unit) {
 fun ActivityType.icon(): ImageVector = when (this) {
     ActivityType.Run -> Icons.AutoMirrored.Filled.DirectionsRun
     ActivityType.Walk -> Icons.AutoMirrored.Filled.DirectionsWalk
+    ActivityType.Hike -> Icons.Filled.Hiking
     ActivityType.Ride -> Icons.AutoMirrored.Filled.DirectionsBike
     ActivityType.Ski -> Icons.Filled.DownhillSkiing
     ActivityType.Snowboard -> Icons.Filled.Snowboarding
@@ -500,15 +502,16 @@ private fun RecorderContent(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     (if (initialType.isSlope) ActivityType.slopes else ActivityType.everyday).forEach { t ->
                         val selected = snapshot.type == t
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
-                            modifier = Modifier.weight(1f).clip(RoundedCornerShape(50))
+                        // Icon over label so four types (Run · Walk · Hike · Ride) fit, in Greek too.
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp),
+                            modifier = Modifier.weight(1f).clip(RoundedCornerShape(16.dp))
                                 .background(if (selected) TrackstarAccent.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.08f))
-                                .clickable { ActivityRecorder.setType(t) }.padding(vertical = 10.dp)
+                                .clickable { ActivityRecorder.setType(t) }.padding(vertical = 8.dp, horizontal = 4.dp)
                         ) {
-                            Icon(t.icon(), null, tint = if (selected) Color.White else Color.White.copy(alpha = 0.55f), modifier = Modifier.size(15.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text(t.label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = if (selected) Color.White else Color.White.copy(alpha = 0.55f))
+                            Icon(t.icon(), null, tint = if (selected) Color.White else Color.White.copy(alpha = 0.55f), modifier = Modifier.size(17.dp))
+                            Text(t.label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (selected) Color.White else Color.White.copy(alpha = 0.55f),
+                                maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                         }
                     }
                 }

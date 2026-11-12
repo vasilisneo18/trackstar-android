@@ -60,6 +60,7 @@ class HealthConnectManager(private val context: Context) {
         val endOffset = zone.rules.getOffset(end)
         val exerciseType = when (activity.type) {
             "walk" -> ExerciseSessionRecord.EXERCISE_TYPE_WALKING
+            "hike" -> ExerciseSessionRecord.EXERCISE_TYPE_HIKING
             "ride" -> ExerciseSessionRecord.EXERCISE_TYPE_BIKING
             "ski" -> ExerciseSessionRecord.EXERCISE_TYPE_SKIING
             "snowboard" -> ExerciseSessionRecord.EXERCISE_TYPE_SNOWBOARDING
