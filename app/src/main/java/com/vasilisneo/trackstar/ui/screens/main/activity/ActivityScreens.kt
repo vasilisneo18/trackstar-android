@@ -185,8 +185,8 @@ fun ActivityHomeCard(date: LocalDate, onRecord: () -> Unit, onGroups: (() -> Uni
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(150.dp)
-            .clip(RoundedCornerShape(22.dp))
+            .height(164.dp)
+            .clip(RoundedCornerShape(20.dp))
             .background(CardFill)
             .clickable(onClick = onRecord)
             .padding(10.dp)

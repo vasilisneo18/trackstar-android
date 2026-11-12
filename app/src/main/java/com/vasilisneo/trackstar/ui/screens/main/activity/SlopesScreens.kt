@@ -176,7 +176,7 @@ fun SlopesHomeCard(date: LocalDate, lastType: ActivityType, onRecord: () -> Unit
     val (_, runs, vertical) = ActivityStore.slopeSeason(date, all)
     val center = all.firstOrNull { it.activityType.isSlope }?.coordinates?.firstOrNull()
     Box(
-        modifier = modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(22.dp)).background(CardFill)
+        modifier = modifier.fillMaxWidth().height(164.dp).clip(RoundedCornerShape(20.dp)).background(CardFill)
             .clickable(onClick = onRecord).padding(10.dp)
     ) {
         if (center != null) {

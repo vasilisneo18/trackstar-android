@@ -194,6 +194,40 @@ fun WorkoutScreen(
             )
         }
     }
+    // Steps and Activity sit side by side as half tiles (mirrors iOS's movementSection); Steps alone
+    // keeps its full card, Activity alone stays a half tile.
+    val recordActivity = {
+        recordActivityType = com.vasilisneo.trackstar.data.activity.ActivityType.of(activityPrefs.getString("activityLastType", "run"))
+    }
+    val movementRow: @Composable (Modifier, Boolean) -> Unit = { m, withSteps ->
+        val steps = withSteps && showStepsWidget.value
+        val activity = showActivityWidget.value
+        if (steps && !activity) {
+            PinnableCard(pinned = stepsPinned.value, onTogglePin = { stepsPinned.value = !stepsPinned.value },
+                onRemove = { showStepsWidget.value = false }, modifier = m) {
+                com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(date = selectedDate)
+            }
+        } else if (activity) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = m.fillMaxWidth()) {
+                if (steps) {
+                    PinnableCard(pinned = stepsPinned.value, onTogglePin = { stepsPinned.value = !stepsPinned.value },
+                        onRemove = { showStepsWidget.value = false }, modifier = Modifier.weight(1f)) {
+                        com.vasilisneo.trackstar.ui.screens.main.StepsHalfTile(date = selectedDate)
+                    }
+                }
+                com.vasilisneo.trackstar.ui.components.IosContextMenu(
+                    actions = listOf(com.vasilisneo.trackstar.ui.components.ContextMenuAction(
+                        "Remove from Home", Icons.Filled.RemoveCircleOutline, destructive = true,
+                        onClick = { showActivityWidget.value = false })),
+                    modifier = Modifier.weight(1f),
+                    onClick = recordActivity,
+                ) {
+                    com.vasilisneo.trackstar.ui.screens.main.activity.ActivityHomeCard(date = selectedDate, onRecord = recordActivity)
+                }
+                if (!steps) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
     // Month shown in the Today pill while the week wheel moves (null = show "Today").
     var monthPill by remember { mutableStateOf<String?>(null) }
     val workoutPinned = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("dashPinWorkout", false)
@@ -328,37 +362,13 @@ fun WorkoutScreen(
                             )
                         }
                     }
-                    if (showStepsWidget.value) {
-                        com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(
-                            date = selectedDate, modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-                    }
-                    if (showActivityWidget.value) {
-                        com.vasilisneo.trackstar.ui.components.IosContextMenu(
-                            actions = listOf(com.vasilisneo.trackstar.ui.components.ContextMenuAction(
-                                "Remove from Home", Icons.Filled.RemoveCircleOutline, destructive = true,
-                                onClick = { showActivityWidget.value = false })),
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            onClick = {
-                                recordActivityType = com.vasilisneo.trackstar.data.activity.ActivityType.of(
-                                    activityPrefs.getString("activityLastType", "run"))
-                            },
-                        ) {
-                            com.vasilisneo.trackstar.ui.screens.main.activity.ActivityHomeCard(
-                                date = selectedDate,
-                                onRecord = {
-                                    recordActivityType = com.vasilisneo.trackstar.data.activity.ActivityType.of(
-                                        activityPrefs.getString("activityLastType", "run"))
-                                },
-                            )
-                        }
-                        val dayActivities = com.vasilisneo.trackstar.data.activity.ActivityStore.activitiesOn(selectedDate, allActivities)
-                        if (dayActivities.isNotEmpty()) {
-                            com.vasilisneo.trackstar.ui.screens.main.activity.ActivityCarouselCard(
-                                dayActivities, onOpen = { openedActivity = it }, modifier = Modifier.padding(horizontal = 16.dp))
-                        }
-                    }
+                    movementRow(Modifier.padding(horizontal = 16.dp), true)
                     if (showSlopesWidget.value) slopesCard(Modifier.padding(horizontal = 16.dp))
+                    val dayActivities = com.vasilisneo.trackstar.data.activity.ActivityStore.activitiesOn(selectedDate, allActivities)
+                    if ((showActivityWidget.value || showSlopesWidget.value) && dayActivities.isNotEmpty()) {
+                        com.vasilisneo.trackstar.ui.screens.main.activity.ActivityCarouselCard(
+                            dayActivities, onOpen = { openedActivity = it }, modifier = Modifier.padding(horizontal = 16.dp))
+                    }
                     if (showBookSession && showBookWidget.value) {
                         Box(modifier = Modifier.padding(horizontal = 16.dp).clickable(onClick = onBookSession)) {
                             BookSessionDashboardCard(viewModel.nextAvailableSlots, loading = !viewModel.bookingsLoaded)
@@ -487,36 +497,14 @@ fun WorkoutScreen(
                     if (showWorkoutWidget.value && !workoutPinned.value) workoutItems()
                     // Apple Health steps for the selected day, below the workout (matches iOS).
                     // Unpinned cards sit below the workout (default).
-                    if (!stepsPinned.value && showStepsWidget.value) item {
-                        PinnableCard(pinned = false, onTogglePin = { stepsPinned.value = true }, onRemove = { showStepsWidget.value = false }) {
-                            com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(date = selectedDate)
-                        }
-                    }
-                    if (showActivityWidget.value) item(key = "activity-card") {
-                        // Long-press: Remove from Home (no pinning for this card yet).
-                        com.vasilisneo.trackstar.ui.components.IosContextMenu(
-                            actions = listOf(com.vasilisneo.trackstar.ui.components.ContextMenuAction(
-                                "Remove from Home", Icons.Filled.RemoveCircleOutline, destructive = true,
-                                onClick = { showActivityWidget.value = false })),
-                            onClick = {
-                                recordActivityType = com.vasilisneo.trackstar.data.activity.ActivityType.of(
-                                    activityPrefs.getString("activityLastType", "run"))
-                            },
-                        ) {
-                            com.vasilisneo.trackstar.ui.screens.main.activity.ActivityHomeCard(
-                                date = selectedDate,
-                                onRecord = {
-                                    recordActivityType = com.vasilisneo.trackstar.data.activity.ActivityType.of(
-                                        activityPrefs.getString("activityLastType", "run"))
-                                },
-                            )
-                        }
-                    }
-                    val dayActivities = com.vasilisneo.trackstar.data.activity.ActivityStore.activitiesOn(selectedDate, allActivities)
-                    if (showActivityWidget.value && dayActivities.isNotEmpty()) item(key = "activity-carousel") {
-                        com.vasilisneo.trackstar.ui.screens.main.activity.ActivityCarouselCard(dayActivities, onOpen = { openedActivity = it })
+                    if ((!stepsPinned.value && showStepsWidget.value) || showActivityWidget.value) item(key = "movement") {
+                        movementRow(Modifier, !stepsPinned.value)
                     }
                     if (showSlopesWidget.value) item(key = "slopes-card") { slopesCard(Modifier) }
+                    val dayActivities = com.vasilisneo.trackstar.data.activity.ActivityStore.activitiesOn(selectedDate, allActivities)
+                    if ((showActivityWidget.value || showSlopesWidget.value) && dayActivities.isNotEmpty()) item(key = "activity-carousel") {
+                        com.vasilisneo.trackstar.ui.screens.main.activity.ActivityCarouselCard(dayActivities, onOpen = { openedActivity = it })
+                    }
                     if (showBookSession && !isPast && !bookPinned.value && showBookWidget.value) item {
                         PinnableCard(pinned = false, onTogglePin = { bookPinned.value = true }, onClick = onBookSession, onRemove = { showBookWidget.value = false }) {
                             BookSessionDashboardCard(viewModel.nextAvailableSlots, loading = !viewModel.bookingsLoaded)
@@ -1177,10 +1165,12 @@ private fun PinnableCard(
     onTogglePin: () -> Unit,
     onClick: () -> Unit = {},
     onRemove: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     com.vasilisneo.trackstar.ui.components.IosContextMenu(
         actions = widgetMenuActions(pinned, onTogglePin, onRemove),
+        modifier = modifier,
         onClick = onClick,
     ) { content() }
 }

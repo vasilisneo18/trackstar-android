@@ -294,3 +294,66 @@ fun WeeklyStepsCard(weekStart: LocalDate, modifier: Modifier = Modifier) {
     }
 }
 
+
+/** Half-width Steps tile beside Activity on Home: today's count, the week total and a mini week of
+ *  bars (today's in accent). Mirrors iOS's StepsHalfTile. */
+@Composable
+fun StepsHalfTile(date: LocalDate, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val health = remember { HealthConnectManager(context) }
+    var granted by remember { mutableStateOf(false) }
+    var steps by remember { mutableStateOf(0) }
+    var week by remember { mutableStateOf(List(7) { 0 }) }
+    var loaded by remember { mutableStateOf(false) }
+    val weekStart = date.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+    val dayIndex = java.time.temporal.ChronoUnit.DAYS.between(weekStart, date).toInt()
+
+    val launcher = rememberLauncherForActivityResult(
+        PermissionController.createRequestPermissionResultContract()
+    ) { result -> granted = result.containsAll(health.permissions) }
+    LaunchedEffect(Unit) {
+        if (!health.isAvailable) { loaded = true; return@LaunchedEffect }
+        if (health.hasStepsPermission()) granted = true else launcher.launch(health.permissions)
+    }
+    LaunchedEffect(date, granted) {
+        if (granted) {
+            steps = health.steps(date)
+            week = health.weeklySteps(weekStart)
+            loaded = true
+        }
+    }
+    val scope = rememberCoroutineScope()
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (granted) scope.launch { steps = health.steps(date); week = health.weeklySteps(weekStart) }
+    }
+
+    val accent = TrackstarAccent
+    Column(
+        modifier = modifier.fillMaxWidth().height(164.dp).clip(RoundedCornerShape(20.dp)).background(CardFill)
+            .loadingShimmer(!loaded, 20.dp).padding(14.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.foundation.layout.Box(
+                Modifier.size(32.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color.White.copy(alpha = 0.08f)),
+                contentAlignment = Alignment.Center
+            ) { Icon(Icons.Filled.DirectionsWalk, null, tint = accent, modifier = Modifier.size(15.dp)) }
+            Spacer(Modifier.width(8.dp))
+            Text("Steps", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White)
+        }
+        Spacer(Modifier.weight(1f))
+        Text("%,d".format(steps), fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White, maxLines = 1)
+        Text(com.vasilisneo.trackstar.ui.i18n.trf("%s this week", "%,d".format(week.sum())), fontSize = 11.sp,
+            fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.5f), maxLines = 1)
+        // Mini week: today's bar in accent, the rest dimmed.
+        val maxSteps = maxOf(week.maxOrNull() ?: 0, 1)
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.Bottom,
+            modifier = Modifier.fillMaxWidth().height(30.dp).padding(top = 8.dp)) {
+            week.forEachIndexed { i, v ->
+                androidx.compose.foundation.layout.Box(
+                    Modifier.weight(1f).height(maxOf(4f, 22f * v / maxSteps).dp)
+                        .clip(RoundedCornerShape(50)).background(if (i == dayIndex) accent else Color.White.copy(alpha = 0.15f))
+                )
+            }
+        }
+    }
+}
