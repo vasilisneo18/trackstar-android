@@ -67,6 +67,20 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="trackstar" android:host="invite" />
             </intent-filter>
+            <!-- Activity group links: trackstar://group/{token} and
+                 https://trackstar.fitness/group.html?token={token} — open the join sheet. -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="trackstar" android:host="group" />
+            </intent-filter>
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="trackstar.fitness" android:pathPrefix="/group" />
+            </intent-filter>
             <!-- Health Connect permission-usage rationale (Android < 14). -->
             <intent-filter>
                 <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />

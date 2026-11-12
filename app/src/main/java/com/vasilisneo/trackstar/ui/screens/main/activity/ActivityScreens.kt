@@ -44,6 +44,7 @@ import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.DownhillSkiing
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.GroupOff
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -390,6 +391,15 @@ private fun RecorderContent(
 ) {
     val camera = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(LatLng(35.17, 33.36), 15f) }
     var follow by remember { mutableStateOf(true) }
+    // Live sharing with my groups (remembered across recordings, like iOS's liveShareEnabled).
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("trackstar_prefs", android.content.Context.MODE_PRIVATE) }
+    var shareLive by remember { mutableStateOf(prefs.getBoolean("liveShareEnabled", false)) }
+    val groups by com.vasilisneo.trackstar.data.activity.GroupStore.groups.collectAsState()
+    val liveMembers by com.vasilisneo.trackstar.data.activity.GroupStore.liveMembers.collectAsState()
+    val memberNames by com.vasilisneo.trackstar.data.activity.GroupStore.memberNames.collectAsState()
+    LaunchedEffect(Unit) { com.vasilisneo.trackstar.data.activity.GroupStore.refresh() }
+    LiveShareLoop(shareLive && groups.isNotEmpty(), snapshot.state)
     var pistes by remember { mutableStateOf<List<com.vasilisneo.trackstar.data.activity.Piste>>(emptyList()) }
     val hasFix = snapshot.lastLocation != null
     LaunchedEffect(snapshot.type.isSlope, hasFix) {
@@ -412,6 +422,9 @@ private fun RecorderContent(
         ) {
             val showPistes = snapshot.type.isSlope && pistes.isNotEmpty()
             if (showPistes) PisteLines(pistes)
+            if (shareLive) LiveMemberMarkers(liveMembers,
+                initials = { id -> (memberNames[id] ?: "?").split(" ").filter { it.isNotBlank() }.take(2).joinToString("") { it.take(1) }.uppercase() },
+                name = { id -> memberNames[id] ?: "" })
             if (snapshot.route.size > 1) MapPolyline(points = snapshot.route,
                 color = if (showPistes) Color.White.copy(alpha = 0.95f) else TrackstarAccent, width = if (showPistes) 7f else 14f)
         }
@@ -431,6 +444,18 @@ private fun RecorderContent(
                 Text(label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
             }
             Spacer(Modifier.width(10.dp))
+            if (groups.isNotEmpty()) {
+                // Share live with my groups: green while on.
+                Box(Modifier.size(44.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.55f)).clickable {
+                    shareLive = !shareLive
+                    prefs.edit().putBoolean("liveShareEnabled", shareLive).apply()
+                }, contentAlignment = Alignment.Center) {
+                    Icon(if (shareLive) Icons.Filled.Groups else Icons.Filled.GroupOff,
+                        contentDescription = tr(if (shareLive) "Sharing live with your groups" else "Not sharing live"),
+                        tint = if (shareLive) Color(0xFF30D158) else Color.White.copy(alpha = 0.75f), modifier = Modifier.size(20.dp))
+                }
+                Spacer(Modifier.width(10.dp))
+            }
             RoundButton(Icons.Filled.MyLocation, tr("My location")) { follow = true }
         }
         // Bottom panel.
@@ -756,6 +781,52 @@ private fun SlopeRunsSection(activity: RecordedActivity, runPistes: Map<Int, com
                     Text("${run.topSpeedKmh.toInt()}", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     Text("km/h", fontSize = 10.sp, color = Color.White.copy(alpha = 0.45f))
                 }
+            }
+        }
+    }
+}
+
+/** While recording with sharing on: send my position + stats every 10 s, and fetch the groups' live
+ *  members every other round. Clears my live position when sharing or the recording ends. */
+@Composable
+private fun LiveShareLoop(enabled: Boolean, state: ActivityRecorder.State) {
+    val active = enabled && (state == ActivityRecorder.State.Recording || state == ActivityRecorder.State.Paused)
+    val shared = remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(active) {
+        if (!active) {
+            if (shared.value) { shared.value = false; com.vasilisneo.trackstar.data.activity.GroupStore.stopLive() }
+            return@LaunchedEffect
+        }
+        var round = 0
+        var topSpeedSeen = 0.0
+        while (true) {
+            val s = ActivityRecorder.snapshot.value
+            val loc = s.lastLocation; val started = s.startedAtMs
+            if (s.state == ActivityRecorder.State.Recording && loc != null && started != null) {
+                topSpeedSeen = maxOf(topSpeedSeen, s.currentSpeedKmh)
+                com.vasilisneo.trackstar.data.activity.GroupStore.sendLive(com.vasilisneo.trackstar.data.api.LiveUpdate(
+                    latitude = loc.latitude, longitude = loc.longitude, speedKmh = s.currentSpeedKmh,
+                    activityType = s.type.raw,
+                    phase = if (s.type.isSlope) when (s.slopePhase) {
+                        SlopeAnalyzer.Phase.Skiing -> "skiing"; SlopeAnalyzer.Phase.OnLift -> "onLift"; else -> "waiting"
+                    } else null,
+                    startedAt = started, distanceMeters = s.distanceMeters, movingSeconds = s.movingSeconds,
+                    topSpeedKmh = if (s.type.isSlope) s.slopeTopSpeedKmh else topSpeedSeen,
+                    verticalMeters = s.slopeVerticalMeters, runs = s.slopeRuns, elevationGainMeters = s.elevationGainMeters,
+                ))
+                shared.value = true
+            }
+            if (round % 2 == 0) com.vasilisneo.trackstar.data.activity.GroupStore.refreshLiveMembers()
+            round++
+            kotlinx.coroutines.delay(10_000)
+        }
+    }
+    // Leaving the recorder (finish / discard) also clears the live position.
+    DisposableEffect(Unit) {
+        onDispose {
+            if (shared.value) kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO).launch {
+                com.vasilisneo.trackstar.data.activity.GroupStore.stopLive()
             }
         }
     }

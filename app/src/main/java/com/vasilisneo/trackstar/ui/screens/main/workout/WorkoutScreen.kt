@@ -178,6 +178,7 @@ fun WorkoutScreen(
     // Ski / snowboard days: the Slopes card records; its map button opens the ski resorts browser.
     val showSlopesWidget = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("widgetShowSlopes", true)
     var showResorts by remember { mutableStateOf(false) }
+    var showGroups by remember { mutableStateOf(false) }
     val lastSlopeType = { com.vasilisneo.trackstar.data.activity.ActivityType.of(activityPrefs.getString("slopesLastType", "ski")) }
     val slopesCard: @Composable (Modifier) -> Unit = { m ->
         com.vasilisneo.trackstar.ui.components.IosContextMenu(
@@ -191,6 +192,7 @@ fun WorkoutScreen(
                 date = selectedDate, lastType = lastSlopeType(),
                 onRecord = { recordActivityType = lastSlopeType() },
                 onResorts = { showResorts = true },
+                onGroups = { showGroups = true },
             )
         }
     }
@@ -222,7 +224,7 @@ fun WorkoutScreen(
                     modifier = Modifier.weight(1f),
                     onClick = recordActivity,
                 ) {
-                    com.vasilisneo.trackstar.ui.screens.main.activity.ActivityHomeCard(date = selectedDate, onRecord = recordActivity)
+                    com.vasilisneo.trackstar.ui.screens.main.activity.ActivityHomeCard(date = selectedDate, onRecord = recordActivity, onGroups = { showGroups = true })
                 }
                 if (!steps) Spacer(Modifier.weight(1f))
             }
@@ -674,6 +676,9 @@ fun WorkoutScreen(
 
     recordActivityType?.let { type ->
         com.vasilisneo.trackstar.ui.screens.main.activity.ActivityRecorderDialog(initialType = type, onClose = { recordActivityType = null })
+    }
+    if (showGroups) {
+        com.vasilisneo.trackstar.ui.screens.main.activity.GroupsDialog(onClose = { showGroups = false })
     }
     if (showResorts) {
         com.vasilisneo.trackstar.ui.screens.main.activity.ResortsDialog(

@@ -83,6 +83,9 @@ class MainActivity : ComponentActivity() {
     // Held at Activity scope so onNewIntent (link tapped while already running) can push into the
     // same Compose state the initial intent seeds. AcceptInviteSheet renders when this is set.
     private val pendingInvite = androidx.compose.runtime.mutableStateOf<PendingInvite?>(null)
+    // A tapped / scanned activity-group link's token → join sheet, then the group page.
+    private val pendingGroupToken = androidx.compose.runtime.mutableStateOf<String?>(null)
+    private val openedGroup = androidx.compose.runtime.mutableStateOf<com.vasilisneo.trackstar.data.api.GroupSummary?>(null)
 
     // Staged when a new social user needs onboarding; seeds the shared RegisterViewModel.
     private val pendingSocialSignup = androidx.compose.runtime.mutableStateOf<SocialSignup?>(null)
@@ -98,6 +101,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handleInviteIntent(intent)
+        handleGroupIntent(intent)
         handleBookingIntent(intent)
         maybeRequestNotificationPermission()
         // Apply the saved Appearance theme before the first frame so there's no midnight→theme flash.
@@ -694,6 +698,18 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
+                    // Activity group link (trackstar://group/{token} or the trackstar.fitness page).
+                    pendingGroupToken.value?.let { token ->
+                        com.vasilisneo.trackstar.ui.screens.main.activity.JoinGroupConfirmDialog(
+                            token = token,
+                            onJoined = { g -> pendingGroupToken.value = null; openedGroup.value = g },
+                            onCancel = { pendingGroupToken.value = null },
+                        )
+                    }
+                    openedGroup.value?.let { g ->
+                        com.vasilisneo.trackstar.ui.screens.main.activity.GroupDetailDialog(g.id, g.name, onClose = { openedGroup.value = null })
+                    }
+
                     // Tapped booking notification: cancelled -> detail popup (the slot is gone, so
                     // there's nothing to navigate to); spot_open -> athlete's booking screen;
                     // booked/withdrawn -> coach's availability screen.
@@ -720,6 +736,7 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleInviteIntent(intent)
+        handleGroupIntent(intent)
         handleBookingIntent(intent)
     }
 
@@ -745,6 +762,14 @@ class MainActivity : ComponentActivity() {
         val invite = intent?.data?.let(::parseInviteUri) ?: return
         if (!TokenStore(this).isLoggedIn) return
         pendingInvite.value = invite
+    }
+
+    // Stages an activity-group link for the join sheet (logged-in users only, like coach invites).
+    private fun handleGroupIntent(intent: android.content.Intent?) {
+        val link = intent?.data?.toString() ?: return
+        val token = com.vasilisneo.trackstar.data.activity.GroupStore.token(link) ?: return
+        if (!TokenStore(this).isLoggedIn) return
+        pendingGroupToken.value = token
     }
 
     // Ask for POST_NOTIFICATIONS on Android 13+ (Tiramisu) if not already granted. Pre-13 devices
