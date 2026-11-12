@@ -147,7 +147,7 @@ fun GroupsDialog(onClose: () -> Unit) {
     var opened by remember { mutableStateOf<GroupSummary?>(null) }
     LaunchedEffect(Unit) { GroupStore.refresh() }
 
-    FullScreenDialog(onDismissRequest = onClose) {
+    AppSheet(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().trackstarBackground()) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -243,7 +243,7 @@ private fun CreateGroupDialog(onCreated: (GroupSummary) -> Unit, onCancel: () ->
             busy = false
         }
     }
-    FullScreenDialog(onDismissRequest = onCancel) {
+    AppSheet(onDismissRequest = onCancel) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxSize().trackstarBackground().padding(top = LocalBarInsets.current.top, bottom = LocalBarInsets.current.bottom).padding(20.dp)) {
             RoundButton(Icons.Filled.Close, tr("Close"), onCancel)
@@ -278,7 +278,7 @@ private fun JoinGroupDialog(onJoined: (GroupSummary) -> Unit, onCancel: () -> Un
     var link by remember { mutableStateOf("") }
     var token by remember { mutableStateOf<String?>(null) }
     var invalid by remember { mutableStateOf(false) }
-    FullScreenDialog(onDismissRequest = onCancel) {
+    AppSheet(onDismissRequest = onCancel) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxSize().trackstarBackground().padding(top = LocalBarInsets.current.top, bottom = LocalBarInsets.current.bottom).padding(20.dp)) {
             RoundButton(Icons.Filled.Close, tr("Close"), onCancel)
@@ -315,7 +315,7 @@ fun JoinGroupConfirmDialog(token: String, onJoined: (GroupSummary) -> Unit, onCa
     LaunchedEffect(token) {
         runCatching { GroupStore.preview(token) }.onSuccess { preview = it }.onFailure { error = tr("This group link is no longer valid.") }
     }
-    FullScreenDialog(onDismissRequest = onCancel) {
+    AppSheet(onDismissRequest = onCancel) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.fillMaxSize().trackstarBackground().padding(top = LocalBarInsets.current.top + 40.dp, bottom = LocalBarInsets.current.bottom).padding(20.dp)) {
             Box(Modifier.size(72.dp).clip(CircleShape).background(TrackstarAccent.copy(alpha = 0.2f)), contentAlignment = Alignment.Center) {
@@ -385,7 +385,7 @@ fun GroupDetailDialog(groupId: String, initialName: String, onClose: () -> Unit)
     fun memberName(id: String) = detail?.members?.firstOrNull { it.userId == id }?.let { if (it.isMe) tr("You") else it.name } ?: tr("Member")
     fun initials(id: String) = detail?.members?.firstOrNull { it.userId == id }?.initials ?: "?"
 
-    FullScreenDialog(onDismissRequest = onClose) {
+    AppSheet(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().trackstarBackground()) {
             Column(verticalArrangement = Arrangement.spacedBy(18.dp),
                 modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
@@ -609,7 +609,7 @@ private fun GroupInviteDialog(groupId: String, name: String, initialLink: String
     var copied by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val qr = remember(link) { com.vasilisneo.trackstar.ui.screens.main.attendance.printableQrBitmap(link, 720)?.asImageBitmap() }
-    FullScreenDialog(onDismissRequest = onClose) {
+    AppSheet(onDismissRequest = onClose) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(18.dp),
             modifier = Modifier.fillMaxSize().trackstarBackground().padding(top = LocalBarInsets.current.top, bottom = LocalBarInsets.current.bottom).padding(20.dp)) {
             Row(Modifier.fillMaxWidth()) { RoundButton(Icons.Filled.Close, tr("Close"), onClose) }

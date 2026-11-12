@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -119,7 +120,8 @@ private val CardFill = Color.White.copy(alpha = 0.06f)
 data class BarInsets(val top: androidx.compose.ui.unit.Dp, val bottom: androidx.compose.ui.unit.Dp)
 val LocalBarInsets = androidx.compose.runtime.staticCompositionLocalOf { BarInsets(24.dp, 24.dp) }
 
-/** Full-screen dialog that keeps its content clear of the status / navigation bars. */
+/** Full-screen cover (the recorder, the full-screen piste map) — edge to edge, under the status and
+ *  navigation bars, with content kept clear of them via LocalBarInsets. iOS: fullScreenCover. */
 @Composable
 fun FullScreenDialog(onDismissRequest: () -> Unit, content: @Composable () -> Unit) {
     val bars = WindowInsets.systemBars
@@ -129,17 +131,43 @@ fun FullScreenDialog(onDismissRequest: () -> Unit, content: @Composable () -> Un
         bottom = with(density) { bars.getBottom(this).toDp() },
     )
     Dialog(onDismissRequest = onDismissRequest, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        // Some Android versions place the dialog window below the status bar but behind the
-        // navigation bar — only pad for the bars the window actually extends under.
-        val view = androidx.compose.ui.platform.LocalView.current
-        var windowTop by remember { mutableStateOf(0) }
-        // …and when it's pushed down by the status bar, its bottom runs past the screen by as much.
-        val density2 = androidx.compose.ui.platform.LocalDensity.current
-        val adjusted = if (windowTop > 0) insets.copy(top = 0.dp, bottom = insets.bottom + with(density2) { windowTop.toDp() }) else insets
-        Box(Modifier.fillMaxSize().onGloballyPositioned {
-            val loc = IntArray(2); view.getLocationOnScreen(loc); windowTop = loc[1]
-        }) {
-            androidx.compose.runtime.CompositionLocalProvider(LocalBarInsets provides adjusted) { content() }
+        // Some Android versions still place a dialog window below the status bar; let it draw
+        // under both bars so the cover really is full screen (no dark band at the top).
+        val window = (androidx.compose.ui.platform.LocalView.current.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window
+        androidx.compose.runtime.SideEffect {
+            window?.setFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+        }
+        androidx.compose.runtime.CompositionLocalProvider(LocalBarInsets provides insets) {
+            Box(Modifier.fillMaxSize()) { content() }
+        }
+    }
+}
+
+/** iOS-style page sheet (the same look as Home's Add widget gallery): slides up, leaves a sliver of
+ *  the screen above it, rounded top corners, swipe down to dismiss. iOS: .sheet. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun AppSheet(onDismissRequest: () -> Unit, content: @Composable () -> Unit) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val bottom = with(density) { WindowInsets.systemBars.getBottom(this).toDp() }
+    val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismissRequest,
+        sheetState = sheetState,
+        containerColor = Color.Transparent,
+        dragHandle = null,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
+    ) {
+        Box(
+            Modifier.fillMaxWidth().fillMaxHeight(0.93f)
+                .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
+                .trackstarBackground()
+        ) {
+            androidx.compose.runtime.CompositionLocalProvider(LocalBarInsets provides BarInsets(12.dp, bottom)) { content() }
+            // Grabber, like iOS sheets.
+            Box(Modifier.align(Alignment.TopCenter).padding(top = 8.dp).width(36.dp).height(5.dp)
+                .clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.3f)))
         }
     }
 }
@@ -582,7 +610,7 @@ fun RoundButton(icon: ImageVector, label: String, onClick: () -> Unit) {
 /** A saved activity's detail, as a full-screen dialog. */
 @Composable
 fun ActivityDetailDialog(activity: RecordedActivity, onClose: () -> Unit) {
-    FullScreenDialog(onDismissRequest = onClose) {
+    AppSheet(onDismissRequest = onClose) {
         ActivityDetailContent(activity = activity, isNew = false, onDelete = { ActivityStore.delete(activity); onClose() }, onClose = onClose)
     }
 }

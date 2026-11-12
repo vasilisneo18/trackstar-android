@@ -268,7 +268,7 @@ fun ResortsDialog(onClose: () -> Unit, onRecord: () -> Unit) {
     }
     val chipLabels = remember(loaded) { SkiResortCatalog.countries.map { (code, _) -> code to "${SkiResort.flag(code)} ${SkiResortCatalog.countryName(code)}" } }
 
-    FullScreenDialog(onDismissRequest = onClose) {
+    AppSheet(onDismissRequest = onClose) {
         Column(Modifier.fillMaxSize().trackstarBackground().padding(top = LocalBarInsets.current.top)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp)) {
                 RoundButton(Icons.Filled.Close, tr("Close"), onClose)
@@ -425,7 +425,7 @@ fun ResortDetailDialog(resort: SkiResort, onClose: () -> Unit, onRecord: () -> U
         fit(next)
     }
 
-    FullScreenDialog(onDismissRequest = onClose) {
+    AppSheet(onDismissRequest = onClose) {
         Box(Modifier.fillMaxSize().trackstarBackground()) {
             LazyColumn(state = listState, verticalArrangement = Arrangement.spacedBy(18.dp),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = LocalBarInsets.current.top + 72.dp, bottom = LocalBarInsets.current.bottom + 110.dp)) {
