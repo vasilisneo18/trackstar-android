@@ -199,6 +199,21 @@ const val DARK_MAP_STYLE = """[
 val darkMapProperties: MapProperties
     get() = MapProperties(mapStyleOptions = MapStyleOptions(DARK_MAP_STYLE))
 
+/** Hikes: Google's terrain map (contour lines, shaded relief) instead of the flat dark style. */
+val terrainMapProperties: MapProperties
+    get() = MapProperties(mapType = com.google.maps.android.compose.MapType.TERRAIN)
+
+/** Marked hiking trails as thin lines in their marking colour, inside a `GoogleMap { }`. */
+@Composable
+@com.google.maps.android.compose.GoogleMapComposable
+fun TrailLines(trails: List<com.vasilisneo.trackstar.data.activity.Trail>, width: Float = 7f) {
+    for (t in trails) for (line in t.lines) {
+        MapPolyline(points = line.coordinates, color = t.color.copy(alpha = 0.85f), width = width,
+            jointType = com.google.android.gms.maps.model.JointType.ROUND,
+            startCap = com.google.android.gms.maps.model.RoundCap(), endCap = com.google.android.gms.maps.model.RoundCap())
+    }
+}
+
 fun boundsOf(points: List<LatLng>): LatLngBounds? {
     if (points.isEmpty()) return null
     val b = LatLngBounds.builder()
@@ -433,10 +448,15 @@ private fun RecorderContent(
     LiveShareLoop(shareLive && groups.isNotEmpty(), snapshot.state)
     var pistes by remember { mutableStateOf<List<com.vasilisneo.trackstar.data.activity.Piste>>(emptyList()) }
     val hasFix = snapshot.lastLocation != null
-    LaunchedEffect(snapshot.type.isSlope, hasFix) {
+    var trails by remember { mutableStateOf<List<com.vasilisneo.trackstar.data.activity.Trail>>(emptyList()) }
+    val isHike = snapshot.type == ActivityType.Hike
+    LaunchedEffect(snapshot.type.isSlope, isHike, hasFix) {
         val here = snapshot.lastLocation
         if (snapshot.type.isSlope && here != null && pistes.isEmpty()) {
             pistes = com.vasilisneo.trackstar.data.activity.PisteMapStore.pistesAround(here) ?: emptyList()
+        }
+        if (isHike && here != null && trails.isEmpty()) {
+            trails = com.vasilisneo.trackstar.data.activity.TrailMapStore.trailsAround(here)
         }
     }
     LaunchedEffect(snapshot.lastLocation, follow) {
@@ -447,19 +467,21 @@ private fun RecorderContent(
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = camera,
-            properties = darkMapProperties.copy(isMyLocationEnabled = snapshot.lastLocation != null && !permissionDenied),
+            properties = (if (isHike) terrainMapProperties else darkMapProperties)
+                .copy(isMyLocationEnabled = snapshot.lastLocation != null && !permissionDenied),
             uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false, mapToolbarEnabled = false),
             onMapClick = { follow = false },
         ) {
             val showPistes = snapshot.type.isSlope && pistes.isNotEmpty()
             if (showPistes) PisteLines(pistes)
+            if (isHike) TrailLines(trails)
             if (shareLive) LiveMemberMarkers(liveMembers,
                 initials = { id -> (memberNames[id] ?: "?").split(" ").filter { it.isNotBlank() }.take(2).joinToString("") { it.take(1) }.uppercase() },
                 name = { id -> memberNames[id] ?: "" })
             if (snapshot.route.size > 1) MapPolyline(points = snapshot.route,
                 color = if (showPistes) Color.White.copy(alpha = 0.95f) else TrackstarAccent, width = if (showPistes) 7f else 14f)
         }
-        if (snapshot.type.isSlope && pistes.isNotEmpty()) OsmAttribution(Modifier.align(Alignment.CenterEnd))
+        if ((snapshot.type.isSlope && pistes.isNotEmpty()) || (isHike && trails.isNotEmpty())) OsmAttribution(Modifier.align(Alignment.CenterEnd))
         // Top bar: close, GPS badge, recenter.
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = LocalBarInsets.current.top).padding(horizontal = 16.dp, vertical = 10.dp)) {
             RoundButton(Icons.Filled.Close, tr("Close"), onClose)
@@ -637,8 +659,11 @@ fun ActivityDetailContent(
     var pistes by remember { mutableStateOf<List<com.vasilisneo.trackstar.data.activity.Piste>>(emptyList()) }
     var runPistes by remember { mutableStateOf<Map<Int, com.vasilisneo.trackstar.data.activity.Piste>>(emptyMap()) }
     var convention by remember { mutableStateOf<String?>(null) }
+    var trails by remember { mutableStateOf<List<com.vasilisneo.trackstar.data.activity.Trail>>(emptyList()) }
+    val isHike = activity.activityType == ActivityType.Hike
     val context = LocalContext.current
     LaunchedEffect(activity.clientId) {
+        if (isHike) { trails = com.vasilisneo.trackstar.data.activity.TrailMapStore.trailsCovering(route); return@LaunchedEffect }
         val slopes = activity.slopes ?: return@LaunchedEffect
         if (route.isEmpty()) return@LaunchedEffect
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
@@ -666,17 +691,21 @@ fun ActivityDetailContent(
             item {
                 Box(modifier = Modifier.fillMaxWidth().height(300.dp).clip(RoundedCornerShape(24.dp))) {
                     GoogleMap(
-                        modifier = Modifier.fillMaxSize(), cameraPositionState = camera, properties = darkMapProperties,
+                        modifier = Modifier.fillMaxSize(), cameraPositionState = camera,
+                        properties = if (isHike) terrainMapProperties else darkMapProperties,
                         uiSettings = MapUiSettings(zoomControlsEnabled = false, mapToolbarEnabled = false, myLocationButtonEnabled = false),
                         onMapLoaded = {
                             boundsOf(route)?.let { camera.move(CameraUpdateFactory.newLatLngBounds(it, 80)) }
                         },
                     ) {
                         if (pistes.isNotEmpty()) PisteLines(pistes, width = 14f, convention = convention)
+                        if (trails.isNotEmpty()) TrailLines(trails)
+                        // White casing so a hike's route stands out over terrain and trails.
+                        if (isHike && route.size > 1) MapPolyline(points = route, color = Color.White, width = 18f, zIndex = 1f)
                         if (route.size > 1) MapPolyline(points = route, color = if (pistes.isEmpty()) TrackstarAccent else Color.White.copy(alpha = 0.95f),
-                            width = if (pistes.isEmpty()) 12f else 6f)
+                            width = if (pistes.isEmpty()) 12f else 6f, zIndex = 2f)
                     }
-                    if (pistes.isNotEmpty()) OsmAttribution(Modifier.align(Alignment.BottomEnd))
+                    if (pistes.isNotEmpty() || trails.isNotEmpty()) OsmAttribution(Modifier.align(Alignment.BottomEnd))
                     mapOverlay?.invoke(camera)
                 }
             }

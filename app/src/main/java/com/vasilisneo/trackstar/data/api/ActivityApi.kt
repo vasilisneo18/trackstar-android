@@ -24,6 +24,10 @@ interface ActivityApi {
     /** Fallback for the static piste tiles: the backend's cached Overpass query (tile = floor(deg × 10)). */
     @GET("pistes/tile")
     suspend fun pisteTile(@Query("lat") lat: Int, @Query("lon") lon: Int): Response<com.vasilisneo.trackstar.data.activity.PisteTile>
+
+    /** Marked hiking trails outside the static coverage: the backend's cached Overpass query. */
+    @GET("trails/tile")
+    suspend fun trailTile(@Query("lat") lat: Int, @Query("lon") lon: Int): Response<com.vasilisneo.trackstar.data.activity.TrailTile>
 }
 
 data class ActivitySplit(
