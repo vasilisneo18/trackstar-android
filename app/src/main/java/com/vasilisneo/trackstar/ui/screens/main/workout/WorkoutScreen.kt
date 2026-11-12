@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -204,10 +205,15 @@ fun WorkoutScreen(
     val density = androidx.compose.ui.platform.LocalDensity.current
     // Collapse progresses 0→1 over the first ~56dp of scroll (or instantly once past the first item).
     val thresholdPx = with(density) { 56.dp.toPx() }
+    // The empty-day layout is a scrolling Column, not the LazyColumn — the header follows whichever
+    // is on screen (only one is composed at a time; the Column's offset resets on day change).
+    val emptyDayScroll = androidx.compose.foundation.rememberScrollState()
+    LaunchedEffect(selectedDate) { emptyDayScroll.scrollTo(0) }
     val collapse by androidx.compose.runtime.remember {
         androidx.compose.runtime.derivedStateOf {
-            if (listState.firstVisibleItemIndex > 0) 1f
-            else (listState.firstVisibleItemScrollOffset / thresholdPx).coerceIn(0f, 1f)
+            val list = if (listState.firstVisibleItemIndex > 0) 1f
+                else (listState.firstVisibleItemScrollOffset / thresholdPx).coerceIn(0f, 1f)
+            maxOf(list, (emptyDayScroll.value / thresholdPx).coerceIn(0f, 1f))
         }
     }
     // Full header height (measured at rest) → the scroll content's top padding, so content scrolls
@@ -254,10 +260,15 @@ fun WorkoutScreen(
                 androidx.compose.material3.CircularProgressIndicator(color = TrackstarAccent, strokeWidth = 2.dp)
             }
         } else if (displaySessions.isEmpty()) {
+            // Scrolls once the widgets outgrow the screen (Activity / Slopes cards etc.).
             Column(
-                modifier = Modifier.fillMaxSize().padding(
-                    top = (if (headerHeightDp > 0.dp) headerHeightDp else 150.dp) + 4.dp
-                ),
+                modifier = Modifier.fillMaxSize()
+                    .haze(hazeState)
+                    .verticalScroll(emptyDayScroll)
+                    .padding(
+                        top = (if (headerHeightDp > 0.dp) headerHeightDp else 150.dp) + 4.dp,
+                        bottom = com.vasilisneo.trackstar.ui.components.tabBarContentBottomPadding(),
+                    ),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 // Coach: their next session on this day (same look as an athlete's booking).
@@ -297,7 +308,7 @@ fun WorkoutScreen(
                                 date = selectedDate, modifier = Modifier.padding(horizontal = 16.dp)
                             )
                         } else {
-                            Box(modifier = Modifier.weight(1f)) { NoDataForDay() }
+                            Box(modifier = Modifier.fillMaxWidth().height(360.dp)) { NoDataForDay() }
                         }
                     }
                 } else {
@@ -535,6 +546,9 @@ fun WorkoutScreen(
                 .fillMaxWidth()
                 .align(Alignment.TopStart)
                 .onSizeChanged { if (collapse < 0.01f && it.height > 0) headerHeightPx = it.height }
+                // Solid fallback under the frost: where blur isn't available (emulators, some
+                // devices) the cards would otherwise show straight through the date strip.
+                .background(Color(0xFF1C2236).copy(alpha = 0.92f * headerAlpha))
                 // Frosted glass: blurs the list behind the header, tint ramping in on scroll so
                 // the top stays clear (glow shows through) — matches iOS's ultraThinMaterial.
                 .hazeChild(

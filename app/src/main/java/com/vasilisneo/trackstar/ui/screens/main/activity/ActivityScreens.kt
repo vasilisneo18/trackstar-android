@@ -237,6 +237,10 @@ fun StaticMap(center: LatLng, zoom: Float, onClick: () -> Unit = {}, modifier: M
         onMapClick = { onClick() },
         onMapLongClick = { onClick() },
     )
+    // A Compose layer on top takes the touches, so swipes scroll the page instead of being eaten by
+    // the map view, and taps still open the recorder.
+    Box(modifier.clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+        indication = null, onClick = onClick))
 }
 
 /** The selected day's activities, swipeable (pager) with page dots. */
