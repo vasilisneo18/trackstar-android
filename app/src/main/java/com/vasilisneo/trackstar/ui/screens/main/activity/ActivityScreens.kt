@@ -65,6 +65,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -127,7 +128,18 @@ fun FullScreenDialog(onDismissRequest: () -> Unit, content: @Composable () -> Un
         bottom = with(density) { bars.getBottom(this).toDp() },
     )
     Dialog(onDismissRequest = onDismissRequest, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        androidx.compose.runtime.CompositionLocalProvider(LocalBarInsets provides insets) { content() }
+        // Some Android versions place the dialog window below the status bar but behind the
+        // navigation bar — only pad for the bars the window actually extends under.
+        val view = androidx.compose.ui.platform.LocalView.current
+        var windowTop by remember { mutableStateOf(0) }
+        // …and when it's pushed down by the status bar, its bottom runs past the screen by as much.
+        val density2 = androidx.compose.ui.platform.LocalDensity.current
+        val adjusted = if (windowTop > 0) insets.copy(top = 0.dp, bottom = insets.bottom + with(density2) { windowTop.toDp() }) else insets
+        Box(Modifier.fillMaxSize().onGloballyPositioned {
+            val loc = IntArray(2); view.getLocationOnScreen(loc); windowTop = loc[1]
+        }) {
+            androidx.compose.runtime.CompositionLocalProvider(LocalBarInsets provides adjusted) { content() }
+        }
     }
 }
 
@@ -374,6 +386,14 @@ private fun RecorderContent(
 ) {
     val camera = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(LatLng(35.17, 33.36), 15f) }
     var follow by remember { mutableStateOf(true) }
+    var pistes by remember { mutableStateOf<List<com.vasilisneo.trackstar.data.activity.Piste>>(emptyList()) }
+    val hasFix = snapshot.lastLocation != null
+    LaunchedEffect(snapshot.type.isSlope, hasFix) {
+        val here = snapshot.lastLocation
+        if (snapshot.type.isSlope && here != null && pistes.isEmpty()) {
+            pistes = com.vasilisneo.trackstar.data.activity.PisteMapStore.pistesAround(here) ?: emptyList()
+        }
+    }
     LaunchedEffect(snapshot.lastLocation, follow) {
         val here = snapshot.lastLocation ?: return@LaunchedEffect
         if (follow) camera.animate(CameraUpdateFactory.newLatLngZoom(here, maxOf(camera.position.zoom, 15f)), 600)
@@ -386,8 +406,12 @@ private fun RecorderContent(
             uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false, mapToolbarEnabled = false),
             onMapClick = { follow = false },
         ) {
-            if (snapshot.route.size > 1) MapPolyline(points = snapshot.route, color = TrackstarAccent, width = 14f)
+            val showPistes = snapshot.type.isSlope && pistes.isNotEmpty()
+            if (showPistes) PisteLines(pistes)
+            if (snapshot.route.size > 1) MapPolyline(points = snapshot.route,
+                color = if (showPistes) Color.White.copy(alpha = 0.95f) else TrackstarAccent, width = if (showPistes) 7f else 14f)
         }
+        if (snapshot.type.isSlope && pistes.isNotEmpty()) OsmAttribution(Modifier.align(Alignment.CenterEnd))
         // Top bar: close, GPS badge, recenter.
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = LocalBarInsets.current.top).padding(horizontal = 16.dp, vertical = 10.dp)) {
             RoundButton(Icons.Filled.Close, tr("Close"), onClose)
@@ -543,6 +567,28 @@ fun ActivityDetailContent(
 ) {
     var confirmDelete by remember { mutableStateOf(false) }
     val route = remember(activity.clientId) { activity.coordinates }
+    var pistes by remember { mutableStateOf<List<com.vasilisneo.trackstar.data.activity.Piste>>(emptyList()) }
+    var runPistes by remember { mutableStateOf<Map<Int, com.vasilisneo.trackstar.data.activity.Piste>>(emptyMap()) }
+    var convention by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
+    LaunchedEffect(activity.clientId) {
+        val slopes = activity.slopes ?: return@LaunchedEffect
+        if (route.isEmpty()) return@LaunchedEffect
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            com.vasilisneo.trackstar.data.activity.SkiResortCatalog.load(context)
+            convention = com.vasilisneo.trackstar.data.activity.SkiResortCatalog.resortNear(route.first())?.convention
+        }
+        val loaded = com.vasilisneo.trackstar.data.activity.PisteMapStore.pistesCovering(route)
+        runPistes = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+            buildMap {
+                slopes.runs.forEachIndexed { i, run ->
+                    val lo = maxOf(0, run.startIndex); val hi = minOf(route.size - 1, run.endIndex)
+                    if (hi > lo) com.vasilisneo.trackstar.data.activity.PisteMatcher.piste(route.subList(lo, hi + 1), loaded)?.let { put(i, it) }
+                }
+            }
+        }
+        pistes = loaded
+    }
     val camera = rememberCameraPositionState()
     Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
         LazyColumn(
@@ -559,8 +605,11 @@ fun ActivityDetailContent(
                             boundsOf(route)?.let { camera.move(CameraUpdateFactory.newLatLngBounds(it, 80)) }
                         },
                     ) {
-                        if (route.size > 1) MapPolyline(points = route, color = TrackstarAccent, width = 12f)
+                        if (pistes.isNotEmpty()) PisteLines(pistes, width = 14f, convention = convention)
+                        if (route.size > 1) MapPolyline(points = route, color = if (pistes.isEmpty()) TrackstarAccent else Color.White.copy(alpha = 0.95f),
+                            width = if (pistes.isEmpty()) 12f else 6f)
                     }
+                    if (pistes.isNotEmpty()) OsmAttribution(Modifier.align(Alignment.BottomEnd))
                     mapOverlay?.invoke(camera)
                 }
             }
@@ -588,7 +637,7 @@ fun ActivityDetailContent(
                         Triple(ActivityFormat.duration(slopes.liftSeconds), null, "On lifts"),
                     ))
                 }
-                if (slopes.runs.isNotEmpty()) item { SlopeRunsSection(activity) }
+                if (slopes.runs.isNotEmpty()) item { SlopeRunsSection(activity, runPistes, convention) }
             } else {
                 item {
                     TileGrid(listOf(
@@ -676,7 +725,7 @@ private fun SplitsSection(activity: RecordedActivity) {
 }
 
 @Composable
-private fun SlopeRunsSection(activity: RecordedActivity) {
+private fun SlopeRunsSection(activity: RecordedActivity, runPistes: Map<Int, com.vasilisneo.trackstar.data.activity.Piste>, convention: String?) {
     val runs = activity.slopes?.runs.orEmpty()
     val best = runs.maxOfOrNull { it.topSpeedKmh } ?: 0.0
     Column(verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(CardFill).padding(16.dp)) {
@@ -688,6 +737,14 @@ private fun SlopeRunsSection(activity: RecordedActivity) {
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
+                    runPistes[i]?.let { piste ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            DifficultyDot(piste.difficulty ?: "", convention, 9.dp)
+                            Spacer(Modifier.width(6.dp))
+                            androidx.compose.material3.Text(piste.name ?: piste.difficultyLabel(convention), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                                color = Color.White.copy(alpha = 0.85f), maxLines = 1)
+                        }
+                    }
                     Text("${ActivityFormat.distance(run.distanceMeters)} km · ↓ ${run.verticalMeters.toInt()} m", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                     Text("${ActivityFormat.duration(run.seconds)} · ${tr("avg")} ${run.avgSpeedKmh.toInt()} km/h", fontSize = 12.sp, color = Color.White.copy(alpha = 0.5f))
                 }

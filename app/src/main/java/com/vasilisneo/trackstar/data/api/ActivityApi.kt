@@ -6,6 +6,7 @@ import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 // GPS activities (run / walk / ride / ski / snowboard) — /api/activities on the backend
 // (ActivityController). Upload is an upsert by clientId, so retries never duplicate. Mirrors
@@ -19,6 +20,10 @@ interface ActivityApi {
 
     @DELETE("activities/{clientId}")
     suspend fun delete(@Path("clientId") clientId: String): Response<Map<String, String>>
+
+    /** Fallback for the static piste tiles: the backend's cached Overpass query (tile = floor(deg × 10)). */
+    @GET("pistes/tile")
+    suspend fun pisteTile(@Query("lat") lat: Int, @Query("lon") lon: Int): Response<com.vasilisneo.trackstar.data.activity.PisteTile>
 }
 
 data class ActivitySplit(

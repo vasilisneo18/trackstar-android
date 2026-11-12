@@ -174,11 +174,30 @@ fun WorkoutScreen(
     val activityPrefs = androidx.compose.ui.platform.LocalContext.current.let { ctx ->
         remember { ctx.getSharedPreferences("trackstar_prefs", android.content.Context.MODE_PRIVATE) }
     }
+    // Ski / snowboard days: the Slopes card records; its map button opens the ski resorts browser.
+    val showSlopesWidget = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("widgetShowSlopes", true)
+    var showResorts by remember { mutableStateOf(false) }
+    val lastSlopeType = { com.vasilisneo.trackstar.data.activity.ActivityType.of(activityPrefs.getString("slopesLastType", "ski")) }
+    val slopesCard: @Composable (Modifier) -> Unit = { m ->
+        com.vasilisneo.trackstar.ui.components.IosContextMenu(
+            actions = listOf(com.vasilisneo.trackstar.ui.components.ContextMenuAction(
+                "Remove from Home", Icons.Filled.RemoveCircleOutline, destructive = true,
+                onClick = { showSlopesWidget.value = false })),
+            modifier = m,
+            onClick = { recordActivityType = lastSlopeType() },
+        ) {
+            com.vasilisneo.trackstar.ui.screens.main.activity.SlopesHomeCard(
+                date = selectedDate, lastType = lastSlopeType(),
+                onRecord = { recordActivityType = lastSlopeType() },
+                onResorts = { showResorts = true },
+            )
+        }
+    }
     // Month shown in the Today pill while the week wheel moves (null = show "Today").
     var monthPill by remember { mutableStateOf<String?>(null) }
     val workoutPinned = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("dashPinWorkout", false)
     var showWidgetGallery by remember { mutableStateOf(false) }
-    val hasHiddenWidgets = !showWorkoutWidget.value || !showStepsWidget.value || !showActivityWidget.value || !showDietWidget.value || (showBookSession && !showBookWidget.value)
+    val hasHiddenWidgets = !showWorkoutWidget.value || !showStepsWidget.value || !showActivityWidget.value || !showSlopesWidget.value || !showDietWidget.value || (showBookSession && !showBookWidget.value)
 
     val displaySessions = viewModel.displaySessions
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -328,6 +347,7 @@ fun WorkoutScreen(
                                 dayActivities, onOpen = { openedActivity = it }, modifier = Modifier.padding(horizontal = 16.dp))
                         }
                     }
+                    if (showSlopesWidget.value) slopesCard(Modifier.padding(horizontal = 16.dp))
                     if (showBookSession && showBookWidget.value) {
                         Box(modifier = Modifier.padding(horizontal = 16.dp).clickable(onClick = onBookSession)) {
                             BookSessionDashboardCard(viewModel.nextAvailableSlots, loading = !viewModel.bookingsLoaded)
@@ -485,6 +505,7 @@ fun WorkoutScreen(
                     if (showActivityWidget.value && dayActivities.isNotEmpty()) item(key = "activity-carousel") {
                         com.vasilisneo.trackstar.ui.screens.main.activity.ActivityCarouselCard(dayActivities, onOpen = { openedActivity = it })
                     }
+                    if (showSlopesWidget.value) item(key = "slopes-card") { slopesCard(Modifier) }
                     if (showBookSession && !isPast && !bookPinned.value && showBookWidget.value) item {
                         PinnableCard(pinned = false, onTogglePin = { bookPinned.value = true }, onClick = onBookSession, onRemove = { showBookWidget.value = false }) {
                             BookSessionDashboardCard(viewModel.nextAvailableSlots, loading = !viewModel.bookingsLoaded)
@@ -652,6 +673,12 @@ fun WorkoutScreen(
     recordActivityType?.let { type ->
         com.vasilisneo.trackstar.ui.screens.main.activity.ActivityRecorderDialog(initialType = type, onClose = { recordActivityType = null })
     }
+    if (showResorts) {
+        com.vasilisneo.trackstar.ui.screens.main.activity.ResortsDialog(
+            onClose = { showResorts = false },
+            onRecord = { showResorts = false; recordActivityType = lastSlopeType() },
+        )
+    }
     openedActivity?.let { a ->
         com.vasilisneo.trackstar.ui.screens.main.activity.ActivityDetailDialog(activity = a, onClose = { openedActivity = null })
     }
@@ -661,6 +688,7 @@ fun WorkoutScreen(
             if (!showWorkoutWidget.value) add(AddableWidget("workout") { showWorkoutWidget.value = true })
             if (!showStepsWidget.value) add(AddableWidget("steps") { showStepsWidget.value = true })
             if (!showActivityWidget.value) add(AddableWidget("activity") { showActivityWidget.value = true })
+            if (!showSlopesWidget.value) add(AddableWidget("slopes") { showSlopesWidget.value = true })
             if (!showDietWidget.value) add(AddableWidget("diet") { showDietWidget.value = true })
             if (showBookSession && !showBookWidget.value) add(AddableWidget("book") { showBookWidget.value = true })
         }
@@ -672,6 +700,7 @@ fun WorkoutScreen(
                 "workout" -> FullPromptCard(Icons.Filled.FitnessCenter, "Workout", "Your planned sessions, or plan one for the day.")
                 "steps" -> com.vasilisneo.trackstar.ui.screens.main.DailyStepsCard(date = selectedDate)
                 "activity" -> com.vasilisneo.trackstar.ui.screens.main.activity.ActivityHomeCard(date = selectedDate, onRecord = {})
+                "slopes" -> com.vasilisneo.trackstar.ui.screens.main.activity.SlopesHomeCard(date = selectedDate, lastType = lastSlopeType(), onRecord = {}, onResorts = {})
                 "diet" -> DietDashboardCard()
                 "book" -> BookSessionDashboardCard(viewModel.nextAvailableSlots, loading = !viewModel.bookingsLoaded)
             }
