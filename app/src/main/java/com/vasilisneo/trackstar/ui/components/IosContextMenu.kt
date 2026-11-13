@@ -144,6 +144,13 @@ private fun ContextMenuOverlay(
         val gapPx = with(density) { 10.dp.toPx() }
         val below = bounds.bottom + gapPx + menuHeightPx < screenH - with(density) { 24.dp.toPx() }
         val menuY = if (below) bounds.bottom + gapPx else bounds.top - gapPx - menuHeightPx
+        // Line the menu up with the card's left edge, or its right edge when that would run off
+        // screen (a half tile on the right, like iOS).
+        val screenW = LocalView.current.rootView.width.toFloat()
+        val menuWidthPx = with(density) { 250.dp.toPx() }
+        val edgePx = with(density) { 12.dp.toPx() }
+        val alignRight = bounds.left + menuWidthPx > screenW - edgePx
+        val menuX = if (alignRight) (bounds.right - menuWidthPx).coerceAtLeast(edgePx) else bounds.left
         val p = progress.value
 
         Box(
@@ -162,12 +169,12 @@ private fun ContextMenuOverlay(
             // The menu.
             Column(
                 modifier = Modifier
-                    .offset { IntOffset(bounds.left.roundToInt(), menuY.roundToInt()) }
+                    .offset { IntOffset(menuX.roundToInt(), menuY.roundToInt()) }
                     .width(250.dp)
                     .graphicsLayer {
                         alpha = p
                         val s = 0.85f + 0.15f * p; scaleX = s; scaleY = s
-                        transformOrigin = TransformOrigin(0f, if (below) 0f else 1f)
+                        transformOrigin = TransformOrigin(if (alignRight) 1f else 0f, if (below) 0f else 1f)
                     }
                     .clip(RoundedCornerShape(14.dp))
                     .background(MenuFill.copy(alpha = 0.97f))

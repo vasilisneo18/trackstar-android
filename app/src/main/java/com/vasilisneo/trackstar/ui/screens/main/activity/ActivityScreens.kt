@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.vasilisneo.trackstar.ui.screens.main.activity
 
 // GPS activities on Android: the Home card, the full-screen recorder (live Google Map, stats,
@@ -11,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -234,7 +237,8 @@ fun boundsOf(points: List<LatLng>): LatLngBounds? {
 
 /** Full-width card: map backdrop, "Activity" + km this week; tap to record. Groups in the corner. */
 @Composable
-fun ActivityHomeCard(date: LocalDate, onRecord: () -> Unit, onGroups: (() -> Unit)? = null, modifier: Modifier = Modifier) {
+fun ActivityHomeCard(date: LocalDate, onRecord: () -> Unit, onGroups: (() -> Unit)? = null, modifier: Modifier = Modifier,
+                     onLongPress: (() -> Unit)? = null) {
     val all by ActivityStore.activities.collectAsState()
     LaunchedEffect(Unit) { ActivityStore.refresh() }
     val center = all.firstOrNull()?.coordinates?.firstOrNull() ?: LatLng(35.17, 33.36)
@@ -244,10 +248,12 @@ fun ActivityHomeCard(date: LocalDate, onRecord: () -> Unit, onGroups: (() -> Uni
             .height(164.dp)
             .clip(RoundedCornerShape(20.dp))
             .background(CardFill)
-            .clickable(onClick = onRecord)
+            // Long-press goes to the Home menu (Remove from Home) — a plain clickable would swallow it.
+            .combinedClickable(onClick = onRecord, onLongClick = onLongPress)
             .padding(10.dp)
     ) {
-        StaticMap(center = center, zoom = 13f, onClick = onRecord, modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)))
+        StaticMap(center = center, zoom = 13f, onClick = onRecord, onLongClick = onLongPress,
+            modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)))
         Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)).background(
             Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.65f), Color.Black.copy(alpha = 0.15f)))))
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(10.dp)) {
@@ -280,7 +286,7 @@ fun CornerButton(icon: ImageVector, label: String, size: androidx.compose.ui.uni
 /** A non-interactive lite-mode map (cheap bitmap), for card backdrops. Taps go to `onClick` — a lite
  *  map with no click listener opens the Google Maps app instead. */
 @Composable
-fun StaticMap(center: LatLng, zoom: Float, onClick: () -> Unit = {}, modifier: Modifier = Modifier) {
+fun StaticMap(center: LatLng, zoom: Float, onClick: () -> Unit = {}, modifier: Modifier = Modifier, onLongClick: (() -> Unit)? = null) {
     val camera = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(center, zoom) }
     LaunchedEffect(center) { camera.position = CameraPosition.fromLatLngZoom(center, zoom) }
     GoogleMap(
@@ -295,8 +301,8 @@ fun StaticMap(center: LatLng, zoom: Float, onClick: () -> Unit = {}, modifier: M
     )
     // A Compose layer on top takes the touches, so swipes scroll the page instead of being eaten by
     // the map view, and taps still open the recorder.
-    Box(modifier.clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
-        indication = null, onClick = onClick))
+    Box(modifier.combinedClickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+        indication = null, onClick = onClick, onLongClick = onLongClick))
 }
 
 /** The selected day's activities, swipeable (pager) with page dots. */

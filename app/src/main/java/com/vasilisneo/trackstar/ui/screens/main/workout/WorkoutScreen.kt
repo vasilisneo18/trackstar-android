@@ -201,6 +201,7 @@ fun WorkoutScreen(
                 onRecord = { recordActivityType = lastSlopeType() },
                 onResorts = { showResorts = true },
                 onGroups = { showGroups = true },
+                onLongPress = it,
             )
         }
     }
@@ -216,6 +217,7 @@ fun WorkoutScreen(
                 date = selectedDate,
                 onRecord = { hikeGuide = null; recordActivityType = com.vasilisneo.trackstar.data.activity.ActivityType.Hike },
                 onTrails = { showTrails = true },
+                onLongPress = it,
             )
         }
     }
@@ -247,7 +249,8 @@ fun WorkoutScreen(
                     modifier = Modifier.weight(1f),
                     onClick = recordActivity,
                 ) {
-                    com.vasilisneo.trackstar.ui.screens.main.activity.ActivityHomeCard(date = selectedDate, onRecord = recordActivity, onGroups = { showGroups = true })
+                    com.vasilisneo.trackstar.ui.screens.main.activity.ActivityHomeCard(date = selectedDate, onRecord = recordActivity,
+                        onGroups = { showGroups = true }, onLongPress = it)
                 }
                 if (!steps) Spacer(Modifier.weight(1f))
             }

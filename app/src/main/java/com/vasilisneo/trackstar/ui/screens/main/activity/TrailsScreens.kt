@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.vasilisneo.trackstar.ui.screens.main.activity
 
 // Hiking on Android: the Home card, the trail browser (search, Near me, countries), a trail's page
@@ -9,6 +11,7 @@ import android.content.pm.PackageManager
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -102,7 +105,8 @@ private val CardFill = Color.White.copy(alpha = 0.06f)
 
 /** Full-width card: tap to record a hike; the map button opens the trail browser. */
 @Composable
-fun HikingHomeCard(date: LocalDate, onRecord: () -> Unit, onTrails: () -> Unit, modifier: Modifier = Modifier) {
+fun HikingHomeCard(date: LocalDate, onRecord: () -> Unit, onTrails: () -> Unit, modifier: Modifier = Modifier,
+                   onLongPress: (() -> Unit)? = null) {
     val all by ActivityStore.activities.collectAsState()
     val hikes = all.filter {
         it.activityType == ActivityType.Hike && Instant.ofEpochMilli(it.startedAt).atZone(ZoneId.systemDefault()).year == date.year
@@ -110,7 +114,7 @@ fun HikingHomeCard(date: LocalDate, onRecord: () -> Unit, onTrails: () -> Unit, 
     val km = hikes.sumOf { it.distanceMeters } / 1000
     Box(
         modifier = modifier.fillMaxWidth().height(164.dp).clip(RoundedCornerShape(20.dp)).background(CardFill)
-            .clickable(onClick = onRecord).padding(10.dp)
+            .combinedClickable(onClick = onRecord, onLongClick = onLongPress).padding(10.dp)
     ) {
         Canvas(Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp))
             .background(Brush.verticalGradient(listOf(Color(0xFF143329), Color(0xFF407352))))) {

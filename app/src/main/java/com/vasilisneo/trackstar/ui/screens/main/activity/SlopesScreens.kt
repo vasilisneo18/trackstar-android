@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.vasilisneo.trackstar.ui.screens.main.activity
 
 // Slopes on Android: the Home card, the ski resort browser (search, country chips, near me), a
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -171,16 +174,16 @@ fun DifficultyDot(difficulty: String, convention: String?, size: Dp = 10.dp) {
  *  and Ski resorts buttons stacked on the right. Tap to record. */
 @Composable
 fun SlopesHomeCard(date: LocalDate, lastType: ActivityType, onRecord: () -> Unit, onResorts: () -> Unit,
-                   onGroups: (() -> Unit)? = null, modifier: Modifier = Modifier) {
+                   onGroups: (() -> Unit)? = null, modifier: Modifier = Modifier, onLongPress: (() -> Unit)? = null) {
     val all by ActivityStore.activities.collectAsState()
     val (_, runs, vertical) = ActivityStore.slopeSeason(date, all)
     val center = all.firstOrNull { it.activityType.isSlope }?.coordinates?.firstOrNull()
     Box(
         modifier = modifier.fillMaxWidth().height(164.dp).clip(RoundedCornerShape(20.dp)).background(CardFill)
-            .clickable(onClick = onRecord).padding(10.dp)
+            .combinedClickable(onClick = onRecord, onLongClick = onLongPress).padding(10.dp)
     ) {
         if (center != null) {
-            StaticMap(center = center, zoom = 13f, onClick = onRecord, modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)))
+            StaticMap(center = center, zoom = 13f, onClick = onRecord, onLongClick = onLongPress, modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)))
             Box(Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp)).background(
                 Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.65f), Color.Black.copy(alpha = 0.15f)))))
         } else {
