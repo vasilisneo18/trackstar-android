@@ -43,7 +43,7 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -81,8 +81,10 @@ fun IosContextMenu(
     onClick: () -> Unit = {},
     content: @Composable (openMenu: () -> Unit) -> Unit,
 ) {
+    /** The card's bounds in screen coordinates (the overlay converts them into its own window). */
     var bounds by remember { mutableStateOf<Rect?>(null) }
     var open by remember { mutableStateOf(false) }
+    val hostView = LocalView.current
     val haptic = LocalHapticFeedback.current
     val openMenu = {
         if (bounds != null) {
@@ -92,7 +94,10 @@ fun IosContextMenu(
     }
     Box(
         modifier = modifier
-            .onGloballyPositioned { bounds = it.boundsInWindow() }
+            .onGloballyPositioned {
+                val loc = IntArray(2); hostView.getLocationOnScreen(loc)
+                bounds = it.boundsInRoot().translate(loc[0].toFloat(), loc[1].toFloat())
+            }
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -103,13 +108,13 @@ fun IosContextMenu(
 
     val b = bounds
     if (open && b != null) {
-        ContextMenuOverlay(bounds = b, actions = actions, onDismiss = { open = false }) { content {} }
+        ContextMenuOverlay(screenBounds = b, actions = actions, onDismiss = { open = false }) { content {} }
     }
 }
 
 @Composable
 private fun ContextMenuOverlay(
-    bounds: Rect,
+    screenBounds: Rect,
     actions: List<ContextMenuAction>,
     onDismiss: () -> Unit,
     preview: @Composable () -> Unit,
@@ -139,14 +144,20 @@ private fun ContextMenuOverlay(
             }
         }
         val density = LocalDensity.current
-        val screenH = LocalView.current.rootView.height.toFloat()
+        // The dialog window may start below the status bar (some Android versions): convert the
+        // card's screen position into this window so the lifted card sits exactly where it was.
+        val dialogView = LocalView.current
+        var origin by remember { mutableStateOf<IntArray?>(null) }
+        val o = origin
+        val bounds = if (o == null) screenBounds else screenBounds.translate(-o[0].toFloat(), -o[1].toFloat())
+        val screenH = dialogView.rootView.height.toFloat()
         val menuHeightPx = with(density) { (actions.size * 50 + 8).dp.toPx() }
         val gapPx = with(density) { 10.dp.toPx() }
         val below = bounds.bottom + gapPx + menuHeightPx < screenH - with(density) { 24.dp.toPx() }
         val menuY = if (below) bounds.bottom + gapPx else bounds.top - gapPx - menuHeightPx
         // Line the menu up with the card's left edge, or its right edge when that would run off
         // screen (a half tile on the right, like iOS).
-        val screenW = LocalView.current.rootView.width.toFloat()
+        val screenW = dialogView.rootView.width.toFloat()
         val menuWidthPx = with(density) { 250.dp.toPx() }
         val edgePx = with(density) { 12.dp.toPx() }
         val alignRight = bounds.left + menuWidthPx > screenW - edgePx
@@ -155,6 +166,8 @@ private fun ContextMenuOverlay(
 
         Box(
             modifier = Modifier.fillMaxSize()
+                .onGloballyPositioned { val loc = IntArray(2); dialogView.getLocationOnScreen(loc); origin = loc }
+                .graphicsLayer { alpha = if (origin == null) 0f else 1f }
                 .background(Color.Black.copy(alpha = 0.45f * p))
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { close() }
         ) {

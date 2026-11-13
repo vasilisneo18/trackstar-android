@@ -398,13 +398,18 @@ fun WorkoutScreen(
                         com.vasilisneo.trackstar.ui.screens.main.activity.ActivityCarouselCard(
                             dayActivities, onOpen = { openedActivity = it }, modifier = Modifier.padding(horizontal = 16.dp))
                     }
+                    // Same long-press menu (Pin / Remove from Home) as on days with a workout.
                     if (showBookSession && showBookWidget.value) {
-                        Box(modifier = Modifier.padding(horizontal = 16.dp).clickable(onClick = onBookSession)) {
+                        PinnableCard(pinned = bookPinned.value, onTogglePin = { bookPinned.value = !bookPinned.value },
+                            onClick = onBookSession, onRemove = { showBookWidget.value = false },
+                            modifier = Modifier.padding(horizontal = 16.dp)) {
                             BookSessionDashboardCard(viewModel.nextAvailableSlots, loading = !viewModel.bookingsLoaded)
                         }
                     }
                     if (showDietWidget.value) {
-                        Box(modifier = Modifier.padding(horizontal = 16.dp).clickable(onClick = onOpenDiet)) {
+                        PinnableCard(pinned = dietPinned.value, onTogglePin = { dietPinned.value = !dietPinned.value },
+                            onClick = onOpenDiet, onRemove = { showDietWidget.value = false },
+                            modifier = Modifier.padding(horizontal = 16.dp)) {
                             DietDashboardCard(date = selectedDate)
                         }
                     }
@@ -1282,8 +1287,11 @@ private fun WidgetGallerySheet(
                         modifier = Modifier.padding(top = 8.dp, bottom = 4.dp).alpha(1f - collapse))
                 }
                 items(hidden, key = { it.id }) { w ->
-                    Box(modifier = Modifier.fillMaxWidth().androidx_combinedClickable(onClick = { w.onAdd() }, onLongClick = {})) {
+                    // A tap layer on top: cards with their own tap handling (Activity, Slopes,
+                    // Hiking) would otherwise swallow the tap and never be added.
+                    Box(modifier = Modifier.fillMaxWidth()) {
                         card(w.id)
+                        Box(Modifier.matchParentSize().androidx_combinedClickable(onClick = { w.onAdd() }, onLongClick = {}))
                     }
                 }
                 if (hidden.isEmpty()) item {
