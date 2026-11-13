@@ -208,10 +208,19 @@ val terrainMapProperties: MapProperties
 @com.google.maps.android.compose.GoogleMapComposable
 fun TrailLines(trails: List<com.vasilisneo.trackstar.data.activity.Trail>, width: Float = 7f) {
     for (t in trails) for (line in t.lines) {
-        MapPolyline(points = line.coordinates, color = t.color.copy(alpha = 0.85f), width = width,
+        if (line.isRoad) RoadLine(line.coordinates, width)
+        else MapPolyline(points = line.coordinates, color = t.color.copy(alpha = 0.85f), width = width,
             jointType = com.google.android.gms.maps.model.JointType.ROUND,
             startCap = com.google.android.gms.maps.model.RoundCap(), endCap = com.google.android.gms.maps.model.RoundCap())
     }
+}
+
+/** A trail section along a main road with traffic: orange dashes, never the trail colour. */
+@Composable
+@com.google.maps.android.compose.GoogleMapComposable
+fun RoadLine(points: List<LatLng>, width: Float, zIndex: Float = 0f) {
+    MapPolyline(points = points, color = Color(0xFFFF9500), width = width, zIndex = zIndex,
+        pattern = listOf(com.google.android.gms.maps.model.Dash(width * 2), com.google.android.gms.maps.model.Gap(width * 1.5f)))
 }
 
 fun boundsOf(points: List<LatLng>): LatLngBounds? {
@@ -479,7 +488,8 @@ private fun RecorderContent(
             // The trail picked in the trail browser, on top with a white casing.
             guide?.lines?.forEach { line ->
                 MapPolyline(points = line.coordinates, color = Color.White, width = 16f, zIndex = 1f)
-                MapPolyline(points = line.coordinates, color = guide.color, width = 10f, zIndex = 2f)
+                if (line.isRoad) RoadLine(line.coordinates, 10f, zIndex = 2f)
+                else MapPolyline(points = line.coordinates, color = guide.color, width = 10f, zIndex = 2f)
             }
             if (shareLive) LiveMemberMarkers(liveMembers,
                 initials = { id -> (memberNames[id] ?: "?").split(" ").filter { it.isNotBlank() }.take(2).joinToString("") { it.take(1) }.uppercase() },

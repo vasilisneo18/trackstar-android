@@ -183,6 +183,10 @@ fun WorkoutScreen(
     val showHikingWidget = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("widgetShowHiking", true)
     var showTrails by remember { mutableStateOf(false) }
     var hikeGuide by remember { mutableStateOf<com.vasilisneo.trackstar.data.activity.Trail?>(null) }
+    // Remote switch for trails (trackstar.fitness/trails/config.json) — hides the Hiking card while off.
+    val trailsEnabled by com.vasilisneo.trackstar.data.activity.TrailCatalog.enabled.collectAsState()
+    LaunchedEffect(Unit) { com.vasilisneo.trackstar.data.activity.TrailCatalog.refreshEnabled() }
+    val hikingVisible = showHikingWidget.value && trailsEnabled
     val lastSlopeType = { com.vasilisneo.trackstar.data.activity.ActivityType.of(activityPrefs.getString("slopesLastType", "ski")) }
     val slopesCard: @Composable (Modifier) -> Unit = { m ->
         com.vasilisneo.trackstar.ui.components.IosContextMenu(
@@ -253,7 +257,7 @@ fun WorkoutScreen(
     var monthPill by remember { mutableStateOf<String?>(null) }
     val workoutPinned = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("dashPinWorkout", false)
     var showWidgetGallery by remember { mutableStateOf(false) }
-    val hasHiddenWidgets = !showWorkoutWidget.value || !showStepsWidget.value || !showActivityWidget.value || !showSlopesWidget.value || !showHikingWidget.value || !showDietWidget.value || (showBookSession && !showBookWidget.value)
+    val hasHiddenWidgets = !showWorkoutWidget.value || !showStepsWidget.value || !showActivityWidget.value || !showSlopesWidget.value || (trailsEnabled && !showHikingWidget.value) || !showDietWidget.value || (showBookSession && !showBookWidget.value)
 
     val displaySessions = viewModel.displaySessions
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
@@ -385,9 +389,9 @@ fun WorkoutScreen(
                     }
                     movementRow(Modifier.padding(horizontal = 16.dp), true)
                     if (showSlopesWidget.value) slopesCard(Modifier.padding(horizontal = 16.dp))
-                    if (showHikingWidget.value) hikingCard(Modifier.padding(horizontal = 16.dp))
+                    if (hikingVisible) hikingCard(Modifier.padding(horizontal = 16.dp))
                     val dayActivities = com.vasilisneo.trackstar.data.activity.ActivityStore.activitiesOn(selectedDate, allActivities)
-                    if ((showActivityWidget.value || showSlopesWidget.value || showHikingWidget.value) && dayActivities.isNotEmpty()) {
+                    if ((showActivityWidget.value || showSlopesWidget.value || hikingVisible) && dayActivities.isNotEmpty()) {
                         com.vasilisneo.trackstar.ui.screens.main.activity.ActivityCarouselCard(
                             dayActivities, onOpen = { openedActivity = it }, modifier = Modifier.padding(horizontal = 16.dp))
                     }
@@ -523,9 +527,9 @@ fun WorkoutScreen(
                         movementRow(Modifier, !stepsPinned.value)
                     }
                     if (showSlopesWidget.value) item(key = "slopes-card") { slopesCard(Modifier) }
-                    if (showHikingWidget.value) item(key = "hiking-card") { hikingCard(Modifier) }
+                    if (hikingVisible) item(key = "hiking-card") { hikingCard(Modifier) }
                     val dayActivities = com.vasilisneo.trackstar.data.activity.ActivityStore.activitiesOn(selectedDate, allActivities)
-                    if ((showActivityWidget.value || showSlopesWidget.value || showHikingWidget.value) && dayActivities.isNotEmpty()) item(key = "activity-carousel") {
+                    if ((showActivityWidget.value || showSlopesWidget.value || hikingVisible) && dayActivities.isNotEmpty()) item(key = "activity-carousel") {
                         com.vasilisneo.trackstar.ui.screens.main.activity.ActivityCarouselCard(dayActivities, onOpen = { openedActivity = it })
                     }
                     if (showBookSession && !isPast && !bookPinned.value && showBookWidget.value) item {
@@ -725,7 +729,7 @@ fun WorkoutScreen(
             if (!showStepsWidget.value) add(AddableWidget("steps") { showStepsWidget.value = true })
             if (!showActivityWidget.value) add(AddableWidget("activity") { showActivityWidget.value = true })
             if (!showSlopesWidget.value) add(AddableWidget("slopes") { showSlopesWidget.value = true })
-            if (!showHikingWidget.value) add(AddableWidget("hiking") { showHikingWidget.value = true })
+            if (trailsEnabled && !showHikingWidget.value) add(AddableWidget("hiking") { showHikingWidget.value = true })
             if (!showDietWidget.value) add(AddableWidget("diet") { showDietWidget.value = true })
             if (showBookSession && !showBookWidget.value) add(AddableWidget("book") { showBookWidget.value = true })
         }

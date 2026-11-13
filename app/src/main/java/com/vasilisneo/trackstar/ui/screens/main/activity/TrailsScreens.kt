@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Hiking
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
@@ -268,6 +269,10 @@ private fun TrailRow(t: TrailInfo, here: LatLng?, modifier: Modifier) {
 fun TrailDetailDialog(info: TrailInfo, onClose: () -> Unit, onHike: (Trail?) -> Unit) {
     var route by remember { mutableStateOf<Trail?>(null) }
     var failed by remember { mutableStateOf(false) }
+    var confirmSafety by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    /** The one-time "routes may be wrong" acknowledgement before following a trail. */
+    val prefs = remember { context.getSharedPreferences("trackstar_prefs", android.content.Context.MODE_PRIVATE) }
     val center = LatLng(info.lat, info.lon)
     val camera = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(center, 13f) }
     val scope = rememberCoroutineScope()
@@ -290,9 +295,10 @@ fun TrailDetailDialog(info: TrailInfo, onClose: () -> Unit, onHike: (Trail?) -> 
                         uiSettings = MapUiSettings(zoomControlsEnabled = false, mapToolbarEnabled = false, myLocationButtonEnabled = false),
                         onMapLoaded = { fit() }) {
                         route?.lines?.forEach { line ->
-                            MapPolyline(points = line.coordinates, color = Color.White, width = 16f, jointType = JointType.ROUND,
-                                startCap = RoundCap(), endCap = RoundCap(), zIndex = 1f)
-                            MapPolyline(points = line.coordinates, color = info.color, width = 10f, jointType = JointType.ROUND,
+                            // Flat-ended casing: no blobs where sections meet.
+                            MapPolyline(points = line.coordinates, color = Color.White, width = 15f, jointType = JointType.ROUND, zIndex = 1f)
+                            if (line.isRoad) RoadLine(line.coordinates, 10f, zIndex = 2f)
+                            else MapPolyline(points = line.coordinates, color = info.color, width = 10f, jointType = JointType.ROUND,
                                 startCap = RoundCap(), endCap = RoundCap(), zIndex = 2f)
                         }
                     }
@@ -308,23 +314,51 @@ fun TrailDetailDialog(info: TrailInfo, onClose: () -> Unit, onHike: (Trail?) -> 
                     androidx.compose.material3.Text(info.name, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     androidx.compose.material3.Text("${info.flag} ${info.place}", fontSize = 14.sp, color = Color.White.copy(alpha = 0.55f))
                 }
+                info.roadKm?.takeIf { it > 0 }?.let { road ->
+                    // Main-road sections, shown as orange dashes on the map.
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFFFF9500).copy(alpha = 0.14f)).padding(14.dp)) {
+                        Icon(Icons.Filled.Warning, null, tint = Color(0xFFFF9500), modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(10.dp))
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            androidx.compose.material3.Text(trf("%s km along main roads with traffic", String.format("%.1f", road)),
+                                fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
+                            Text("Shown as orange dashes on the map. Walk facing traffic and take extra care.",
+                                fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f))
+                        }
+                    }
+                }
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(CardFill).padding(16.dp)) {
                     TrailStat(String.format("%.1f", info.km), "km", Modifier.weight(1f))
                     info.networkLabel?.let { TrailStat(it, tr("Network"), Modifier.weight(1f)) }
                     info.ref?.takeIf { it != info.n }?.let { TrailStat(it, tr("Marked"), Modifier.weight(1f)) }
                 }
+                Text("Trail data comes from OpenStreetMap volunteers and may be inaccurate, outdated or closed. Follow local signs, check conditions before you go, and turn back if a route looks unsafe.",
+                    fontSize = 12.sp, color = Color.White.copy(alpha = 0.45f))
             }
             Row(Modifier.fillMaxWidth().padding(top = LocalBarInsets.current.top).padding(horizontal = 20.dp, vertical = 14.dp)) {
                 RoundButton(Icons.Filled.ExpandMore, tr("Close"), onClose)
             }
             Row(horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = LocalBarInsets.current.bottom).padding(16.dp)
-                    .height(54.dp).clip(RoundedCornerShape(50)).background(TrackstarAccent).clickable { onHike(route) }) {
+                    .height(54.dp).clip(RoundedCornerShape(50)).background(TrackstarAccent)
+                    .clickable { if (prefs.getBoolean("trailSafetyAccepted", false)) onHike(route) else confirmSafety = true }) {
                 Icon(Icons.Filled.Hiking, null, tint = Color.White, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Hike this", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
             }
         }
+        if (confirmSafety) androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirmSafety = false }, containerColor = Color(0xFF1A1A26),
+            title = { Text("Before you go", color = Color.White) },
+            text = { Text("Trails come from OpenStreetMap and can be wrong, outdated or closed, and may follow roads with traffic. The app doesn't check conditions or safety. Follow local signs and use your own judgement.",
+                color = Color.White.copy(alpha = 0.75f)) },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = {
+                confirmSafety = false
+                prefs.edit().putBoolean("trailSafetyAccepted", true).apply()
+                onHike(route)
+            }) { Text("I understand", color = TrackstarAccent) } },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { confirmSafety = false }) { Text("Cancel", color = Color.White) } },
+        )
     }
 }
 

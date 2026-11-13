@@ -22,7 +22,13 @@ import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.max
 
-data class TrailLine(val latitudes: List<Double>, val longitudes: List<Double>) {
+data class TrailLine(
+    val latitudes: List<Double>,
+    val longitudes: List<Double>,
+    /** "main" for sections on main roads with traffic (drawn as road, not trail). */
+    val road: String? = null,
+) {
+    val isRoad: Boolean get() = road != null
     val coordinates: List<LatLng> get() = latitudes.zip(longitudes) { la, lo -> LatLng(la, lo) }
 }
 
@@ -65,7 +71,7 @@ object TrailMapStore {
     private data class Coverage(val tiles: List<String>)
 
     fun init(context: Context) {
-        dir = File(context.cacheDir, "Trails-v1").apply { mkdirs() }
+        dir = File(context.cacheDir, "Trails-v2").apply { mkdirs() }
     }
 
     /** Trails around a recorded route, merged across tiles by trail id. */
@@ -83,6 +89,7 @@ object TrailMapStore {
     }
 
     private suspend fun trailsIn(minLat: Double, minLon: Double, maxLat: Double, maxLon: Double): List<Trail> {
+        if (!TrailCatalog.enabled.value) return emptyList()   // trails switched off remotely
         val keys = ArrayList<Pair<Int, Int>>()
         for (la in floor(minLat / TILE_SIZE).toInt()..floor(maxLat / TILE_SIZE).toInt())
             for (lo in floor(minLon / TILE_SIZE).toInt()..floor(maxLon / TILE_SIZE).toInt()) keys.add(la to lo)

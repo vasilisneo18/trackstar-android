@@ -33,6 +33,8 @@ data class TrailInfo(
     val c: String?,
     val cc: String,
     val km: Double,
+    /** Kilometres along main roads with traffic (shown as a warning). */
+    val roadKm: Double?,
     val lat: Double,
     val lon: Double,
     /** [minLat, minLon, maxLat, maxLon] */
@@ -74,6 +76,13 @@ object TrailCatalog {
     private const val BASE = "https://trackstar.fitness/trails/"
     private const val MAX_AGE_MS = 7L * 86_400_000
 
+    /** Remote switch (trails/config.json): the Hiking card, trail browser and trail overlays show
+     *  only when on. Remembered between launches; debug builds always show them. */
+    private val _enabled = MutableStateFlow(com.vasilisneo.trackstar.BuildConfig.DEBUG)
+    val enabled: StateFlow<Boolean> = _enabled
+    private var prefs: android.content.SharedPreferences? = null
+    private data class Config(val enabled: Boolean)
+
     private val _countries = MutableStateFlow<List<TrailCountry>>(emptyList())
     val countries: StateFlow<List<TrailCountry>> = _countries
     private val _downloaded = MutableStateFlow<Set<String>>(emptySet())
@@ -95,10 +104,25 @@ object TrailCatalog {
     private data class Pack(val trails: List<TrailInfo>, val routes: Map<String, List<TrailLine>>)
 
     fun init(context: Context) {
-        cacheDir = File(context.cacheDir, "TrailCatalog-v1").apply { mkdirs() }
+        cacheDir = File(context.cacheDir, "TrailCatalog-v2").apply { mkdirs() }
+        prefs = context.getSharedPreferences("trackstar_prefs", Context.MODE_PRIVATE)
+        if (!com.vasilisneo.trackstar.BuildConfig.DEBUG) _enabled.value = prefs?.getBoolean("trailsEnabled", false) ?: false
         // filesDir (not cache), so the system doesn't purge a pack before a hike.
         packDir = File(context.filesDir, "TrailPacks").apply { mkdirs() }
         _downloaded.value = packDir.listFiles()?.filter { it.name.endsWith(".json") }?.map { it.name.removeSuffix(".json") }?.toSet() ?: emptySet()
+    }
+
+    /** Refreshes the remote switch (call when Home appears). */
+    suspend fun refreshEnabled() {
+        val config = withContext(Dispatchers.IO) {
+            runCatching {
+                http.newCall(Request.Builder().url(BASE + "config.json").build()).execute().use { r ->
+                    if (r.isSuccessful) NetworkClient.gson.fromJson(r.body?.string() ?: "", Config::class.java) else null
+                }
+            }.getOrNull()
+        } ?: return
+        prefs?.edit()?.putBoolean("trailsEnabled", config.enabled)?.apply()
+        if (!com.vasilisneo.trackstar.BuildConfig.DEBUG) _enabled.value = config.enabled
     }
 
     suspend fun loadCountries() {
