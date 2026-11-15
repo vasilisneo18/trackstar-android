@@ -29,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -146,6 +147,7 @@ fun PaidFeatureSheet(feature: PaidFeature, onClose: () -> Unit, onOpenPlans: () 
                     androidx.compose.material3.Text(feature.title, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White, textAlign = TextAlign.Center)
                     androidx.compose.material3.Text(feature.subtitle, fontSize = 15.sp, color = Color.White.copy(alpha = 0.6f), textAlign = TextAlign.Center)
                 }
+                if (feature == PaidFeature.OutdoorMaps) PistePreviewMap()
                 Column(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                     modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color.White.copy(alpha = 0.06f)).padding(18.dp),
@@ -180,5 +182,39 @@ fun PaidFeatureSheet(feature: PaidFeature, onClose: () -> Unit, onOpenPlans: () 
                 }
             }
         }
+    }
+}
+
+/** A glance at what the piste maps look like: Val Thorens with its runs in their difficulty colours.
+ *  Not interactive; until the runs load it's just the mountain. iOS: PistePreviewMap. */
+@Composable
+private fun PistePreviewMap() {
+    // Val Thorens (OpenSkiMap extent, trimmed to the main bowl).
+    val box = listOf(45.272, 6.555, 45.312, 6.605)
+    var pistes by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<List<com.vasilisneo.trackstar.data.activity.Piste>>(emptyList()) }
+    androidx.compose.runtime.LaunchedEffect(Unit) { pistes = com.vasilisneo.trackstar.data.activity.PisteMapStore.previewPistes(box) }
+    val bounds = com.google.android.gms.maps.model.LatLngBounds(
+        com.google.android.gms.maps.model.LatLng(box[0], box[1]), com.google.android.gms.maps.model.LatLng(box[2], box[3]))
+    val camera = com.google.maps.android.compose.rememberCameraPositionState {
+        position = com.google.android.gms.maps.model.CameraPosition.fromLatLngZoom(bounds.center, 12.6f)
+    }
+    Box(modifier = Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(20.dp))) {
+        com.google.maps.android.compose.GoogleMap(
+            modifier = Modifier.fillMaxSize(),
+            cameraPositionState = camera,
+            googleMapOptionsFactory = { com.google.android.gms.maps.GoogleMapOptions().liteMode(true) },
+            properties = com.google.maps.android.compose.MapProperties(mapType = com.google.maps.android.compose.MapType.HYBRID),
+            uiSettings = com.google.maps.android.compose.MapUiSettings(zoomControlsEnabled = false, mapToolbarEnabled = false,
+                compassEnabled = false, myLocationButtonEnabled = false, scrollGesturesEnabled = false, zoomGesturesEnabled = false),
+            onMapClick = {},
+        ) {
+            com.vasilisneo.trackstar.ui.screens.main.activity.PisteLines(pistes, width = 7f, convention = "europe")
+        }
+        // Takes the touches so the lite map never opens Google Maps.
+        Box(Modifier.fillMaxSize().clickable(enabled = false) {})
+        androidx.compose.material3.Text("Val Thorens", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color.White,
+            modifier = Modifier.align(Alignment.TopStart).padding(10.dp).clip(RoundedCornerShape(50))
+                .background(Color.Black.copy(alpha = 0.55f)).padding(horizontal = 10.dp, vertical = 5.dp))
+        com.vasilisneo.trackstar.ui.screens.main.activity.OsmAttribution(Modifier.align(Alignment.BottomEnd))
     }
 }

@@ -115,6 +115,10 @@ object PisteMapStore {
             coordinates.maxOf { it.latitude }, coordinates.maxOf { it.longitude }) ?: emptyList()
     }
 
+    /** One resort's pistes for the paid-feature screen's preview — shown to free users too, as a taste. */
+    suspend fun previewPistes(box: List<Double>): List<Piste> =
+        if (box.size != 4) emptyList() else pistesIn(box[0], box[1], box[2], box[3], preview = true) ?: emptyList()
+
     /** Pistes and lifts inside a box [minLat, minLon, maxLat, maxLon] (a resort's extent). */
     suspend fun pistesInBox(box: List<Double>): List<Piste>? {
         if (box.size != 4) return null
@@ -131,9 +135,9 @@ object PisteMapStore {
 
     // MARK: Tiles
 
-    private suspend fun pistesIn(minLat: Double, minLon: Double, maxLat: Double, maxLon: Double, maxTiles: Int = 16): List<Piste>? {
+    private suspend fun pistesIn(minLat: Double, minLon: Double, maxLat: Double, maxLon: Double, maxTiles: Int = 16, preview: Boolean = false): List<Piste>? {
         // Piste maps are a paid feature.
-        if (!com.vasilisneo.trackstar.data.billing.FeatureGate.hasOutdoorMaps(com.vasilisneo.trackstar.data.billing.FeatureGate.currentPlan)) return emptyList()
+        if (!preview && !com.vasilisneo.trackstar.data.billing.FeatureGate.hasOutdoorMaps(com.vasilisneo.trackstar.data.billing.FeatureGate.currentPlan)) return emptyList()
         val keys = ArrayList<Pair<Int, Int>>()
         for (la in floor(minLat / TILE_SIZE).toInt()..floor(maxLat / TILE_SIZE).toInt())
             for (lo in floor(minLon / TILE_SIZE).toInt()..floor(maxLon / TILE_SIZE).toInt()) keys.add(la to lo)
