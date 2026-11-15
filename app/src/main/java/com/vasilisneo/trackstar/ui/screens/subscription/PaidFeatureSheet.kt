@@ -185,25 +185,23 @@ fun PaidFeatureSheet(feature: PaidFeature, onClose: () -> Unit, onOpenPlans: () 
     }
 }
 
-/** A glance at what the piste maps look like: Val Thorens with its runs in their difficulty colours.
- *  Not interactive; until the runs load it's just the mountain. iOS: PistePreviewMap. */
+/** A glance at what the piste maps look like: Val Thorens with its runs in their difficulty colours,
+ *  on the same dark map as the resort pages. The runs are bundled (assets/preview_pistes.json, ©
+ *  OpenStreetMap contributors) so they're there straight away. Not interactive. iOS: PistePreviewMap. */
 @Composable
 private fun PistePreviewMap() {
-    // Val Thorens (OpenSkiMap extent, trimmed to the main bowl).
-    val box = listOf(45.272, 6.555, 45.312, 6.605)
-    var pistes by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<List<com.vasilisneo.trackstar.data.activity.Piste>>(emptyList()) }
-    androidx.compose.runtime.LaunchedEffect(Unit) { pistes = com.vasilisneo.trackstar.data.activity.PisteMapStore.previewPistes(box) }
-    val bounds = com.google.android.gms.maps.model.LatLngBounds(
-        com.google.android.gms.maps.model.LatLng(box[0], box[1]), com.google.android.gms.maps.model.LatLng(box[2], box[3]))
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val pistes = androidx.compose.runtime.remember { previewPistes(context) }
     val camera = com.google.maps.android.compose.rememberCameraPositionState {
-        position = com.google.android.gms.maps.model.CameraPosition.fromLatLngZoom(bounds.center, 12.6f)
+        position = com.google.android.gms.maps.model.CameraPosition.fromLatLngZoom(
+            com.google.android.gms.maps.model.LatLng(45.292, 6.58), 12.6f)
     }
     Box(modifier = Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(20.dp))) {
         com.google.maps.android.compose.GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = camera,
             googleMapOptionsFactory = { com.google.android.gms.maps.GoogleMapOptions().liteMode(true) },
-            properties = com.google.maps.android.compose.MapProperties(mapType = com.google.maps.android.compose.MapType.HYBRID),
+            properties = com.vasilisneo.trackstar.ui.screens.main.activity.darkMapProperties,
             uiSettings = com.google.maps.android.compose.MapUiSettings(zoomControlsEnabled = false, mapToolbarEnabled = false,
                 compassEnabled = false, myLocationButtonEnabled = false, scrollGesturesEnabled = false, zoomGesturesEnabled = false),
             onMapClick = {},
@@ -218,3 +216,15 @@ private fun PistePreviewMap() {
         com.vasilisneo.trackstar.ui.screens.main.activity.OsmAttribution(Modifier.align(Alignment.BottomEnd))
     }
 }
+
+private class PreviewPistesFile(val pistes: List<com.vasilisneo.trackstar.data.activity.Piste>?)
+
+private var cachedPreviewPistes: List<com.vasilisneo.trackstar.data.activity.Piste>? = null
+
+/** The bundled Val Thorens runs (read once). */
+private fun previewPistes(context: android.content.Context): List<com.vasilisneo.trackstar.data.activity.Piste> =
+    cachedPreviewPistes ?: runCatching {
+        context.assets.open("preview_pistes.json").bufferedReader().use {
+            com.vasilisneo.trackstar.data.api.NetworkClient.gson.fromJson(it, PreviewPistesFile::class.java).pistes.orEmpty()
+        }
+    }.getOrDefault(emptyList()).also { cachedPreviewPistes = it }
