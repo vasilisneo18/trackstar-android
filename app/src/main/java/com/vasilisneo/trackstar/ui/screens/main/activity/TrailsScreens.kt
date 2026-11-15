@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Hiking
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.Search
@@ -103,10 +104,11 @@ private val CardFill = Color.White.copy(alpha = 0.06f)
 
 // MARK: - Home card
 
-/** Full-width card: tap to record a hike; the map button opens the trail browser. */
+/** Full-width card: tap to record a hike; the map button opens the trail browser, the groups button
+ *  your activity groups (like Slopes). */
 @Composable
 fun HikingHomeCard(date: LocalDate, onRecord: () -> Unit, onTrails: () -> Unit, modifier: Modifier = Modifier,
-                   onLongPress: (() -> Unit)? = null) {
+                   onGroups: (() -> Unit)? = null, onLongPress: (() -> Unit)? = null) {
     val all by ActivityStore.activities.collectAsState()
     val hikes = all.filter {
         it.activityType == ActivityType.Hike && Instant.ofEpochMilli(it.startedAt).atZone(ZoneId.systemDefault()).year == date.year
@@ -137,7 +139,10 @@ fun HikingHomeCard(date: LocalDate, onRecord: () -> Unit, onTrails: () -> Unit, 
                 if (km > 0) androidx.compose.material3.Text(String.format("%.1f km", km), fontSize = 11.sp, color = Color.White.copy(alpha = 0.75f))
             }
         }
-        CornerButton(Icons.Filled.Map, tr("Trails"), size = 44.dp, modifier = Modifier.align(Alignment.CenterEnd).padding(end = 10.dp), onClick = onTrails)
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.align(Alignment.CenterEnd).padding(end = 10.dp)) {
+            if (onGroups != null) CornerButton(Icons.Filled.Groups, tr("Groups"), size = 44.dp, onClick = onGroups)
+            CornerButton(Icons.Filled.Map, tr("Trails"), size = 44.dp, onClick = onTrails)
+        }
     }
 }
 

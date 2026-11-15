@@ -216,6 +216,7 @@ fun WorkoutScreen(
                 date = selectedDate,
                 onRecord = { hikeGuide = null; recordActivityType = com.vasilisneo.trackstar.data.activity.ActivityType.Hike },
                 onTrails = { showTrails = true },
+                onGroups = { showGroups = true },
                 onLongPress = it,
             )
         }
