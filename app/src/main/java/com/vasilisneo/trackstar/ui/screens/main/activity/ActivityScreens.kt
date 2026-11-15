@@ -128,9 +128,15 @@ private val CardFill = Color.White.copy(alpha = 0.06f)
 data class BarInsets(val top: androidx.compose.ui.unit.Dp, val bottom: androidx.compose.ui.unit.Dp)
 val LocalBarInsets = androidx.compose.runtime.staticCompositionLocalOf { BarInsets(24.dp, 24.dp) }
 
+/** No Material ripple in the activity / slopes / hiking sheets and covers — tapping a row or button
+ *  shouldn't flash a grey highlight (iOS has none; the rest of the app already turns it off). */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+private val NoRipple get() = androidx.compose.material3.LocalRippleConfiguration provides null
+
 /** Full-screen cover (the recorder, the full-screen piste map) — edge to edge, under the status and
  *  navigation bars, with content kept clear of them via LocalBarInsets. Drawn above the app in its
  *  own window (ScreenOverlay); a Dialog is only the fallback. iOS: fullScreenCover. */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun FullScreenDialog(onDismissRequest: () -> Unit, content: @Composable () -> Unit) {
     val bars = WindowInsets.systemBars
@@ -140,7 +146,7 @@ fun FullScreenDialog(onDismissRequest: () -> Unit, content: @Composable () -> Un
         bottom = with(density) { bars.getBottom(this).toDp() },
     )
     val shown = com.vasilisneo.trackstar.ui.components.ScreenOverlay {
-        androidx.compose.runtime.CompositionLocalProvider(LocalBarInsets provides insets) {
+        androidx.compose.runtime.CompositionLocalProvider(LocalBarInsets provides insets, NoRipple) {
             Box(Modifier.fillMaxSize()) { content() }
         }
     }
@@ -149,7 +155,7 @@ fun FullScreenDialog(onDismissRequest: () -> Unit, content: @Composable () -> Un
         return
     }
     Dialog(onDismissRequest = onDismissRequest, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        androidx.compose.runtime.CompositionLocalProvider(LocalBarInsets provides insets) {
+        androidx.compose.runtime.CompositionLocalProvider(LocalBarInsets provides insets, NoRipple) {
             Box(Modifier.fillMaxSize()) { content() }
         }
     }
@@ -175,7 +181,7 @@ fun AppSheet(onDismissRequest: () -> Unit, content: @Composable () -> Unit) {
                 .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
                 .trackstarBackground()
         ) {
-            androidx.compose.runtime.CompositionLocalProvider(LocalBarInsets provides BarInsets(12.dp, bottom)) { content() }
+            androidx.compose.runtime.CompositionLocalProvider(LocalBarInsets provides BarInsets(12.dp, bottom), NoRipple) { content() }
             // Grabber, like iOS sheets.
             Box(Modifier.align(Alignment.TopCenter).padding(top = 8.dp).width(36.dp).height(5.dp)
                 .clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.3f)))
@@ -325,7 +331,9 @@ fun ActivityCarouselCard(activities: List<RecordedActivity>, onOpen: (RecordedAc
             val a = activities[page]
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().clickable { onOpen(a) }.padding(horizontal = 18.dp, vertical = 6.dp)
+                modifier = Modifier.fillMaxWidth()
+                    .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { onOpen(a) }
+                    .padding(horizontal = 18.dp, vertical = 6.dp)
             ) {
                 // The type badge sits on the thumbnail's corner, outside its rounded clip (like iOS),
                 // so the corner radius doesn't cut through the figure.
