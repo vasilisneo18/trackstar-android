@@ -132,6 +132,8 @@ object PisteMapStore {
     // MARK: Tiles
 
     private suspend fun pistesIn(minLat: Double, minLon: Double, maxLat: Double, maxLon: Double, maxTiles: Int = 16): List<Piste>? {
+        // Piste maps are a paid feature.
+        if (!com.vasilisneo.trackstar.data.billing.FeatureGate.hasOutdoorMaps(com.vasilisneo.trackstar.data.billing.FeatureGate.currentPlan)) return emptyList()
         val keys = ArrayList<Pair<Int, Int>>()
         for (la in floor(minLat / TILE_SIZE).toInt()..floor(maxLat / TILE_SIZE).toInt())
             for (lo in floor(minLon / TILE_SIZE).toInt()..floor(maxLon / TILE_SIZE).toInt()) keys.add(la to lo)

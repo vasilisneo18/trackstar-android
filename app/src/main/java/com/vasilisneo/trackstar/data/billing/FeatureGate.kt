@@ -27,6 +27,11 @@ object FeatureGate {
     // Any paid tier unlocks full stats/history analytics (iOS FeatureGate.hasFullHistory).
     fun hasFullHistory(plan: AppPlan): Boolean = plan != AppPlan.FREE
 
+    // Piste and trail maps — the resort and trail browsers, piste / trail lines on activity maps,
+    // "Hike this" and offline trail packs: any paid tier (iOS FeatureGate.hasOutdoorMaps).
+    // Recording (and your own route) stays free.
+    fun hasOutdoorMaps(plan: AppPlan): Boolean = plan != AppPlan.FREE
+
     // How many plan templates a coach may keep (iOS FeatureGate.templateLimit).
     fun templateLimit(plan: AppPlan): Int = if (plan == AppPlan.GOLD) GOLD_TEMPLATE_LIMIT else 0
 

@@ -198,7 +198,8 @@ fun WorkoutScreen(
             com.vasilisneo.trackstar.ui.screens.main.activity.SlopesHomeCard(
                 date = selectedDate, lastType = lastSlopeType(),
                 onRecord = { recordActivityType = lastSlopeType() },
-                onResorts = { showResorts = true },
+                // Resort and trail maps are paid — Free gets the upgrade screen.
+                onResorts = { if (com.vasilisneo.trackstar.data.billing.FeatureGate.hasOutdoorMaps(com.vasilisneo.trackstar.data.billing.FeatureGate.currentPlan)) showResorts = true else onUpgrade() },
                 onGroups = { showGroups = true },
                 onLongPress = it,
             )
@@ -215,7 +216,7 @@ fun WorkoutScreen(
             com.vasilisneo.trackstar.ui.screens.main.activity.HikingHomeCard(
                 date = selectedDate,
                 onRecord = { hikeGuide = null; recordActivityType = com.vasilisneo.trackstar.data.activity.ActivityType.Hike },
-                onTrails = { showTrails = true },
+                onTrails = { if (com.vasilisneo.trackstar.data.billing.FeatureGate.hasOutdoorMaps(com.vasilisneo.trackstar.data.billing.FeatureGate.currentPlan)) showTrails = true else onUpgrade() },
                 onGroups = { showGroups = true },
                 onLongPress = it,
             )

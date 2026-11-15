@@ -90,6 +90,7 @@ object TrailMapStore {
 
     private suspend fun trailsIn(minLat: Double, minLon: Double, maxLat: Double, maxLon: Double): List<Trail> {
         if (!TrailCatalog.enabled.value) return emptyList()   // trails switched off remotely
+        if (!com.vasilisneo.trackstar.data.billing.FeatureGate.hasOutdoorMaps(com.vasilisneo.trackstar.data.billing.FeatureGate.currentPlan)) return emptyList()   // paid feature
         val keys = ArrayList<Pair<Int, Int>>()
         for (la in floor(minLat / TILE_SIZE).toInt()..floor(maxLat / TILE_SIZE).toInt())
             for (lo in floor(minLon / TILE_SIZE).toInt()..floor(maxLon / TILE_SIZE).toInt()) keys.add(la to lo)
