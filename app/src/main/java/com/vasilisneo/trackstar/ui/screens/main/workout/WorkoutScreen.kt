@@ -281,6 +281,13 @@ fun WorkoutScreen(
     // UNDER the header rather than bleeding out below the day strip.
     var headerHeightPx by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0) }
     val headerHeightDp = with(density) { headerHeightPx.toDp() }
+    // The header's live height (it shrinks as it collapses) — the Today pill hangs just below it.
+    var headerNowPx by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(0) }
+    // "Today" pill under the day strip when viewing another day (the month while the week wheel
+    // moves). It overlays the content, but at rest the content moves down by its height so the pill
+    // never sits on a card.
+    val showTodayPill = selectedDate != today || monthPill != null
+    val todaySpace by androidx.compose.animation.core.animateDpAsState(if (showTodayPill) 44.dp else 0.dp, label = "todaySpace")
     // Backdrop-blur source (the list) + child (the header) — real frosted glass like iOS.
     val hazeState = androidx.compose.runtime.remember { HazeState() }
     var commentingExercise by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<ExerciseData?>(null) }
@@ -311,7 +318,7 @@ fun WorkoutScreen(
                     .haze(hazeState)
                     .verticalScroll(emptyDayScroll)
                     .padding(
-                        top = (if (headerHeightDp > 0.dp) headerHeightDp else 150.dp) + 4.dp,
+                        top = (if (headerHeightDp > 0.dp) headerHeightDp else 150.dp) + 4.dp + todaySpace,
                         bottom = com.vasilisneo.trackstar.ui.components.tabBarContentBottomPadding(),
                     ),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -406,7 +413,7 @@ fun WorkoutScreen(
                 state = listState,
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(
                     start = 16.dp, end = 16.dp,
-                    top = (if (headerHeightDp > 0.dp) headerHeightDp else 150.dp) + 4.dp,
+                    top = (if (headerHeightDp > 0.dp) headerHeightDp else 150.dp) + 4.dp + todaySpace,
                     // Clear the floating tab bar with a comfortable gap above it (matches the
                     // space iOS leaves below the last card).
                     bottom = com.vasilisneo.trackstar.ui.components.tabBarContentBottomPadding(),
@@ -551,7 +558,7 @@ fun WorkoutScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.TopStart)
-                .onSizeChanged { if (collapse < 0.01f && it.height > 0) headerHeightPx = it.height }
+                .onSizeChanged { if (collapse < 0.01f && it.height > 0) headerHeightPx = it.height; headerNowPx = it.height }
                 // Solid fallback under the frost: where blur isn't available (emulators, some
                 // devices) the cards would otherwise show straight through the date strip.
                 .background(Color(0xFF1C2236).copy(alpha = 0.92f * headerAlpha))
@@ -611,24 +618,19 @@ fun WorkoutScreen(
             )
         }
 
-        // "Today" pill — appears when viewing another day, jumps back to today (matches iOS). While
-        // the week wheel moves it shows the month instead, then turns back into "Today".
+        // "Today" pill — just below the day strip when viewing another day; jumps back to today.
+        // While the week wheel moves it shows the month instead, then turns back into "Today".
         androidx.compose.animation.AnimatedVisibility(
-            visible = selectedDate != today || monthPill != null,
-            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically { it / 2 },
-            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically { it / 2 },
-            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding()
-                .padding(bottom = if (activeSession != null) 150.dp else 92.dp),
+            visible = showTodayPill,
+            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.scaleIn(initialScale = 0.85f),
+            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.scaleOut(targetScale = 0.85f),
+            modifier = Modifier.align(Alignment.TopCenter)
+                .offset { androidx.compose.ui.unit.IntOffset(0, headerNowPx + 4.dp.roundToPx()) },
         ) {
-            // No background — just the label; a soft shadow keeps it readable over cards (matches iOS).
-            val labelShadow = androidx.compose.ui.text.TextStyle(
-                shadow = androidx.compose.ui.graphics.Shadow(Color.Black.copy(alpha = 0.6f), androidx.compose.ui.geometry.Offset(0f, 2f), 12f),
-            )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 modifier = Modifier
-                    .clip(CircleShape)
                     .animateContentSize()
                     .clickable(
                         interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
@@ -637,15 +639,18 @@ fun WorkoutScreen(
                         viewModel.goToDate(today)
                         haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                     }
-                    .padding(horizontal = 18.dp, vertical = 10.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
             ) {
                 val month = monthPill
                 Icon(
                     if (month != null) Icons.Filled.CalendarMonth else Icons.AutoMirrored.Filled.Undo,
-                    contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp),
+                    contentDescription = null, tint = Color.White, modifier = Modifier.size(15.dp),
                 )
                 androidx.compose.animation.AnimatedContent(targetState = month ?: "Today", label = "todayPill") { label ->
-                    Text(label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White, style = labelShadow)
+                    // No background — a soft shadow keeps the label readable over cards when scrolled.
+                    Text(label, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White,
+                        style = androidx.compose.ui.text.TextStyle(shadow = androidx.compose.ui.graphics.Shadow(
+                            Color.Black.copy(alpha = 0.6f), androidx.compose.ui.geometry.Offset(0f, 2f), 12f)))
                 }
             }
         }
