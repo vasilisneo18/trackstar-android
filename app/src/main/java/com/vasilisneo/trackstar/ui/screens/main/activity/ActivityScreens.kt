@@ -549,7 +549,7 @@ private fun RecorderContent(
                 .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
                 .background(Color(0xFF12121C))
                 .padding(bottom = LocalBarInsets.current.bottom)
-                .padding(horizontal = 20.dp).padding(top = 22.dp, bottom = 16.dp)
+                .padding(horizontal = 20.dp).padding(top = 22.dp, bottom = 24.dp)
         ) {
             if (snapshot.state == ActivityRecorder.State.Idle) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
