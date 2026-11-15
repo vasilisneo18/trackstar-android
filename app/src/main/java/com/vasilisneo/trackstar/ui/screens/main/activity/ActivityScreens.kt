@@ -126,7 +126,8 @@ data class BarInsets(val top: androidx.compose.ui.unit.Dp, val bottom: androidx.
 val LocalBarInsets = androidx.compose.runtime.staticCompositionLocalOf { BarInsets(24.dp, 24.dp) }
 
 /** Full-screen cover (the recorder, the full-screen piste map) — edge to edge, under the status and
- *  navigation bars, with content kept clear of them via LocalBarInsets. iOS: fullScreenCover. */
+ *  navigation bars, with content kept clear of them via LocalBarInsets. Drawn above the app in its
+ *  own window (ScreenOverlay); a Dialog is only the fallback. iOS: fullScreenCover. */
 @Composable
 fun FullScreenDialog(onDismissRequest: () -> Unit, content: @Composable () -> Unit) {
     val bars = WindowInsets.systemBars
@@ -135,22 +136,16 @@ fun FullScreenDialog(onDismissRequest: () -> Unit, content: @Composable () -> Un
         top = with(density) { bars.getTop(this).toDp() },
         bottom = with(density) { bars.getBottom(this).toDp() },
     )
-    Dialog(onDismissRequest = onDismissRequest, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        // Some Android versions still place a dialog window below the status bar; let it draw
-        // under both bars so the cover really is full screen (no dark band at the top).
-        val window = (androidx.compose.ui.platform.LocalView.current.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window
-        // On 3-button navigation a dialog window also stops above the nav bar (it fits the system
-        // bars by default), leaving the screen underneath visible through the see-through bar —
-        // so let it cover the whole display.
-        androidx.compose.runtime.LaunchedEffect(window) {
-            window ?: return@LaunchedEffect
-            window.setFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-                android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
-            window.setLayout(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
-            if (android.os.Build.VERSION.SDK_INT >= 30) {
-                window.attributes = window.attributes.apply { fitInsetsTypes = 0 }
-            }
+    val shown = com.vasilisneo.trackstar.ui.components.ScreenOverlay {
+        androidx.compose.runtime.CompositionLocalProvider(LocalBarInsets provides insets) {
+            Box(Modifier.fillMaxSize()) { content() }
         }
+    }
+    if (shown) {
+        androidx.activity.compose.BackHandler(onBack = onDismissRequest)
+        return
+    }
+    Dialog(onDismissRequest = onDismissRequest, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         androidx.compose.runtime.CompositionLocalProvider(LocalBarInsets provides insets) {
             Box(Modifier.fillMaxSize()) { content() }
         }

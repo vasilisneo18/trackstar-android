@@ -112,6 +112,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             TrackstarTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+                  com.vasilisneo.trackstar.ui.components.ScreenOverlayHostBox {
                     // Mirrors AuthCoordinator on iOS: Landing is the real entry point
                     // (.resetStack root), Login/Create-Account are pushed from it with a
                     // back button.
@@ -727,6 +728,7 @@ class MainActivity : ComponentActivity() {
                             else -> androidx.compose.runtime.LaunchedEffect(tap) { pendingBooking.value = null }
                         }
                     }
+                  }
                 }
             }
         }
