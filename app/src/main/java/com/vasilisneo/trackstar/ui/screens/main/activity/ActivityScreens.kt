@@ -12,6 +12,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.offset
+import androidx.compose.material.icons.filled.LocationOff
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -324,10 +327,17 @@ fun ActivityCarouselCard(activities: List<RecordedActivity>, onOpen: (RecordedAc
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth().clickable { onOpen(a) }.padding(horizontal = 18.dp, vertical = 6.dp)
             ) {
-                Box(modifier = Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.08f)),
-                    contentAlignment = Alignment.Center) {
-                    RouteSketch(a.coordinates, Modifier.fillMaxSize().padding(10.dp))
-                    Box(modifier = Modifier.align(Alignment.BottomEnd).size(20.dp).clip(CircleShape).background(Color.White),
+                // The type badge sits on the thumbnail's corner, outside its rounded clip (like iOS),
+                // so the corner radius doesn't cut through the figure.
+                Box(modifier = Modifier.size(72.dp)) {
+                    Box(modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(18.dp)).background(Color.White.copy(alpha = 0.07f)),
+                        contentAlignment = Alignment.Center) {
+                        if (a.coordinates.size > 1) RouteSketch(a.coordinates, Modifier.fillMaxSize().padding(10.dp))
+                        // No GPS route (e.g. recorded indoors) — same placeholder as iOS's location.slash.
+                        else Icon(Icons.Filled.LocationOff, contentDescription = null, tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(22.dp))
+                    }
+                    Box(modifier = Modifier.align(Alignment.BottomEnd).offset(x = 3.dp, y = 3.dp).size(22.dp)
+                        .border(2.dp, Color(0xFF1F1F29), CircleShape).padding(2.dp).clip(CircleShape).background(Color.White),
                         contentAlignment = Alignment.Center) {
                         Icon(a.activityType.icon(), contentDescription = null, tint = Color.Black, modifier = Modifier.size(12.dp))
                     }
@@ -720,7 +730,12 @@ fun ActivityDetailContent(
                         properties = if (isHike) terrainMapProperties else darkMapProperties,
                         uiSettings = MapUiSettings(zoomControlsEnabled = false, mapToolbarEnabled = false, myLocationButtonEnabled = false),
                         onMapLoaded = {
+                            // No GPS route (e.g. recorded indoors): show where the phone is rather than
+                            // the map's default 0,0 off Africa.
                             boundsOf(route)?.let { camera.move(CameraUpdateFactory.newLatLngBounds(it, 80)) }
+                                ?: (ActivityRecorder.snapshot.value.lastLocation ?: LatLng(35.17, 33.36)).let {
+                                    camera.move(CameraUpdateFactory.newLatLngZoom(it, 15f))
+                                }
                         },
                     ) {
                         if (pistes.isNotEmpty()) PisteLines(pistes, width = 14f, convention = convention)
