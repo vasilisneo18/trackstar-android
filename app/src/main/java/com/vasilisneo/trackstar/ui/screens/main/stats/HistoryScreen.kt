@@ -74,6 +74,7 @@ fun HistoryScreen(
 ) {
     var showingList by remember { mutableStateOf(false) }
     var reportSession by remember { mutableStateOf<WorkoutSessionResponse?>(null) }
+    val context = androidx.compose.ui.platform.LocalContext.current
 
     // Free accounts see only the last 14 days of history; Bronze and up unlock the full timeline.
     val plan by com.vasilisneo.trackstar.data.billing.BillingManager.currentPlan.collectAsState()
@@ -120,7 +121,14 @@ fun HistoryScreen(
             enter = slideInVertically(initialOffsetY = { it }),
             exit = slideOutVertically(targetOffsetY = { it }),
         ) {
-            reportSession?.let { SessionReportScreen(session = it, onClose = { reportSession = null }) }
+            reportSession?.let { s ->
+                SessionReportScreen(session = s, onClose = { reportSession = null }, onDelete = {
+                    viewModel.deleteSession(s) { ok ->
+                        if (ok) reportSession = null
+                        else android.widget.Toast.makeText(context, com.vasilisneo.trackstar.ui.i18n.tr("Couldn't delete the session. Check your connection."), android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                })
+            }
         }
     }
 }

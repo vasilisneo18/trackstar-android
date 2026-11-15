@@ -393,6 +393,7 @@
  "Couldn't add session": "Δεν προστέθηκε η προπόνηση",
  "Couldn't create the group. Check your connection and try again.": "Δεν ήταν δυνατή η δημιουργία της ομάδας. Έλεγξε τη σύνδεσή σου και δοκίμασε ξανά.",
  "Couldn't delete": "Δεν ήταν δυνατή η διαγραφή",
+ "Couldn't delete the session. Check your connection.": "Η προπόνηση δεν διαγράφηκε. Έλεγξε τη σύνδεσή σου.",
  "Couldn't download. Check your connection and try again.": "Η λήψη απέτυχε. Έλεγξε τη σύνδεσή σου και δοκίμασε ξανά.",
  "Couldn't get your location. Try again in a moment.": "Δεν βρέθηκε η τοποθεσία σου. Δοκίμασε ξανά σε λίγο.",
  "Couldn't join the group. The link may have been reset.": "Δεν ήταν δυνατή η συμμετοχή. Ο σύνδεσμος μπορεί να έχει αλλάξει.",

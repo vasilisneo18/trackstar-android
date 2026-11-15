@@ -2,8 +2,10 @@ package com.vasilisneo.trackstar.data.api
 
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.Path
 
 // Protected completed-session endpoint (/api/sessions). Requires the Bearer token, added by
 // NetworkClient's auth interceptor.
@@ -13,6 +15,9 @@ interface SessionApi {
 
     @GET("sessions")
     suspend fun getSessions(): Response<List<WorkoutSessionResponse>>
+
+    @DELETE("sessions/{clientId}")
+    suspend fun deleteSession(@Path("clientId") clientId: String): Response<Map<String, String>>
 }
 
 // Matches com.fitnessbook.dto.WorkoutSessionRequest. `clientId` is the idempotency key

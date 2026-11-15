@@ -28,13 +28,17 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Icon
 import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,7 +62,9 @@ private val Green = Color(0xFF34C759)
 private val SupersetCyan = Color(0xFF64D2FF)
 
 @Composable
-fun SessionReportScreen(session: WorkoutSessionResponse, onClose: () -> Unit) {
+fun SessionReportScreen(session: WorkoutSessionResponse, onClose: () -> Unit, onDelete: (() -> Unit)? = null) {
+    var confirmDelete by remember { mutableStateOf(false) }
+    val title = session.sessionData?.title?.trim().orEmpty()
     val exercises = session.sessionData?.exercises.orEmpty()
     val units = remember(session) { exercises.groupedSummaries() }
     val completedAt = remember(session) {
@@ -85,6 +91,8 @@ fun SessionReportScreen(session: WorkoutSessionResponse, onClose: () -> Unit) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Green, modifier = Modifier.size(72.dp))
                 Text("Session Complete", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                if (title.isNotEmpty()) androidx.compose.material3.Text(title, fontSize = 18.sp, fontWeight = FontWeight.SemiBold,
+                    color = Color.White.copy(alpha = 0.8f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 Text(completedAt, fontSize = 13.sp, color = Color.White.copy(alpha = 0.4f))
             }
 
@@ -115,6 +123,34 @@ fun SessionReportScreen(session: WorkoutSessionResponse, onClose: () -> Unit) {
                 Icon(Icons.Filled.Close, contentDescription = "Close", tint = Color.White, modifier = Modifier.size(16.dp))
             }
         }
+
+        // Delete (History only — a coach viewing an athlete's session gets no bin).
+        if (onDelete != null) {
+            Box(modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(end = 20.dp, top = 16.dp)) {
+                Box(
+                    modifier = Modifier.size(44.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.15f)).clickable { confirmDelete = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.Delete, contentDescription = "Delete Session", tint = Color(0xFFFF453A).copy(alpha = 0.9f), modifier = Modifier.size(18.dp))
+                }
+            }
+        }
+    }
+
+    if (confirmDelete && onDelete != null) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Delete Session") },
+            text = { Text("This session will be permanently removed from your history.") },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { confirmDelete = false; onDelete() }) {
+                    Text("Delete", color = Color(0xFFFF453A))
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { confirmDelete = false }) { Text("Cancel") }
+            },
+        )
     }
 }
 

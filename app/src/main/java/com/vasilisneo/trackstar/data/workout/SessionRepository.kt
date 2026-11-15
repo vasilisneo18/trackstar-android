@@ -51,6 +51,16 @@ open class SessionRepository {
         return result
     }
 
+    /** Deletes a finished session (the report's bin button) and drops it from the local cache.
+     *  Needs a connection — returns false otherwise. iOS: SessionHistoryStore.delete. */
+    suspend fun deleteSession(clientId: String): Boolean {
+        val ok = apiCall { api.deleteSession(clientId) } is ApiResult.Success
+        if (ok) AuthTokenHolder.userId?.let { userId ->
+            if (LocalStore.isReady) runCatching { LocalStore.db.workoutSessionDao().delete(userId, clientId) }
+        }
+        return ok
+    }
+
     private fun WorkoutSessionRequest.toEcho() = WorkoutSessionResponse(
         id = null,
         clientId = clientId,

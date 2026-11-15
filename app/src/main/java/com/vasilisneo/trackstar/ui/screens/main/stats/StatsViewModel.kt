@@ -58,6 +58,16 @@ class StatsViewModel(
         }
     }
 
+    /** Deletes a session from History; it disappears once the server confirms. */
+    fun deleteSession(session: WorkoutSessionResponse, onDone: (Boolean) -> Unit) {
+        val clientId = session.clientId ?: return onDone(false)
+        viewModelScope.launch {
+            val ok = sessionRepository.deleteSession(clientId)
+            if (ok) sessions = sessions.filter { it.clientId != clientId }
+            onDone(ok)
+        }
+    }
+
     // MARK: - Summary counts
 
     val allTimeCount: Int get() = sessions.size
