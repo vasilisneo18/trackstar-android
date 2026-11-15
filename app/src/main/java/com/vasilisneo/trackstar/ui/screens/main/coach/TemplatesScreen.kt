@@ -71,7 +71,7 @@ fun TemplatesScreen(onClose: () -> Unit, onOpenTemplate: (String, String) -> Uni
     val templates = viewModel.templates
     var showCreate by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
-    // At the Gold template cap (FeatureGate.GOLD_TEMPLATE_LIMIT), the + surfaces the limit instead
+    // Without a template allowance (not Gold), the + surfaces the limit instead
     // of opening the create dialog.
     fun requestCreate() {
         if (viewModel.canCreate) showCreate = true

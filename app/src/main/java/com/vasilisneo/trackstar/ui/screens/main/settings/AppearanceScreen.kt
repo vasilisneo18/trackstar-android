@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
 import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -45,6 +46,11 @@ import com.vasilisneo.trackstar.ui.theme.selectAppTheme
 
 @Composable
 fun AppearanceScreen(onBackClick: () -> Unit = {}, onUpgrade: () -> Unit = {}) {
+    // The paid feature being offered (its own screen, then the plans).
+    var paidFeature by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<com.vasilisneo.trackstar.ui.screens.subscription.PaidFeature?>(null) }
+    paidFeature?.let { f ->
+        com.vasilisneo.trackstar.ui.screens.subscription.PaidFeatureSheet(f, onClose = { paidFeature = null }, onOpenPlans = { paidFeature = null; onUpgrade() })
+    }
     val context = LocalContext.current
     val selected = currentAppTheme
     // Premium themes unlock per tier against the live plan (recomposes on plan change).
@@ -63,7 +69,7 @@ fun AppearanceScreen(onBackClick: () -> Unit = {}, onUpgrade: () -> Unit = {}) {
                             theme = theme,
                             selected = theme == selected,
                             locked = locked,
-                            onClick = { if (locked) onUpgrade() else selectAppTheme(context, theme) },
+                            onClick = { if (locked) paidFeature = com.vasilisneo.trackstar.ui.screens.subscription.PaidFeature.Themes(theme.requiredPlan) else selectAppTheme(context, theme) },
                             modifier = Modifier.weight(1f)
                         )
                     }

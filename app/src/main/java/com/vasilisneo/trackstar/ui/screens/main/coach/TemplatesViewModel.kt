@@ -28,7 +28,7 @@ class TemplatesViewModel : ViewModel() {
     var isLoading by mutableStateOf(false)
         private set
 
-    // Gold coaches may keep up to FeatureGate.GOLD_TEMPLATE_LIMIT templates (iOS TemplatesViewModel).
+    // Gold coaches may keep as many templates as they like (iOS TemplatesViewModel).
     val templateLimit: Int
         get() = com.vasilisneo.trackstar.data.billing.FeatureGate.templateLimit(
             com.vasilisneo.trackstar.data.billing.BillingManager.currentPlan.value

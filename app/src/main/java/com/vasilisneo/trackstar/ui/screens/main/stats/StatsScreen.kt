@@ -85,6 +85,11 @@ fun StatsScreen(
     onUpgrade: () -> Unit = {},
     viewModel: StatsViewModel = viewModel(),
 ) {
+    // The paid feature being offered (its own screen, then the plans).
+    var paidFeature by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<com.vasilisneo.trackstar.ui.screens.subscription.PaidFeature?>(null) }
+    paidFeature?.let { f ->
+        com.vasilisneo.trackstar.ui.screens.subscription.PaidFeatureSheet(f, onClose = { paidFeature = null }, onOpenPlans = { paidFeature = null; onUpgrade() })
+    }
     // Full history/analytics is any paid tier (FeatureGate.hasFullHistory). Free accounts get the
     // Volume/PRs/Progress cards replaced with locked upgrade cards.
     val plan by com.vasilisneo.trackstar.data.billing.BillingManager.currentPlan.collectAsState()
@@ -131,7 +136,7 @@ fun StatsScreen(
                     LockedFeatureCard(
                         icon = Icons.Filled.BarChart, iconColor = TrackstarAccent, title = "Weekly Volume",
                         description = "See how many tonnes you lift each week and track your training load over time.",
-                        onUpgrade = onUpgrade,
+                        onUpgrade = { paidFeature = com.vasilisneo.trackstar.ui.screens.subscription.PaidFeature.FullHistory },
                     )
                 }
             } else {
@@ -142,7 +147,7 @@ fun StatsScreen(
                     LockedFeatureCard(
                         icon = Icons.Filled.EmojiEvents, iconColor = Color(0xFFF2B90D), title = "Personal Records",
                         description = "Your best lifts for every exercise — weight, reps, and duration.",
-                        onUpgrade = onUpgrade,
+                        onUpgrade = { paidFeature = com.vasilisneo.trackstar.ui.screens.subscription.PaidFeature.FullHistory },
                     )
                 }
             } else if (viewModel.personalRecords.isNotEmpty()) {
@@ -153,7 +158,7 @@ fun StatsScreen(
                     LockedFeatureCard(
                         icon = Icons.Filled.ShowChart, iconColor = TrackstarAccent, title = "Progress Charts",
                         description = "Visualise strength gains on any exercise over weeks and months.",
-                        onUpgrade = onUpgrade,
+                        onUpgrade = { paidFeature = com.vasilisneo.trackstar.ui.screens.subscription.PaidFeature.FullHistory },
                     )
                 }
             } else {
@@ -475,7 +480,7 @@ private fun LockedFeatureCard(
         ) {
             Spacer(modifier = Modifier.weight(1f))
             Icon(Icons.Filled.LockOpen, contentDescription = null, tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(12.dp))
-            Text("Unlock with Athlete Silver", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.6f))
+            Text("Unlock with Bronze", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.6f))
             Spacer(modifier = Modifier.weight(1f))
         }
     }

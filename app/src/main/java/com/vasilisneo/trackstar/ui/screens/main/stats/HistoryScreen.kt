@@ -72,6 +72,11 @@ fun HistoryScreen(
     onUpgrade: () -> Unit = {},
     viewModel: StatsViewModel = viewModel(),
 ) {
+    // The paid feature being offered (its own screen, then the plans).
+    var paidFeature by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<com.vasilisneo.trackstar.ui.screens.subscription.PaidFeature?>(null) }
+    paidFeature?.let { f ->
+        com.vasilisneo.trackstar.ui.screens.subscription.PaidFeatureSheet(f, onClose = { paidFeature = null }, onOpenPlans = { paidFeature = null; onUpgrade() })
+    }
     var showingList by remember { mutableStateOf(false) }
     var reportSession by remember { mutableStateOf<WorkoutSessionResponse?>(null) }
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -107,7 +112,7 @@ fun HistoryScreen(
                 )
             }
 
-            if (isFree) FreeHistoryBanner(onUpgrade, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            if (isFree) FreeHistoryBanner({ paidFeature = com.vasilisneo.trackstar.ui.screens.subscription.PaidFeature.FullHistory }, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
             if (showingList) {
                 SessionsWeekList(gatedSessions) { reportSession = it }
             } else {

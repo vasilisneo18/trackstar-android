@@ -120,6 +120,11 @@ fun DietScreen(
     onBack: (() -> Unit)? = null,
     viewModel: DietViewModel = viewModel(),
 ) {
+    // The paid feature being offered (its own screen, then the plans).
+    var paidFeature by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<com.vasilisneo.trackstar.ui.screens.subscription.PaidFeature?>(null) }
+    paidFeature?.let { f ->
+        com.vasilisneo.trackstar.ui.screens.subscription.PaidFeatureSheet(f, onClose = { paidFeature = null }, onOpenPlans = { paidFeature = null; onUpgrade() })
+    }
     // AI diet planner is Silver+ (FeatureGate.canUseAI). Tapping ✨ on a lower tier opens the
     // paywall instead of the planner.
     val plan by com.vasilisneo.trackstar.data.billing.BillingManager.currentPlan.collectAsState()
@@ -180,7 +185,7 @@ fun DietScreen(
                     Spacer(modifier = Modifier.size(12.dp))
                     Text("Diet Plan", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White, modifier = Modifier.alpha(frostProgress))
                     Spacer(modifier = Modifier.weight(1f))
-                    GlassCircleIconButton(onClick = { if (canUseAI) onOpenAiPlanner() else onUpgrade() }, contentDescription = "AI planner", icon = Icons.Filled.AutoAwesome)
+                    GlassCircleIconButton(onClick = { if (canUseAI) onOpenAiPlanner() else paidFeature = com.vasilisneo.trackstar.ui.screens.subscription.PaidFeature.AiPlanners }, contentDescription = "AI planner", icon = Icons.Filled.AutoAwesome)
                 }
             }
 

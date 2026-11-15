@@ -97,6 +97,11 @@ fun WeeklyPlanScreen(
     onUpgrade: () -> Unit = {},
     onOpenSession: (weekIdentifier: String, day: String, sessionId: String?) -> Unit,
 ) {
+    // The paid feature being offered (its own screen, then the plans).
+    var paidFeature by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<com.vasilisneo.trackstar.ui.screens.subscription.PaidFeature?>(null) }
+    paidFeature?.let { f ->
+        com.vasilisneo.trackstar.ui.screens.subscription.PaidFeatureSheet(f, onClose = { paidFeature = null }, onOpenPlans = { paidFeature = null; onUpgrade() })
+    }
     val viewModel: WeeklyPlanViewModel = viewModel()
     // AI workout planner is Silver+ (FeatureGate.canUseAI). The ✨ button opens the paywall on a
     // lower tier instead of the planner.
@@ -146,7 +151,7 @@ fun WeeklyPlanScreen(
                     icon = Icons.Filled.AutoAwesome, contentDescription = "AI Workout Planner",
                     onClick = {
                         if (canUseAI) aiPlannerViewModel = AIWorkoutPlannerViewModel(viewModel.weekIdentifier)
-                        else onUpgrade()
+                        else paidFeature = com.vasilisneo.trackstar.ui.screens.subscription.PaidFeature.AiPlanners
                     },
                 )
             }

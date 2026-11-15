@@ -13,7 +13,6 @@ package com.vasilisneo.trackstar.data.billing
 object FeatureGate {
 
     const val WEEKLY_SESSION_LIMIT = 5
-    const val GOLD_TEMPLATE_LIMIT = 20
 
     // AI diet & workout planners: Silver and Gold only (iOS FeatureGate.canUseAI).
     fun canUseAI(plan: AppPlan): Boolean = plan == AppPlan.SILVER || plan == AppPlan.GOLD
@@ -32,8 +31,8 @@ object FeatureGate {
     // Recording (and your own route) stays free.
     fun hasOutdoorMaps(plan: AppPlan): Boolean = plan != AppPlan.FREE
 
-    // How many plan templates a coach may keep (iOS FeatureGate.templateLimit).
-    fun templateLimit(plan: AppPlan): Int = if (plan == AppPlan.GOLD) GOLD_TEMPLATE_LIMIT else 0
+    // How many plan templates a coach may keep: no cap for Gold (iOS FeatureGate.templateLimit).
+    fun templateLimit(plan: AppPlan): Int = if (plan == AppPlan.GOLD) Int.MAX_VALUE else 0
 
     // Free accounts may log WEEKLY_SESSION_LIMIT sessions per calendar week; paid tiers unlimited
     // (iOS FeatureGate.canStartSession). `sessionsThisWeek` is the count of the current calendar

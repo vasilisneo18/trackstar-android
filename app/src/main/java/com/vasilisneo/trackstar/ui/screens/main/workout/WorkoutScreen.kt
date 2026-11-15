@@ -136,6 +136,11 @@ fun WorkoutScreen(
     onUpgrade: () -> Unit = {},
     onOpenDiet: () -> Unit = {},
 ) {
+    // The paid feature being offered (its own screen, then the plans).
+    var paidFeature by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<com.vasilisneo.trackstar.ui.screens.subscription.PaidFeature?>(null) }
+    paidFeature?.let { f ->
+        com.vasilisneo.trackstar.ui.screens.subscription.PaidFeatureSheet(f, onClose = { paidFeature = null }, onOpenPlans = { paidFeature = null; onUpgrade() })
+    }
     val viewModel: WorkoutViewModel = viewModel()
     // Re-fetch completed sessions when a session finishes elsewhere (active session / quick log
     // both live above this screen in MainAppScreen and bump refreshKey on save).
@@ -199,7 +204,7 @@ fun WorkoutScreen(
                 date = selectedDate, lastType = lastSlopeType(),
                 onRecord = { recordActivityType = lastSlopeType() },
                 // Resort and trail maps are paid — Free gets the upgrade screen.
-                onResorts = { if (com.vasilisneo.trackstar.data.billing.FeatureGate.hasOutdoorMaps(com.vasilisneo.trackstar.data.billing.FeatureGate.currentPlan)) showResorts = true else onUpgrade() },
+                onResorts = { if (com.vasilisneo.trackstar.data.billing.FeatureGate.hasOutdoorMaps(com.vasilisneo.trackstar.data.billing.FeatureGate.currentPlan)) showResorts = true else paidFeature = com.vasilisneo.trackstar.ui.screens.subscription.PaidFeature.OutdoorMaps },
                 onGroups = { showGroups = true },
                 onLongPress = it,
             )
@@ -216,7 +221,7 @@ fun WorkoutScreen(
             com.vasilisneo.trackstar.ui.screens.main.activity.HikingHomeCard(
                 date = selectedDate,
                 onRecord = { hikeGuide = null; recordActivityType = com.vasilisneo.trackstar.data.activity.ActivityType.Hike },
-                onTrails = { if (com.vasilisneo.trackstar.data.billing.FeatureGate.hasOutdoorMaps(com.vasilisneo.trackstar.data.billing.FeatureGate.currentPlan)) showTrails = true else onUpgrade() },
+                onTrails = { if (com.vasilisneo.trackstar.data.billing.FeatureGate.hasOutdoorMaps(com.vasilisneo.trackstar.data.billing.FeatureGate.currentPlan)) showTrails = true else paidFeature = com.vasilisneo.trackstar.ui.screens.subscription.PaidFeature.OutdoorMaps },
                 onGroups = { showGroups = true },
                 onLongPress = it,
             )
@@ -452,11 +457,11 @@ fun WorkoutScreen(
                                                 // Free tier: 3 logged sessions/week (FeatureGate). At the
                                                 // cap, starting/quick-logging opens the paywall instead.
                                                 onStart = {
-                                                    if (!viewModel.canStartSession) onUpgrade()
+                                                    if (!viewModel.canStartSession) paidFeature = com.vasilisneo.trackstar.ui.screens.subscription.PaidFeature.UnlimitedSessions
                                                     else onStartSession(selectedDate, sid.ifBlank { return@SessionDashboardCard })
                                                 },
                                                 onQuickLog = {
-                                                    if (!viewModel.canStartSession) onUpgrade()
+                                                    if (!viewModel.canStartSession) paidFeature = com.vasilisneo.trackstar.ui.screens.subscription.PaidFeature.UnlimitedSessions
                                                     else onQuickLog(selectedDate, sid.ifBlank { return@SessionDashboardCard })
                                                 },
                                             )
@@ -670,13 +675,13 @@ fun WorkoutScreen(
             onStart = if (sessionId != null) {
                 {
                     missedSession = null
-                    if (!viewModel.canStartSession) onUpgrade() else onStartSession(selectedDate, sessionId)
+                    if (!viewModel.canStartSession) paidFeature = com.vasilisneo.trackstar.ui.screens.subscription.PaidFeature.UnlimitedSessions else onStartSession(selectedDate, sessionId)
                 }
             } else null,
             onQuickLog = if (sessionId != null) {
                 {
                     missedSession = null
-                    if (!viewModel.canStartSession) onUpgrade() else onQuickLog(selectedDate, sessionId)
+                    if (!viewModel.canStartSession) paidFeature = com.vasilisneo.trackstar.ui.screens.subscription.PaidFeature.UnlimitedSessions else onQuickLog(selectedDate, sessionId)
                 }
             } else null,
             onDismiss = { missedSession = null },
