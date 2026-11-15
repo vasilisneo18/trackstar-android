@@ -34,9 +34,11 @@ fun ScreenOverlayHostBox(content: @Composable () -> Unit) {
             content()
             host.entries.forEach { entry ->
                 key(entry) {
-                    // Swallows touches the cover doesn't use, so nothing underneath reacts.
+                    // A pointer handler that's hit stops the touch reaching the app underneath (siblings
+                    // below aren't hit-tested). It must NOT consume: a consumed move cancels taps on
+                    // the cover's own buttons, which then needed several presses.
                     Box(Modifier.fillMaxSize().pointerInput(Unit) {
-                        awaitPointerEventScope { while (true) awaitPointerEvent().changes.forEach { it.consume() } }
+                        awaitPointerEventScope { while (true) awaitPointerEvent() }
                     }) { entry.value() }
                 }
             }
