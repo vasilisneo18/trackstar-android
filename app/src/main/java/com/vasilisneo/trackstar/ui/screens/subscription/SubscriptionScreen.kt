@@ -30,6 +30,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AllInclusive
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -85,21 +88,29 @@ private data class Tier(
     val features: List<String>,
 )
 
+// "Slope & trail maps" once hiking trails are switched on (TrailCatalog.enabled), else just the ski
+// side — swapped when the card is drawn (see TierCard).
+private const val MAPS_FEATURE = "Slope & trail maps"
+
 private val Tiers = listOf(
     Tier(
         name = "Bronze", plan = AppPlan.BRONZE, accent = Color(0xFFCC8033),
         monthly = "€2.99", annual = "€19.99", annualMonthly = "€1.67", savings = "Save 44%",
-        features = listOf("Create & edit workout plans", "Unlimited session logging", "Session history & stats"),
+        features = listOf("Create & edit workout plans", "Unlimited session logging", "Session history & stats",
+            "GPS activities, slopes & groups", MAPS_FEATURE, "Bronze theme & app icon"),
     ),
     Tier(
         name = "Silver", plan = AppPlan.SILVER, accent = Color(0xFFB8BFD1),
         monthly = "€4.99", annual = "€39.99", annualMonthly = "€3.33", savings = "Save 33%",
-        features = listOf("Create & edit workout plans", "Unlimited session logging", "Session history & stats", "AI diet plans", "AI workout plans"),
+        features = listOf("Create & edit workout plans", "Unlimited session logging", "Session history & stats",
+            "GPS activities, slopes & groups", MAPS_FEATURE, "AI diet plans", "AI workout plans", "Silver theme & app icon"),
     ),
     Tier(
         name = "Gold", plan = AppPlan.GOLD, accent = Color(0xFFFFC61A),
         monthly = "€9.99", annual = "€69.99", annualMonthly = "€5.83", savings = "Save 42%",
-        features = listOf("Create & edit workout plans", "Unlimited session logging", "Session history & stats", "AI diet & workout plans", "Coach athletes", "Assign & view athlete plans", "Up to 20 plan templates", "AI template generation"),
+        features = listOf("Create & edit workout plans", "Unlimited session logging", "Session history & stats",
+            "GPS activities, slopes & groups", MAPS_FEATURE, "AI diet & workout plans", "Coach athletes",
+            "Assign & view athlete plans", "Unlimited plan templates", "AI template generation", "Gold theme & app icon"),
     ),
 )
 
@@ -137,6 +148,10 @@ private fun grantUpgradeMessage(planName: String, expiry: java.util.Date?): Stri
 private fun featureIcon(feature: String): ImageVector {
     val f = feature.lowercase()
     return when {
+        // Before "ai": "trail" contains it.
+        f.contains("maps") -> Icons.Filled.Map
+        f.contains("gps") -> Icons.Filled.DirectionsRun
+        f.contains("theme") -> Icons.Filled.Palette
         f.contains("ai") -> Icons.Filled.AutoAwesome
         f.contains("no ads") -> Icons.Filled.NotificationsOff
         f.contains("history") -> Icons.Filled.Schedule
@@ -376,7 +391,9 @@ private fun PlanCard(tier: Tier, pricing: PlanPricing?, modifier: Modifier = Mod
         Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = 0.07f)))
 
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            tier.features.forEach { feature ->
+            tier.features.forEach { listed ->
+                val feature = if (listed == MAPS_FEATURE && !com.vasilisneo.trackstar.data.activity.TrailCatalog.enabled.value)
+                    "Ski resort & piste maps" else listed
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                     Box(modifier = Modifier.width(20.dp), contentAlignment = Alignment.Center) {
                         Icon(featureIcon(feature), contentDescription = null, tint = tier.accent.copy(alpha = 0.85f), modifier = Modifier.size(15.dp))
