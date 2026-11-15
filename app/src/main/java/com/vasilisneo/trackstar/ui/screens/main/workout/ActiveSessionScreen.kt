@@ -85,6 +85,7 @@ fun ActiveSessionScreen(
     var loggingSet by remember { mutableStateOf<Pair<ExerciseData, ExerciseSet>?>(null) }
     var loggingRound by remember { mutableStateOf<Triple<ExerciseData, ExerciseData, Int>?>(null) }
     var showExitDialog by remember { mutableStateOf(false) }
+    var addingExercise by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -157,6 +158,8 @@ fun ActiveSessionScreen(
                                 CompletedRow(unit = unit, skipped = viewModel.isAllSkipped(sets))
                             }
                         }
+                        // An exercise that isn't in the plan — logged here and added to the plan too.
+                        item(key = "addExercise") { AddExerciseRowButton(onClick = { addingExercise = true }) }
                     }
 
                     BottomArea(viewModel = viewModel, onLogCurrentSet = {
@@ -215,6 +218,8 @@ fun ActiveSessionScreen(
 
     // Cancel confirmation, mirroring iOS's "Leave Session?" alert — discarding loses progress,
     // so it's gated behind a destructive confirm rather than dismissing silently.
+    AddExerciseFlow(picking = addingExercise, onPickerClosed = { addingExercise = false }, onAdd = { viewModel.addExercise(it) })
+
     if (showExitDialog) {
         AlertDialog(
             onDismissRequest = { showExitDialog = false },

@@ -175,7 +175,7 @@ fun MainAppScreen(
 
     fun startSession(date: java.time.LocalDate, sessionId: String) {
         if (activeSession != null) { showActiveFull = true; return }
-        activeSession = ActiveSessionViewModel(date, sessionId)
+        activeSession = ActiveSessionViewModel(date, sessionId).apply { onPlanChanged = { workoutRefreshKey++ } }
         showActiveFull = true
     }
 
@@ -194,7 +194,7 @@ fun MainAppScreen(
                     onOpenCoachSchedule = onOpenAvailabilityOn,
                     showBookSession = showBookEntry,
                     onStartSession = { date, sessionId -> startSession(date, sessionId) },
-                    onQuickLog = { date, sessionId -> quickLog = QuickLogViewModel(date, sessionId) },
+                    onQuickLog = { date, sessionId -> quickLog = QuickLogViewModel(date, sessionId).apply { onPlanChanged = { workoutRefreshKey++ } } },
                     activeSession = activeSession,
                     onResumeSession = { showActiveFull = true },
                     refreshKey = workoutRefreshKey,

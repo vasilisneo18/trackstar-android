@@ -78,6 +78,7 @@ private val CompletedGreen = Color(0xFF34C759)
 fun QuickLogSheet(viewModel: QuickLogViewModel, onClose: () -> Unit, onFinished: () -> Unit) {
     var loggingSet by remember { mutableStateOf<Pair<ExerciseData, ExerciseSet>?>(null) }
     var loggingRound by remember { mutableStateOf<Triple<ExerciseData, ExerciseData, Int>?>(null) }
+    var addingExercise by remember { mutableStateOf(false) }
 
     // Locked bottom sheet (same idiom as MissedSessionSheet / ExercisePickerSheet): reject swipe &
     // scrim dismissal so the long list scrolls without the sheet moving; only the X / Finish close
@@ -186,6 +187,8 @@ fun QuickLogSheet(viewModel: QuickLogViewModel, onClose: () -> Unit, onFinished:
                                 )
                             }
                         }
+                        // An exercise that isn't in the plan — logged here and added to the plan too.
+                        item(key = "addExercise") { AddExerciseRowButton(onClick = { addingExercise = true }) }
                         item { Spacer(modifier = Modifier.height(8.dp)) }
                     }
 
@@ -249,6 +252,8 @@ fun QuickLogSheet(viewModel: QuickLogViewModel, onClose: () -> Unit, onFinished:
             )
         }
     }
+
+    AddExerciseFlow(picking = addingExercise, onPickerClosed = { addingExercise = false }, onAdd = { viewModel.addExercise(it) })
 }
 
 private fun unitHandledProgress(viewModel: QuickLogViewModel, unit: ExerciseDisplayUnit): Pair<Int, Int> = when (unit) {

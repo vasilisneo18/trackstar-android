@@ -157,6 +157,31 @@ class ActiveSessionViewModel(
 
     private var restJob: Job? = null
 
+    /** The planned session as loaded — an exercise added here is saved back into it. */
+    private var planned: com.vasilisneo.trackstar.data.api.PlannedSessionResponse? = null
+    /** Called once an added exercise is saved to the plan, so Home can refresh. */
+    var onPlanChanged: (() -> Unit)? = null
+
+    /** An exercise that wasn't in the plan (e.g. one more for abs): it joins what's being logged and
+     *  is added to the planned session too. iOS: addExercise / onExerciseAdded. */
+    fun addExercise(exercise: ExerciseData) {
+        exercises = exercises + exercise
+        val p = planned ?: return
+        val updated = p.copy(exercises = p.exercises.orEmpty() + exercise)
+        planned = updated
+        scope.launch {
+            val request = com.vasilisneo.trackstar.data.api.PlannedSessionRequest(
+                id = updated.id ?: sessionId,
+                weekIdentifier = updated.weekIdentifier ?: weekIdentifierFor(date),
+                day = updated.day ?: "",
+                orderIndex = updated.orderIndex ?: 0,
+                title = updated.title ?: "",
+                exercises = updated.exercises.orEmpty(),
+            )
+            if (planRepository.upsertSession(request) is ApiResult.Success) onPlanChanged?.invoke()
+        }
+    }
+
     init {
         scope.launch {
             val weekId = weekIdentifierFor(date)
@@ -164,6 +189,7 @@ class ActiveSessionViewModel(
                 is ApiResult.Success -> {
                     val session = result.data.firstOrNull { it.id == sessionId }
                     if (session != null) {
+                        planned = session
                         title = session.title ?: "Workout"
                         exercises = session.exercises.orEmpty()
                     } else {
