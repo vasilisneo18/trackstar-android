@@ -32,7 +32,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
+import com.vasilisneo.trackstar.ui.components.TrackstarBottomSheet
 import androidx.compose.material3.SheetValue
 import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -101,7 +101,7 @@ fun MissedSessionSheet(
     val units = exercises.groupedForDisplay()
     val setCount = exercises.sumOf { it.sets.orEmpty().size }
 
-    ModalBottomSheet(
+    TrackstarBottomSheet(
         onDismissRequest = {},
         sheetState = sheetState,
         containerColor = Color.Transparent,

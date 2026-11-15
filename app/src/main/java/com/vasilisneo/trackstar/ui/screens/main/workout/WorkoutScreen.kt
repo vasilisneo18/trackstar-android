@@ -1234,7 +1234,7 @@ private fun WidgetGallerySheet(
             if (h <= 0f) 0f else ((-title.offset).toFloat() / h).coerceIn(0f, 1f)
         }
     }
-    androidx.compose.material3.ModalBottomSheet(
+    com.vasilisneo.trackstar.ui.components.TrackstarBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = Color.Transparent,

@@ -371,7 +371,7 @@ fun AllAthletesScreen(
 @Composable
 private fun BookingInfoSheet(enabled: Boolean, onSetEnabled: (Boolean) -> Unit, onDismiss: () -> Unit) {
     val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    androidx.compose.material3.ModalBottomSheet(
+    com.vasilisneo.trackstar.ui.components.TrackstarBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         // Transparent container + our own gradient/grabber so one continuous theme gradient fills the

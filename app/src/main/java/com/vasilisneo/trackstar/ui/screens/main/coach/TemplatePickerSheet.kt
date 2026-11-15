@@ -31,7 +31,7 @@ import androidx.compose.material.icons.filled.NoteAdd
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
+import com.vasilisneo.trackstar.ui.components.TrackstarBottomSheet
 import androidx.compose.material3.SheetValue
 import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -69,7 +69,7 @@ fun TemplatePickerSheet(onPick: (TemplateSummary) -> Unit, onDismiss: () -> Unit
 
     val templates = viewModel.templates
 
-    ModalBottomSheet(
+    TrackstarBottomSheet(
         onDismissRequest = {},
         sheetState = sheetState,
         containerColor = Color.Transparent,

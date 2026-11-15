@@ -42,7 +42,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
+import com.vasilisneo.trackstar.ui.components.TrackstarBottomSheet
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -324,7 +324,7 @@ private fun DaySessionsSheet(
     // Locked: no swipe/scrim dismiss (confirmValueChange blocks Hidden, no drag handle) — the close
     // button is the only way out.
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true, confirmValueChange = { it != SheetValue.Hidden })
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, dragHandle = null, containerColor = com.vasilisneo.trackstar.ui.theme.TrackstarSurface) {
+    TrackstarBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, dragHandle = null, containerColor = com.vasilisneo.trackstar.ui.theme.TrackstarSurface) {
         Column(
             Modifier.fillMaxWidth().fillMaxHeight(0.92f).padding(horizontal = 16.dp).padding(top = 14.dp).navigationBarsPadding().padding(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -386,7 +386,7 @@ private fun EditSlotSheet(
     // Capacity can't drop below the number of athletes already booked on this session.
     val minCapacity = maxOf(1, slot.bookedByCount())
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = com.vasilisneo.trackstar.ui.theme.TrackstarSurface) {
+    TrackstarBottomSheet(onDismissRequest = onDismiss, containerColor = com.vasilisneo.trackstar.ui.theme.TrackstarSurface) {
         Column(
             Modifier.fillMaxWidth().fillMaxHeight(0.75f).padding(horizontal = 20.dp).navigationBarsPadding().padding(bottom = 24.dp).imePadding(),
             verticalArrangement = Arrangement.spacedBy(14.dp),
@@ -514,7 +514,7 @@ private fun attendeesSummary(names: List<String>): String {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AttendeesSheet(names: List<String>, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = com.vasilisneo.trackstar.ui.theme.TrackstarSurface) {
+    TrackstarBottomSheet(onDismissRequest = onDismiss, containerColor = com.vasilisneo.trackstar.ui.theme.TrackstarSurface) {
         Column(
             Modifier.fillMaxWidth().padding(horizontal = 20.dp).navigationBarsPadding().padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -568,7 +568,7 @@ private fun AddSlotSheet(
     var pickEnd by remember { mutableStateOf(false) }
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = com.vasilisneo.trackstar.ui.theme.TrackstarSurface) {
+    TrackstarBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = com.vasilisneo.trackstar.ui.theme.TrackstarSurface) {
         Column(
             Modifier.fillMaxWidth().fillMaxHeight(0.75f).padding(horizontal = 20.dp).navigationBarsPadding().padding(bottom = 24.dp).imePadding(),
             verticalArrangement = Arrangement.spacedBy(14.dp),

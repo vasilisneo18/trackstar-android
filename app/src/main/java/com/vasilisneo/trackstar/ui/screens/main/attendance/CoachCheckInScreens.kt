@@ -280,7 +280,7 @@ private fun GymQrSheet(gym: GymResponse, onDismiss: () -> Unit) {
     val payload = gym.id?.let { "trackstar://checkin/gym/$it" }
     val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val screenH = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp
-    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = Color(0xFF14141F)) {
+    com.vasilisneo.trackstar.ui.components.TrackstarBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = Color(0xFF14141F)) {
         Column(
             modifier = Modifier.fillMaxWidth().height(screenH * 0.86f).padding(horizontal = 20.dp).padding(bottom = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally

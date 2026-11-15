@@ -18,7 +18,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import com.vasilisneo.trackstar.ui.i18n.Text
@@ -66,7 +65,7 @@ fun CountryPickerSheet(
     }
     val sheetState = rememberModalBottomSheetState()
 
-    ModalBottomSheet(
+    TrackstarBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = TrackstarSurface,

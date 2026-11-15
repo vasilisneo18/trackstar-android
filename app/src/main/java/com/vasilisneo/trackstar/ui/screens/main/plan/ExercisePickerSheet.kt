@@ -49,7 +49,7 @@ import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
+import com.vasilisneo.trackstar.ui.components.TrackstarBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SheetValue
 import com.vasilisneo.trackstar.ui.i18n.Text
@@ -244,7 +244,7 @@ fun ExercisePickerSheet(onAdd: (List<ExerciseData>) -> Unit, onDismiss: () -> Un
     }
     fun toggle(name: String) { if (selected.contains(name)) selected.remove(name) else selected.add(name) }
 
-    ModalBottomSheet(
+    TrackstarBottomSheet(
         onDismissRequest = {},
         sheetState = sheetState,
         containerColor = Color.Transparent,
@@ -585,7 +585,7 @@ private fun ExerciseDetailSheet(exercise: CatalogExercise, displayName: String, 
     LaunchedEffect(exercise.id) {
         if (exercise.images > 1) while (true) { delay(1100); frame = (frame + 1) % exercise.images }
     }
-    ModalBottomSheet(
+    TrackstarBottomSheet(
         onDismissRequest = onDismiss, sheetState = sheetState, containerColor = Color.Transparent,
         dragHandle = null, contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
     ) {

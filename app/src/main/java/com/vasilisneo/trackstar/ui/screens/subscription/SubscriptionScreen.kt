@@ -42,7 +42,7 @@ import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
+import com.vasilisneo.trackstar.ui.components.TrackstarBottomSheet
 import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -406,7 +406,7 @@ private fun BillingSheet(
     val isPurchasing by BillingManager.isPurchasing.collectAsState()
     val priceLabel = if (isAnnual) "$annual/yr" else "$monthly/mo"
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = TrackstarSurface) {
+    TrackstarBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = TrackstarSurface) {
         // navigationBarsPadding so the trial CTA / restore / terms clear the 3-button nav bar
         // instead of being clipped behind it.
         Column(modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {

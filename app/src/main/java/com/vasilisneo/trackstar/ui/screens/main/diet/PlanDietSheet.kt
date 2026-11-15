@@ -35,7 +35,7 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
+import com.vasilisneo.trackstar.ui.components.TrackstarBottomSheet
 import androidx.compose.material3.SheetValue
 import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -104,7 +104,7 @@ fun PlanDietSheet(
         if (idx >= 0) meals[idx] = updated
     }
 
-    ModalBottomSheet(
+    TrackstarBottomSheet(
         onDismissRequest = {},
         sheetState = sheetState,
         containerColor = Color.Transparent,

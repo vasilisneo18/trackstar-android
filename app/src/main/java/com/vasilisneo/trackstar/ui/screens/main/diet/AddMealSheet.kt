@@ -34,7 +34,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
+import com.vasilisneo.trackstar.ui.components.TrackstarBottomSheet
 import androidx.compose.material3.SheetValue
 import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -114,7 +114,7 @@ fun AddMealSheet(
         close { onSave(meal) }
     }
 
-    ModalBottomSheet(
+    TrackstarBottomSheet(
         onDismissRequest = {},
         sheetState = sheetState,
         containerColor = Color.Transparent,

@@ -22,7 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
+import com.vasilisneo.trackstar.ui.components.TrackstarBottomSheet
 import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -69,7 +69,7 @@ fun AttendanceExportSheet(
     val filtered = filterVisits(visits, period, fromMs, toMs)
     val dateFmt = remember { SimpleDateFormat("MMM d, yyyy", Locale.ENGLISH) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color(0xFF14141F)) {
+    TrackstarBottomSheet(onDismissRequest = onDismiss, containerColor = Color(0xFF14141F)) {
         Column(
             modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)

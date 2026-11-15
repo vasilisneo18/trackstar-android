@@ -25,7 +25,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
+import com.vasilisneo.trackstar.ui.components.TrackstarBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import com.vasilisneo.trackstar.ui.i18n.Text
@@ -66,7 +66,7 @@ fun LogCompoundSetSheet(
     var repsB by remember { mutableStateOf(setB.frequencyValue?.reps ?: 0) }
     var weightB by remember { mutableStateOf(setB.resistanceValue?.weight ?: "") }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = SheetBackground) {
+    TrackstarBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = SheetBackground) {
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
             Text(trf("Round %s", round), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(bottom = 20.dp))
 

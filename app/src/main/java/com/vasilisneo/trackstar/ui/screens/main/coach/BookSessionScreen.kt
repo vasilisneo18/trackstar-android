@@ -36,7 +36,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
+import com.vasilisneo.trackstar.ui.components.TrackstarBottomSheet
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.SnackbarHost
@@ -285,7 +285,7 @@ private fun AthleteDaySessionsSheet(
 ) {
     // Locked: no swipe/scrim dismiss — the close button is the only way out.
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true, confirmValueChange = { it != SheetValue.Hidden })
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, dragHandle = null, containerColor = com.vasilisneo.trackstar.ui.theme.TrackstarSurface) {
+    TrackstarBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, dragHandle = null, containerColor = com.vasilisneo.trackstar.ui.theme.TrackstarSurface) {
         Column(
             Modifier.fillMaxWidth().fillMaxHeight(0.92f).padding(horizontal = 16.dp).padding(top = 14.dp).navigationBarsPadding().padding(bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),

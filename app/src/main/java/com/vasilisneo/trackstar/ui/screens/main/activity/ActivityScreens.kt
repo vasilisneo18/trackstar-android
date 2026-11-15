@@ -139,9 +139,17 @@ fun FullScreenDialog(onDismissRequest: () -> Unit, content: @Composable () -> Un
         // Some Android versions still place a dialog window below the status bar; let it draw
         // under both bars so the cover really is full screen (no dark band at the top).
         val window = (androidx.compose.ui.platform.LocalView.current.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window
-        androidx.compose.runtime.SideEffect {
-            window?.setFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+        // On 3-button navigation a dialog window also stops above the nav bar (it fits the system
+        // bars by default), leaving the screen underneath visible through the see-through bar —
+        // so let it cover the whole display.
+        androidx.compose.runtime.LaunchedEffect(window) {
+            window ?: return@LaunchedEffect
+            window.setFlags(android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                 android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS)
+            window.setLayout(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
+            if (android.os.Build.VERSION.SDK_INT >= 30) {
+                window.attributes = window.attributes.apply { fitInsetsTypes = 0 }
+            }
         }
         androidx.compose.runtime.CompositionLocalProvider(LocalBarInsets provides insets) {
             Box(Modifier.fillMaxSize()) { content() }
@@ -157,7 +165,7 @@ fun AppSheet(onDismissRequest: () -> Unit, content: @Composable () -> Unit) {
     val density = androidx.compose.ui.platform.LocalDensity.current
     val bottom = with(density) { WindowInsets.systemBars.getBottom(this).toDp() }
     val sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    androidx.compose.material3.ModalBottomSheet(
+    com.vasilisneo.trackstar.ui.components.TrackstarBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
         containerColor = Color.Transparent,
