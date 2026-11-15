@@ -107,7 +107,6 @@ import com.vasilisneo.trackstar.data.workout.ExerciseDisplayUnit
 import com.vasilisneo.trackstar.data.workout.groupedForDisplay
 import com.vasilisneo.trackstar.ui.screens.main.plan.ExerciseCommentsSheet
 import com.vasilisneo.trackstar.ui.screens.main.plan.ExerciseNoteButton
-import com.vasilisneo.trackstar.ui.components.AuthWordmark
 import com.vasilisneo.trackstar.ui.components.ProfileAvatarButton
 import com.vasilisneo.trackstar.ui.theme.TrackstarBackground
 import com.vasilisneo.trackstar.ui.theme.trackstarBackground
@@ -302,26 +301,10 @@ fun WorkoutScreen(
     // No day-swipe on the content any more (it fought with taps on the cards) — weeks are paged by
     // swiping the day strip instead (CollapsingDayStrip).
     Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
-        // Wordmark only on the empty rest-day state — with sessions present the cards are now
-        // translucent, so a background wordmark would faintly bleed through the bottom card.
-        // Lifted above the floating tab bar rather than hidden behind it.
-        if (displaySessions.isEmpty()) {
-            Box(
-                modifier = Modifier.fillMaxSize().navigationBarsPadding().padding(bottom = 76.dp),
-                contentAlignment = Alignment.BottomCenter
-            ) {
-                AuthWordmark()
-            }
-        }
-
         // Content — scrolls beneath the header (padded down by the header's full height).
-        if (displaySessions.isEmpty() && viewModel.isLoading) {
-            // Loading a (usually just-swiped-to) week — don't flash the plan/no-data state before
-            // the real sessions land.
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                androidx.compose.material3.CircularProgressIndicator(color = TrackstarAccent, strokeWidth = 2.dp)
-            }
-        } else if (displaySessions.isEmpty()) {
+        // No spinner while the week loads: like iOS, the widgets show straight away (the week is
+        // painted from the Room cache first; booking cards shimmer until the refresh lands).
+        if (displaySessions.isEmpty()) {
             // Scrolls once the widgets outgrow the screen (Activity / Slopes cards etc.).
             Column(
                 modifier = Modifier.fillMaxSize()

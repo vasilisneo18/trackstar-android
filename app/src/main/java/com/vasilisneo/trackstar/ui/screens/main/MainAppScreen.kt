@@ -86,14 +86,14 @@ private data class MainTab(
     @DrawableRes val iconRes: Int? = null,
     // Per-icon optical size: the workout figure and the 3-person Groups glyph render smaller within
     // their box than the solid Stats/Diet glyphs, so they get bumped to look the same weight.
-    val iconSize: androidx.compose.ui.unit.Dp = 26.dp,
+    val iconSize: androidx.compose.ui.unit.Dp = 23.dp,
 )
 
 private val MainTabs = listOf(
     // Slimmer glyphs, closer to iOS's tab bar (house.fill / chart.bar.fill / person.3).
-    MainTab("workout", "Home", icon = Icons.Filled.Home, iconSize = 30.dp),
-    MainTab("stats", "Stats", icon = Icons.Filled.BarChart, iconSize = 29.dp),
-    MainTab("myteam", "MyTeam", icon = Icons.Outlined.Groups, iconSize = 32.dp),
+    MainTab("workout", "Home", icon = Icons.Filled.Home, iconSize = 26.dp),
+    MainTab("stats", "Stats", icon = Icons.Filled.BarChart, iconSize = 25.dp),
+    MainTab("myteam", "MyTeam", icon = Icons.Outlined.Groups, iconSize = 28.dp),
 )
 
 // Lighter, translucent "liquid glass" capsule (was a near-black #17171F that vanished on the dark
@@ -394,11 +394,11 @@ private fun TabBarItem(
             )
             .clip(RoundedCornerShape(percent = 50))
             .clickable(onClick = onClick)
-            .padding(top = 7.dp, bottom = 6.dp)
+            .padding(top = 5.dp, bottom = 5.dp)
     ) {
         // Fixed-height icon slot so every tab is the same height even though the optically-small
         // Workout/MyTeam glyphs render at a larger size than the solid Stats/Diet ones.
-        Box(modifier = Modifier.height(30.dp), contentAlignment = Alignment.Center) {
+        Box(modifier = Modifier.height(26.dp), contentAlignment = Alignment.Center) {
             if (tab.iconRes != null) {
                 Icon(
                     painter = painterResource(tab.iconRes),
