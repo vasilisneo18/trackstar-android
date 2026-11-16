@@ -5,6 +5,7 @@ package com.vasilisneo.trackstar.ui.screens.landing
 // LoginScreen has a back button. When there's a cached signed-out user, shows iOS's
 // "Continue as" quick-login card for one-tap re-login.
 
+import com.vasilisneo.trackstar.ui.components.LoadingLabel
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
@@ -266,7 +267,7 @@ private fun ContinueAsSection(
                 modifier = Modifier.weight(1f),
             )
             if (isLoading) {
-                CircularProgressIndicator(color = Color.White.copy(alpha = 0.5f), strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+                LoadingLabel("Signing in…", Color.White.copy(alpha = 0.5f), 13.sp)
             } else {
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Color.White.copy(alpha = 0.35f), modifier = Modifier.size(20.dp))
             }

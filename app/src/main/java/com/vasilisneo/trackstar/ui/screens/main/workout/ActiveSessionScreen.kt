@@ -7,6 +7,7 @@ package com.vasilisneo.trackstar.ui.screens.main.workout
 // LogCompoundSetSheet). Presented as a full-screen overlay from MainAppScreen, mirroring iOS's
 // fullScreenCover.
 
+import com.vasilisneo.trackstar.ui.components.LoadingLabel
 import com.vasilisneo.trackstar.ui.i18n.tr
 import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.background
@@ -775,7 +776,7 @@ private fun FinishButton(isSaving: Boolean, onFinish: () -> Unit) {
             .clickable(enabled = !isSaving, onClick = onFinish)
     ) {
         if (isSaving) {
-            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
+            LoadingLabel("Saving…", Color.White, 16.sp)
         } else {
             Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.padding(start = 8.dp))

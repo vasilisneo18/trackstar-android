@@ -3,6 +3,7 @@ package com.vasilisneo.trackstar.ui.screens.main.activity
 // Activity groups on Android: my groups, create / join (QR or link), the group page (live map,
 // today's leaderboard, members) and the invite screen (QR + link). Mirrors iOS's GroupsViews.swift.
 
+import com.vasilisneo.trackstar.ui.components.LoadingLabel
 import android.content.ClipData
 import android.content.Intent
 import androidx.compose.foundation.Image
@@ -255,7 +256,7 @@ private fun CreateGroupDialog(onCreated: (GroupSummary) -> Unit, onCancel: () ->
             Box(Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(50))
                 .background(TrackstarAccent.copy(alpha = if (name.isBlank()) 0.4f else 1f))
                 .clickable(enabled = !busy && name.isNotBlank()) { create() }, contentAlignment = Alignment.Center) {
-                if (busy) CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+                if (busy) LoadingLabel("Creating…", Color.White, 16.sp)
                 else Text("Create group", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
             }
         }
@@ -343,7 +344,7 @@ fun JoinGroupConfirmDialog(token: String, onJoined: (GroupSummary) -> Unit, onCa
                         busy = false
                     }
                 }, contentAlignment = Alignment.Center) {
-                    if (busy) CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+                    if (busy) LoadingLabel(if (p.alreadyMember) "Opening…" else "Joining…", Color.White, 16.sp)
                     else Text(if (p.alreadyMember) "Open group" else "Join group", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                 }
             }

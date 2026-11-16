@@ -4,6 +4,7 @@ package com.vasilisneo.trackstar.ui.screens.main.coach
 // an invite link. The QR deep link is created on open (createInvite). Reuses the existing
 // QRConnectScreen for the QR tab (My QR = the invite QR + a scan placeholder).
 
+import com.vasilisneo.trackstar.ui.components.LoadingLabel
 import android.content.Intent
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -194,7 +195,8 @@ private fun ConfirmConnectSheet(
                     .background(if (enabled) Color.White else Color.White.copy(alpha = 0.4f))
                     .clickable(enabled = enabled) { vm.addAthlete(email) { onConnected() } },
             ) {
-                Text(if (vm.isAdding) "Connecting…" else "Connect", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF0D0D17))
+                if (vm.isAdding) LoadingLabel("Connecting…", Color(0xFF0D0D17))
+                else Text("Connect", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF0D0D17))
             }
         }
     }

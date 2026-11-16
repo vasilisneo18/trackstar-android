@@ -1,5 +1,6 @@
 package com.vasilisneo.trackstar.ui.screens.main.attendance
 
+import com.vasilisneo.trackstar.ui.components.LoadingLabel
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -146,7 +147,7 @@ fun SessionCodeScreen(onBack: () -> Unit) {
                     .background(Color.White.copy(alpha = 0.12f)).clickable(enabled = !vm.isEnding) { vm.endSession() },
                 contentAlignment = Alignment.Center
             ) {
-                if (vm.isEnding) CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+                if (vm.isEnding) LoadingLabel("Ending…", Color.White)
                 else Text("End Session", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
             }
             Spacer(Modifier.height(24.dp))
@@ -255,7 +256,7 @@ fun GymsScreen(onBack: () -> Unit) {
                 TextButton(enabled = name.isNotBlank() && !saving, onClick = {
                     saving = true
                     vm.addGym(name.trim()) { ok -> saving = false; if (ok) showAdd = false }
-                }) { Text(if (saving) "Adding…" else "Add at my location") }
+                }) { if (saving) LoadingLabel("Adding…", androidx.compose.material3.LocalContentColor.current, 14.sp) else Text("Add at my location") }
             },
             dismissButton = { TextButton(onClick = { showAdd = false }) { Text("Cancel") } },
         )

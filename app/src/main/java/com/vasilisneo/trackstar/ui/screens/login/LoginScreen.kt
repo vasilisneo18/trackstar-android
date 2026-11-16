@@ -91,6 +91,7 @@ fun LoginScreen(
             text = "Log In",
             onClick = { viewModel.login(onLoginSuccess) },
             isLoading = viewModel.isLoading,
+            loadingText = "Logging in…",
             enabled = viewModel.isLoginEnabled,
             modifier = Modifier.padding(top = 20.dp)
         )

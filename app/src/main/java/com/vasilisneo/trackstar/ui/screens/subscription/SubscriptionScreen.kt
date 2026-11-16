@@ -7,6 +7,7 @@ package com.vasilisneo.trackstar.ui.screens.subscription
 // configured), "Start Free Trial" runs a real purchase, and Restore Purchases / current-plan states
 // work. The hardcoded EUR values below are the fallbacks shown before live pricing loads.
 
+import com.vasilisneo.trackstar.ui.components.LoadingLabel
 import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -517,7 +518,7 @@ private fun PillButton(
         contentAlignment = Alignment.Center
     ) {
         if (loading) {
-            CircularProgressIndicator(color = foreground, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+            LoadingLabel("Processing…", foreground)
         } else {
             Text(text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = foreground)
         }

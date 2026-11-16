@@ -95,6 +95,7 @@ fun EmailEntryScreen(
                 text = "Continue",
                 onClick = viewModel::checkEmail,
                 isLoading = viewModel.emailCheckStatus == EmailCheckStatus.CHECKING,
+                loadingText = "Checking…",
                 enabled = viewModel.isValidEmail,
                 modifier = Modifier.padding(top = 20.dp)
             )

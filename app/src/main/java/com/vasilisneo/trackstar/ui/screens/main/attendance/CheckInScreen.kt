@@ -1,5 +1,6 @@
 package com.vasilisneo.trackstar.ui.screens.main.attendance
 
+import com.vasilisneo.trackstar.ui.components.LoadingLabel
 import com.vasilisneo.trackstar.ui.i18n.trf
 import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -180,7 +181,7 @@ private fun ActiveVisitCard(visit: VisitResponse, busy: Boolean, onCheckOut: () 
                 .background(Color.White).clickable(enabled = !busy, onClick = onCheckOut),
             contentAlignment = Alignment.Center
         ) {
-            if (busy) CircularProgressIndicator(color = Color.Black, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+            if (busy) LoadingLabel("Checking out…")
             else Text("Check Out", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
         }
     }

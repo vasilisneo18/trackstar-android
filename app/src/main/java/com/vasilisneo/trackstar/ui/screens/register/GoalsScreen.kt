@@ -117,6 +117,7 @@ fun GoalsScreen(
             text = "Continue",
             onClick = onContinue,
             isLoading = viewModel.isRegistering,
+            loadingText = "Creating account…",
             enabled = viewModel.isGoalsValid,
             modifier = Modifier.padding(top = 20.dp)
         )

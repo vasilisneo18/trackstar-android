@@ -7,6 +7,7 @@ package com.vasilisneo.trackstar.ui.screens.main.workout
 // LogCompoundSetSheet for both halves at once). When every set is handled, a Finish button
 // POSTs the session. Presented as a modal slide-up from MainAppScreen.
 
+import com.vasilisneo.trackstar.ui.components.LoadingLabel
 import com.vasilisneo.trackstar.ui.i18n.tr
 import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.background
@@ -206,7 +207,7 @@ fun QuickLogSheet(viewModel: QuickLogViewModel, onClose: () -> Unit, onFinished:
                                 .clickable(enabled = !viewModel.isSaving) { viewModel.finish(onSaved = { close(onFinished) }) }
                         ) {
                             if (viewModel.isSaving) {
-                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
+                                LoadingLabel("Saving…", Color.White, 16.sp)
                             } else {
                                 Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.padding(start = 8.dp))

@@ -47,6 +47,7 @@ fun ForgotPasswordScreen(
                     text = "Send Reset Link",
                     onClick = viewModel::submit,
                     isLoading = viewModel.isLoading,
+                    loadingText = "Sending…",
                     enabled = viewModel.email.isNotBlank(),
                     modifier = Modifier.padding(top = 20.dp)
                 )

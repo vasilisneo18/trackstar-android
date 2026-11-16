@@ -4,6 +4,7 @@ package com.vasilisneo.trackstar.ui.screens.main.settings
 // AppSettingsView, AboutView, CloseAccountView. Toggles persist via SharedPreferences
 // (rememberBooleanPref), mirroring iOS's @AppStorage. Appearance lives in its own file.
 
+import com.vasilisneo.trackstar.ui.components.LoadingLabel
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.Image
@@ -359,7 +360,7 @@ fun CloseAccountScreen(onDismiss: () -> Unit = {}, onClosed: () -> Unit = {}) {
                     contentAlignment = Alignment.Center
                 ) {
                     if (deleting) {
-                        CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+                        LoadingLabel("Closing account…", Color.White)
                     } else {
                         Text("Close Account", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
                     }

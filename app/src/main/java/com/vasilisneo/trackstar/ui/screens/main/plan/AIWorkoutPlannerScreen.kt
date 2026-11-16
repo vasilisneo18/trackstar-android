@@ -6,6 +6,7 @@ package com.vasilisneo.trackstar.ui.screens.main.plan
 // Deviations from iOS, both flagged in the approved plan: no equipment step (backend ignores
 // it — zero effect on generation) and a checkbox review list instead of swipe-accept/reject cards.
 
+import com.vasilisneo.trackstar.ui.components.LoadingLabel
 import com.vasilisneo.trackstar.ui.i18n.trf
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -329,7 +330,7 @@ private fun ReviewSection(viewModel: AIWorkoutPlannerViewModel, onApplied: () ->
                 .height(54.dp).clip(RoundedCornerShape(50)).background(CompletedGreen.copy(alpha = 0.85f))
                 .clickable(enabled = !viewModel.isApplying && viewModel.checkedKeys.isNotEmpty()) { viewModel.apply { success -> if (success) onApplied() } }
         ) {
-            if (viewModel.isApplying) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
+            if (viewModel.isApplying) LoadingLabel("Applying…", Color.White, 16.sp)
             else {
                 Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.padding(start = 8.dp))

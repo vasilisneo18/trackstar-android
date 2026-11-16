@@ -5,6 +5,7 @@ package com.vasilisneo.trackstar.ui.screens.main.coach
 // invalid(reason) / pending / accepted — matching the iOS copy for each reason. Accepting POSTs
 // to /coach/invite/accept/{token}, which links the athlete to the coach.
 
+import com.vasilisneo.trackstar.ui.components.LoadingLabel
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -203,7 +204,7 @@ private fun PrimaryButton(label: String?, enabled: Boolean = true, onClick: () -
         contentAlignment = Alignment.Center,
     ) {
         if (label == null) {
-            CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+            LoadingLabel("Accepting…", Color.Black, 16.sp)
         } else {
             Text(label, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
         }

@@ -463,20 +463,21 @@ fun AuthCapsuleButton(
     modifier: Modifier = Modifier,
     isLoading: Boolean = false,
     enabled: Boolean = true,
+    loadingText: String = "Please wait…",
 ) {
     val isEnabled = enabled && !isLoading
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(56.dp)
-            .alpha(if (isEnabled) 1f else 0.35f)
+            .alpha(if (enabled || isLoading) 1f else 0.35f)
             .clip(RoundedCornerShape(28.dp))
             .background(Color.White)
             .clickable(enabled = isEnabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         if (isLoading) {
-            CircularProgressIndicator(color = Color.Black, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+            LoadingLabel(loadingText)
         } else {
             Text(text, color = Color.Black, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
         }
@@ -515,12 +516,11 @@ fun GoogleSignInButton(
         contentAlignment = Alignment.Center
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (!isLoading) {
-                Box(modifier = Modifier.width(20.dp), contentAlignment = Alignment.Center) {
-                    Text("G", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4085F5))
-                }
-                Box(modifier = Modifier.width(12.dp))
+            Box(modifier = Modifier.width(20.dp), contentAlignment = Alignment.Center) {
+                if (isLoading) CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                else Text("G", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4085F5))
             }
+            Box(modifier = Modifier.width(12.dp))
             Text(
                 text = if (isLoading) "Signing in…" else "Continue with Google",
                 fontSize = 16.sp,

@@ -1,5 +1,6 @@
 package com.vasilisneo.trackstar.ui.screens.main.attendance
 
+import com.vasilisneo.trackstar.ui.components.LoadingLabel
 import com.vasilisneo.trackstar.ui.i18n.tr
 import com.vasilisneo.trackstar.ui.i18n.trf
 import android.app.DatePickerDialog
@@ -125,7 +126,7 @@ fun AttendanceExportSheet(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                if (generating) CircularProgressIndicator(color = Color.Black, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+                if (generating) LoadingLabel("Generating…", Color.Black, 16.sp)
                 else Text("Generate PDF", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
             }
         }
