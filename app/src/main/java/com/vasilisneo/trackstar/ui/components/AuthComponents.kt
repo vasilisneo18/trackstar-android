@@ -517,7 +517,7 @@ fun GoogleSignInButton(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.width(20.dp), contentAlignment = Alignment.Center) {
-                if (isLoading) CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                if (isLoading) LoadingCircle(Color.White, 18.dp)
                 else Text("G", fontSize = 17.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4085F5))
             }
             Box(modifier = Modifier.width(12.dp))
