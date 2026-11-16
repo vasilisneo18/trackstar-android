@@ -618,8 +618,10 @@ fun WorkoutScreen(
                 onSelect = { viewModel.goToDate(it) },
                 onMonthPill = { monthPill = it },
                 onWeekSettled = { monday ->
-                    // Same weekday in the week the wheel came to rest on.
-                    viewModel.goToDate(monday.plusDays((selectedDate.dayOfWeek.value - 1).toLong()))
+                    // Swiped back → that week's Sunday (the day right before the week you came
+                    // from); swiped forward → its Monday. Whatever day was selected (as on iOS).
+                    val back = monday < selectedDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+                    viewModel.goToDate(if (back) monday.plusDays(6) else monday)
                     haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                 },
             )
@@ -785,6 +787,9 @@ private fun CollapsingDayStrip(
 
     val pagerState = androidx.compose.foundation.pager.rememberPagerState(initialPage = pageOf(selectedDate)) { WEEK_PAGES }
     val selectedDateState = androidx.compose.runtime.rememberUpdatedState(selectedDate)
+    // The effect below outlives recompositions; always call the latest callback (it reads the
+    // selected date).
+    val onWeekSettledState = androidx.compose.runtime.rememberUpdatedState(onWeekSettled)
 
     // Today pill / date picked elsewhere → bring that week into view.
     LaunchedEffect(selectedDate) {
@@ -804,7 +809,7 @@ private fun CollapsingDayStrip(
             } else {
                 val monday = mondayOf(pagerState.settledPage)
                 onMonthPill(monthTitle(monday))
-                if (monday != selectedDateState.value.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))) onWeekSettled(monday)
+                if (monday != selectedDateState.value.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))) onWeekSettledState.value(monday)
                 kotlinx.coroutines.delay(900)
                 onMonthPill(null)
             }
