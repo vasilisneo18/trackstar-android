@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.Icon
@@ -53,6 +54,7 @@ import com.vasilisneo.trackstar.ui.screens.main.activity.LocalBarInsets
  *  what it gives before the plans (PaidFeatureSheet). iOS: PaidFeature. */
 sealed class PaidFeature(val plan: AppPlan, val icon: ImageVector) {
     data object OutdoorMaps : PaidFeature(AppPlan.BRONZE, Icons.Filled.Map)
+    data object Groups : PaidFeature(AppPlan.BRONZE, Icons.Filled.Groups)
     data object AiPlanners : PaidFeature(AppPlan.SILVER, Icons.Filled.AutoAwesome)
     data object UnlimitedSessions : PaidFeature(AppPlan.BRONZE, Icons.Filled.AllInclusive)
     data object FullHistory : PaidFeature(AppPlan.BRONZE, Icons.Filled.BarChart)
@@ -60,6 +62,7 @@ sealed class PaidFeature(val plan: AppPlan, val icon: ImageVector) {
 
     val title: String get() = when (this) {
         OutdoorMaps -> tr("Slope & trail maps")
+        Groups -> tr("Groups")
         AiPlanners -> tr("AI planners")
         UnlimitedSessions -> tr("Unlimited sessions")
         FullHistory -> tr("Full history & stats")
@@ -68,6 +71,7 @@ sealed class PaidFeature(val plan: AppPlan, val icon: ImageVector) {
 
     val subtitle: String get() = when (this) {
         OutdoorMaps -> tr("See where you can ride and walk — and where you went.")
+        Groups -> tr("Start a group and train together with your friends.")
         AiPlanners -> tr("Let AI build your week of training and eating.")
         UnlimitedSessions -> trf("Free accounts can log %s sessions a week. Train as often as you like.", "${FeatureGate.WEEKLY_SESSION_LIMIT}")
         FullHistory -> tr("Every workout you've logged, and how you're progressing.")
@@ -83,6 +87,12 @@ sealed class PaidFeature(val plan: AppPlan, val icon: ImageVector) {
                 add(tr("Download trail maps for hikes with no signal"))
             }
         }
+        Groups -> listOf(
+            tr("Create groups and invite friends with a QR code or link"),
+            tr("See each other live on the map while you record"),
+            tr("Today's leaderboard for every group"),
+            tr("Friends on a free account can still join your groups"),
+        )
         AiPlanners -> listOf(
             tr("A weekly workout plan built around your goal and schedule"),
             tr("A diet plan with the foods you like"),

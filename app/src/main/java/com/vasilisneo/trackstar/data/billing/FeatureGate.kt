@@ -31,6 +31,10 @@ object FeatureGate {
     // Recording (and your own route) stays free.
     fun hasOutdoorMaps(plan: AppPlan): Boolean = plan != AppPlan.FREE
 
+    // Creating activity groups: any paid tier (iOS FeatureGate.canCreateGroups). Joining one by link
+    // or QR stays free, so friends on any plan can ride along.
+    fun canCreateGroups(plan: AppPlan): Boolean = plan != AppPlan.FREE
+
     // How many plan templates a coach may keep: no cap for Gold (iOS FeatureGate.templateLimit).
     fun templateLimit(plan: AppPlan): Int = if (plan == AppPlan.GOLD) Int.MAX_VALUE else 0
 

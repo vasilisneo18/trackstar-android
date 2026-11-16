@@ -722,7 +722,7 @@ fun WorkoutScreen(
         )
     }
     if (showGroups) {
-        com.vasilisneo.trackstar.ui.screens.main.activity.GroupsDialog(onClose = { showGroups = false })
+        com.vasilisneo.trackstar.ui.screens.main.activity.GroupsDialog(onClose = { showGroups = false }, onUpgrade = onUpgrade)
     }
     if (showResorts) {
         com.vasilisneo.trackstar.ui.screens.main.activity.ResortsDialog(

@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Sensors
@@ -141,12 +142,15 @@ enum class LeaderboardCategory(val raw: String, val label: String, val type: Act
 // MARK: - My groups
 
 @Composable
-fun GroupsDialog(onClose: () -> Unit) {
+fun GroupsDialog(onClose: () -> Unit, onUpgrade: () -> Unit) {
     val groups by GroupStore.groups.collectAsState()
     val hasLoaded by GroupStore.hasLoaded.collectAsState()
     var creating by remember { mutableStateOf(false) }
     var joining by remember { mutableStateOf(false) }
     var opened by remember { mutableStateOf<GroupSummary?>(null) }
+    var paidFeature by remember { mutableStateOf<com.vasilisneo.trackstar.ui.screens.subscription.PaidFeature?>(null) }
+    val plan by com.vasilisneo.trackstar.data.billing.BillingManager.currentPlan.collectAsState()
+    val canCreate = com.vasilisneo.trackstar.data.billing.FeatureGate.canCreateGroups(plan)
     LaunchedEffect(Unit) { GroupStore.refresh() }
 
     AppSheet(onDismissRequest = onClose) {
@@ -160,7 +164,9 @@ fun GroupsDialog(onClose: () -> Unit) {
                 Text("Groups", fontSize = 34.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 Text("See each other live while you record and compare today's stats.", fontSize = 14.sp, color = Color.White.copy(alpha = 0.55f))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.padding(vertical = 6.dp)) {
-                    PillButton("Create group", Icons.Filled.Add, filled = true, Modifier.weight(1f)) { creating = true }
+                    PillButton("Create group", if (canCreate) Icons.Filled.Add else Icons.Filled.Lock, filled = true, Modifier.weight(1f)) {
+                        if (canCreate) creating = true else paidFeature = com.vasilisneo.trackstar.ui.screens.subscription.PaidFeature.Groups
+                    }
                     PillButton("Join", Icons.Filled.QrCodeScanner, filled = false, Modifier.weight(1f)) { joining = true }
                 }
                 if (groups.isEmpty() && hasLoaded) {
@@ -181,6 +187,10 @@ fun GroupsDialog(onClose: () -> Unit) {
         if (creating) CreateGroupDialog(onCreated = { g -> creating = false; opened = g }, onCancel = { creating = false })
         if (joining) JoinGroupDialog(onJoined = { g -> joining = false; opened = g }, onCancel = { joining = false })
         opened?.let { g -> GroupDetailDialog(g.id, g.name, onClose = { opened = null }) }
+        paidFeature?.let { f ->
+            com.vasilisneo.trackstar.ui.screens.subscription.PaidFeatureSheet(f, onClose = { paidFeature = null },
+                onOpenPlans = { paidFeature = null; onClose(); onUpgrade() })
+        }
     }
 }
 
