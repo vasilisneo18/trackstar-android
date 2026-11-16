@@ -522,7 +522,7 @@ fun GoogleSignInButton(
             }
             Box(modifier = Modifier.width(12.dp))
             Text(
-                text = if (isLoading) "Signing in…" else "Continue with Google",
+                text = if (isLoading) "Logging in…" else "Continue with Google",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = Color.White

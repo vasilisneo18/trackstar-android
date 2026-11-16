@@ -267,7 +267,7 @@ private fun ContinueAsSection(
                 modifier = Modifier.weight(1f),
             )
             if (isLoading) {
-                LoadingLabel("Signing in…", Color.White.copy(alpha = 0.5f), 13.sp)
+                LoadingLabel("Logging in…", Color.White.copy(alpha = 0.5f), 13.sp)
             } else {
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Color.White.copy(alpha = 0.35f), modifier = Modifier.size(20.dp))
             }
