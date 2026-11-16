@@ -618,10 +618,16 @@ fun WorkoutScreen(
                 onSelect = { viewModel.goToDate(it) },
                 onMonthPill = { monthPill = it },
                 onWeekSettled = { monday ->
-                    // Swiped back → that week's Sunday (the day right before the week you came
-                    // from); swiped forward → its Monday. Whatever day was selected (as on iOS).
+                    // This week → today. Otherwise swiped back → that week's Sunday (the day right
+                    // before the week you came from); swiped forward → its Monday. Whatever day
+                    // was selected (as on iOS).
+                    val now = java.time.LocalDate.now()
                     val back = monday < selectedDate.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
-                    viewModel.goToDate(if (back) monday.plusDays(6) else monday)
+                    viewModel.goToDate(when {
+                        monday == now.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)) -> now
+                        back -> monday.plusDays(6)
+                        else -> monday
+                    })
                     haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                 },
             )
