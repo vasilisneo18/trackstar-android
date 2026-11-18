@@ -109,7 +109,12 @@ class MainActivity : ComponentActivity() {
         // Auto-login: if a session token is already persisted, open straight into the main
         // app (mirrors MasterCoordinator.start() on iOS), otherwise start at Landing.
         val startDestination = if (TokenStore(this).isLoggedIn) "main" else "landing"
+        val activityDemo = if (BuildConfig.DEBUG) intent.getStringExtra("activityDemo") else null
         setContent {
+            if (activityDemo != null) {
+                TrackstarTheme { com.vasilisneo.trackstar.ui.screens.main.activity.ActivityDemo(activityDemo, intent.getIntExtra("demoSteps", 0).takeIf { it > 0 }) }
+                return@setContent
+            }
             TrackstarTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                   com.vasilisneo.trackstar.ui.components.ScreenOverlayHostBox {

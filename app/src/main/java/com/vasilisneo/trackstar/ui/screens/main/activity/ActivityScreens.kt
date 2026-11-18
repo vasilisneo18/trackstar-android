@@ -57,6 +57,7 @@ import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Route
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Snowboarding
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
@@ -698,6 +699,13 @@ fun ActivityDetailContent(
     mapOverlay: (@Composable (CameraPositionState) -> Unit)? = null,
 ) {
     var confirmDelete by remember { mutableStateOf(false) }
+    // Drawing the share image (the share button shows a loading circle meanwhile).
+    var preparingShare by remember { mutableStateOf(false) }
+    // Steps from Health Connect during a run / walk / hike (null until loaded, or when there are none).
+    var steps by remember { mutableStateOf<Int?>(null) }
+    var googleMap by remember { mutableStateOf<com.google.android.gms.maps.GoogleMap?>(null) }
+    val scope = rememberCoroutineScope()
+    val iconPainter = androidx.compose.ui.graphics.vector.rememberVectorPainter(activity.activityType.icon())
     val route = remember(activity.clientId) { activity.coordinates }
     var pistes by remember { mutableStateOf<List<com.vasilisneo.trackstar.data.activity.Piste>>(emptyList()) }
     var runPistes by remember { mutableStateOf<Map<Int, com.vasilisneo.trackstar.data.activity.Piste>>(emptyMap()) }
@@ -724,6 +732,26 @@ fun ActivityDetailContent(
         }
         pistes = loaded
     }
+    LaunchedEffect(activity.clientId) {
+        if (!activity.activityType.countsSteps) return@LaunchedEffect
+        ActivityShare.debugSteps?.let { steps = it; return@LaunchedEffect }
+        steps = com.vasilisneo.trackstar.data.health.HealthConnectManager(context)
+            .steps(Instant.ofEpochMilli(activity.startedAt), Instant.ofEpochMilli(activity.endedAt))
+    }
+    val share: () -> Unit = {
+        if (!preparingShare) {
+            preparingShare = true
+            scope.launch {
+                runCatching {
+                    val map = ActivityShare.mapSnapshot(googleMap, activity)
+                    val image = ActivityShare.image(context, activity, map, iconPainter, steps,
+                        com.vasilisneo.trackstar.data.billing.BillingManager.currentPlan.value)
+                    ActivityShare.debugImageSink?.invoke(image) ?: ActivityShare.present(context, image, activity.displayTitle)
+                }
+                preparingShare = false
+            }
+        }
+    }
     val camera = rememberCameraPositionState()
     Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
         LazyColumn(
@@ -746,6 +774,8 @@ fun ActivityDetailContent(
                                 }
                         },
                     ) {
+                        @OptIn(com.google.maps.android.compose.MapsComposeExperimentalApi::class)
+                        com.google.maps.android.compose.MapEffect(Unit) { googleMap = it }
                         if (pistes.isNotEmpty()) PisteLines(pistes, width = 14f, convention = convention)
                         if (trails.isNotEmpty()) TrailLines(trails)
                         // White casing so a hike's route stands out over terrain and trails.
@@ -764,9 +794,7 @@ fun ActivityDetailContent(
                         Spacer(Modifier.width(8.dp))
                         Text(activity.displayTitle, fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White)
                     }
-                    val whenText = Instant.ofEpochMilli(activity.startedAt).atZone(ZoneId.systemDefault())
-                        .format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withLocale(com.vasilisneo.trackstar.ui.i18n.I18n.locale))
-                    Text(whenText, fontSize = 14.sp, color = Color.White.copy(alpha = 0.5f))
+                    Text(ActivityFormat.dayAndTimes(activity), fontSize = 14.sp, color = Color.White.copy(alpha = 0.5f))
                 }
             }
             val slopes = activity.slopes
@@ -792,6 +820,7 @@ fun ActivityDetailContent(
                         activity.elevationLossMeters?.let { add(Triple("${it.toInt()}", "m", "Descent")) }
                         activity.elevationProfile?.maxOfOrNull { it.a }?.let { add(Triple("${it.toInt()}", "m", "Highest point")) }
                         add(Triple(ActivityFormat.pace(activity.paceSecondsPerKm), "/km", "Avg pace"))
+                        addAll(stepTiles(steps, activity.movingSeconds))
                     })
                 }
                 activity.elevationProfile?.takeIf { it.size >= 2 }?.let { profile ->
@@ -806,7 +835,7 @@ fun ActivityDetailContent(
                         if (activity.activityType.usesPace) Triple(ActivityFormat.pace(activity.paceSecondsPerKm), "/km", "Avg pace")
                         else Triple(ActivityFormat.speed(activity.speedKmh), "km/h", "Avg speed"),
                         Triple("${activity.elevationGainMeters.toInt()}", "m", "Elevation gain"),
-                    ))
+                    ) + stepTiles(steps, activity.movingSeconds))
                 }
                 activity.elevationProfile?.takeIf { it.size >= 2 }?.let { profile ->
                     item { ElevationProfileCard(profile, activity.elevationGainMeters, activity.elevationLossMeters) }
@@ -814,12 +843,31 @@ fun ActivityDetailContent(
                 val splits = activity.splits.orEmpty()
                 if (splits.isNotEmpty()) item { SplitsSection(activity) }
             }
+            // Out of the way at the bottom, so it isn't tapped by accident next to Share.
+            if (!isNew && onDelete != null) {
+                item {
+                    Row(
+                        horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 6.dp).fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(CardFill)
+                            .clickable { confirmDelete = true }.padding(vertical = 15.dp)
+                    ) {
+                        Icon(Icons.Filled.DeleteOutline, null, tint = Color(0xFFFF453A), modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Delete activity", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFFF453A))
+                    }
+                }
+            }
         }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = LocalBarInsets.current.top).padding(horizontal = 20.dp, vertical = 14.dp)) {
             if (isNew) RoundButton(Icons.Filled.DeleteOutline, tr("Discard")) { onDiscard?.invoke() }
             else RoundButton(Icons.Filled.ExpandMore, tr("Close")) { onClose?.invoke() }
             Spacer(Modifier.weight(1f))
-            if (!isNew && onDelete != null) RoundButton(Icons.Filled.DeleteOutline, tr("Delete")) { confirmDelete = true }
+            // The icon swaps for a loading circle while the image is drawn.
+            Box(Modifier.size(44.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.55f)).clickable(onClick = share),
+                contentAlignment = Alignment.Center) {
+                if (preparingShare) com.vasilisneo.trackstar.ui.components.LoadingCircle(Color.White, size = 18.dp)
+                else Icon(Icons.Filled.Share, contentDescription = tr("Share"), tint = Color.White, modifier = Modifier.size(18.dp))
+            }
         }
         if (isNew) {
             Box(
@@ -839,6 +887,13 @@ fun ActivityDetailContent(
             )
         }
     }
+}
+
+/** Steps and cadence tiles, when Health Connect has steps for the activity. */
+private fun stepTiles(steps: Int?, movingSeconds: Int): List<Triple<String, String?, String>> = buildList {
+    steps ?: return@buildList
+    add(Triple(ActivityFormat.steps(steps), null, "Steps"))
+    ActivityFormat.cadence(steps, movingSeconds)?.let { add(Triple(it, "spm", "Cadence")) }
 }
 
 @Composable

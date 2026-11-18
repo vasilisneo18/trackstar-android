@@ -13,6 +13,7 @@ import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
 import java.time.Period
 import java.time.ZoneId
@@ -89,6 +90,18 @@ class HealthConnectManager(private val context: Context) {
         val c = client ?: return false
         return runCatching { c.permissionController.getGrantedPermissions().containsAll(permissions) }
             .getOrDefault(false)
+    }
+
+    /**
+     * Steps taken during an activity, or null when Health Connect has none (no permission, or no
+     * data source writing steps). Records overlapping the window are counted in proportion.
+     */
+    suspend fun steps(start: Instant, end: Instant): Int? {
+        val c = client ?: return null
+        if (!end.isAfter(start) || !hasStepsPermission()) return null
+        return runCatching {
+            c.aggregate(AggregateRequest(metrics = setOf(StepsRecord.COUNT_TOTAL), timeRangeFilter = TimeRangeFilter.between(start, end)))[StepsRecord.COUNT_TOTAL]?.toInt()
+        }.getOrNull()?.takeIf { it > 0 }
     }
 
     /** Total steps for a single calendar day. */

@@ -17,6 +17,8 @@ enum class ActivityType(val raw: String, val label: String) {
     val isSlope: Boolean get() = this == Ski || this == Snowboard
     /** Runs, walks and hikes read naturally as pace (min/km); rides and slopes as speed (km/h). */
     val usesPace: Boolean get() = this == Run || this == Walk || this == Hike
+    /** On foot — steps are read from Health Connect for these. */
+    val countsSteps: Boolean get() = this == Run || this == Walk || this == Hike
 
     companion object {
         val everyday = listOf(Run, Walk, Hike, Ride)
@@ -58,6 +60,24 @@ object ActivityFormat {
         val h = seconds / 3600; val m = (seconds % 3600) / 60; val s = seconds % 60
         return if (h > 0) String.format(Locale.US, "%d:%02d:%02d", h, m, s) else String.format(Locale.US, "%d:%02d", m, s)
     }
+
+    /** "Wednesday, 18 November · 07:12 – 07:48" — the day plus start and finish times. */
+    fun dayAndTimes(a: RecordedActivity): String {
+        val locale = com.vasilisneo.trackstar.ui.i18n.I18n.locale
+        val zone = ZoneId.systemDefault()
+        val start = Instant.ofEpochMilli(a.startedAt).atZone(zone)
+        val end = Instant.ofEpochMilli(a.endedAt).atZone(zone)
+        val day = start.format(java.time.format.DateTimeFormatter.ofPattern("EEEE, d MMMM", locale))
+        val time = java.time.format.DateTimeFormatter.ofLocalizedTime(java.time.format.FormatStyle.SHORT).withLocale(locale)
+        return "$day · ${start.format(time)} – ${end.format(time)}"
+    }
+
+    /** "8,412" — steps with the locale's grouping. */
+    fun steps(n: Int): String = java.text.NumberFormat.getIntegerInstance(com.vasilisneo.trackstar.ui.i18n.I18n.locale).format(n)
+
+    /** Steps per minute of moving time. */
+    fun cadence(steps: Int, movingSeconds: Int): String? =
+        if (movingSeconds >= 60) String.format(Locale.US, "%.0f", steps / (movingSeconds / 60.0)) else null
 
     fun defaultTitle(type: ActivityType, startedAt: Long): String {
         if (type.isSlope) return tr(if (type == ActivityType.Ski) "Ski day" else "Snowboard day")
