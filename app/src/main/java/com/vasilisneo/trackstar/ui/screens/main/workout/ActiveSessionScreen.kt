@@ -2,7 +2,7 @@ package com.vasilisneo.trackstar.ui.screens.main.workout
 
 // Full-screen active-session flow, closely mirroring iOS's ActiveSessionView.swift: single-UNIT
 // focus (one exercise, or one superset pair, worked at a time — not a flat list), a segmented
-// per-unit progress bar, "Up next" / "Completed" sections, a rest-timer takeover card, and a
+// per-unit progress bar, "Up next" / "Completed" sections, an inline rest row, and a
 // bottom CTA that logs the current set (or, for a superset, the current round via
 // LogCompoundSetSheet). Presented as a full-screen overlay from MainAppScreen, mirroring iOS's
 // fullScreenCover.
@@ -120,6 +120,8 @@ fun ActiveSessionScreen(
                                     onSkipExercise = { viewModel.skip(current.exercise.sets.orEmpty()) },
                                     currentSetId = viewModel.currentSet?.id,
                                     isResting = viewModel.isResting,
+                                    restAfterSetId = viewModel.currentRestSetId,
+                                    restRow = { standalone -> RestRow(viewModel, standalone) },
                                     onSetClick = { set ->
                                         // Timed sets (duration) go through the duration helper
                                         // card, not the numeric LogSetSheet.
@@ -135,6 +137,8 @@ fun ActiveSessionScreen(
                                     onSkipExercise = { viewModel.skip(current.a.sets.orEmpty() + current.b.sets.orEmpty()) },
                                     currentRound = viewModel.currentCompoundRoundIndex(current.a, current.b),
                                     isResting = viewModel.isResting,
+                                    restAfterSetId = viewModel.currentRestSetId,
+                                    restRow = { standalone -> RestRow(viewModel, standalone) },
                                     onRoundClick = { round -> loggingRound = Triple(current.a, current.b, round) },
                                 )
                             }
@@ -323,10 +327,14 @@ private fun ProgressSection(viewModel: ActiveSessionViewModel) {
 @Composable
 private fun CurrentExerciseSection(
     exercise: ExerciseData, loggedSetIds: Set<String>, skippedSetIds: Set<String>, currentSetId: String?,
-    isResting: Boolean, onSetClick: (ExerciseSet) -> Unit, onSkipExercise: () -> Unit,
+    isResting: Boolean, restAfterSetId: String?, restRow: @Composable (standalone: Boolean) -> Unit,
+    onSetClick: (ExerciseSet) -> Unit, onSkipExercise: () -> Unit,
 ) {
     val isDuration = exercise.sets?.firstOrNull()?.frequencyValue?.duration != null
+    val sets = exercise.sets.orEmpty()
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        // Resting after the previous exercise's last set: the rest row sits above this one.
+        if (isResting && restAfterSetId != null && sets.none { it.id == restAfterSetId }) restRow(true)
         Row(verticalAlignment = Alignment.Top, modifier = Modifier.padding(horizontal = 4.dp)) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(exercise.name ?: "Exercise", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White)
@@ -354,6 +362,8 @@ private fun CurrentExerciseSection(
                     isResting = isResting,
                     onClick = { onSetClick(set) },
                 )
+                // Resting after this set: the rest row sits right under it.
+                if (isResting && set.id == restAfterSetId) restRow(false)
             }
         }
     }
@@ -363,9 +373,13 @@ private fun CurrentExerciseSection(
 // joined with " + ", and one row per round showing both exercises' rep/weight stacked with an
 // arrow divider between them (instead of one line per set like the single-exercise table).
 @Composable
-private fun CurrentCompoundSection(a: ExerciseData, b: ExerciseData, loggedSetIds: Set<String>, onSkipExercise: () -> Unit, currentRound: Int?, isResting: Boolean, onRoundClick: (Int) -> Unit) {
+private fun CurrentCompoundSection(
+    a: ExerciseData, b: ExerciseData, loggedSetIds: Set<String>, onSkipExercise: () -> Unit, currentRound: Int?,
+    isResting: Boolean, restAfterSetId: String?, restRow: @Composable (standalone: Boolean) -> Unit, onRoundClick: (Int) -> Unit,
+) {
     val rounds = maxOf(a.sets.orEmpty().size, b.sets.orEmpty().size)
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        if (isResting && restAfterSetId != null && (a.sets.orEmpty() + b.sets.orEmpty()).none { it.id == restAfterSetId }) restRow(true)
         Column(modifier = Modifier.padding(horizontal = 4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Link, contentDescription = null, tint = Color(0xFF64D2FF), modifier = Modifier.size(13.dp))
@@ -393,6 +407,8 @@ private fun CurrentCompoundSection(a: ExerciseData, b: ExerciseData, loggedSetId
                     isResting = isResting,
                     onClick = { onRoundClick(round) },
                 )
+                val roundIds = listOfNotNull(a.sets.orEmpty().getOrNull(round)?.id, b.sets.orEmpty().getOrNull(round)?.id)
+                if (isResting && restAfterSetId in roundIds) restRow(false)
             }
         }
     }
@@ -401,16 +417,17 @@ private fun CurrentCompoundSection(a: ExerciseData, b: ExerciseData, loggedSetId
 @Composable
 private fun CompoundRoundRow(round: Int, nameA: String, setA: ExerciseSet?, nameB: String, setB: ExerciseSet?, isLogged: Boolean, isCurrent: Boolean, isResting: Boolean, onClick: () -> Unit) {
     Box(modifier = Modifier.fillMaxWidth()) {
-        if (isCurrent) ActiveSetHighlight(flashing = !isResting)
+        // Nothing is highlighted while resting — the next round waits until the rest is over.
+        if (isCurrent && !isResting) ActiveSetHighlight(flashing = true)
         Row(
             verticalAlignment = Alignment.Top,
-            modifier = Modifier.fillMaxWidth().clickable(enabled = !isLogged, onClick = onClick).padding(horizontal = 16.dp, vertical = 16.dp)
+            modifier = Modifier.fillMaxWidth().clickable(enabled = !isLogged && !isResting, onClick = onClick).padding(horizontal = 16.dp, vertical = 16.dp)
         ) {
             Box(
                 modifier = Modifier.size(28.dp).clip(CircleShape).background(
                     when {
                         isLogged -> CompletedGreen
-                        isCurrent -> TrackstarAccent
+                        isCurrent && !isResting -> TrackstarAccent
                         else -> Color.White.copy(alpha = 0.1f)
                     }
                 ),
@@ -479,13 +496,15 @@ private fun BoxScope.ActiveSetHighlight(flashing: Boolean) {
 @Composable
 private fun SetRow(index: Int, set: ExerciseSet, isLogged: Boolean, isSkipped: Boolean = false, isCurrent: Boolean, isResting: Boolean, onClick: () -> Unit) {
     Box(modifier = Modifier.fillMaxWidth()) {
-        // Active-set highlight — steady while resting, flashing once the rest timer ends (iOS parity).
-        if (isCurrent) ActiveSetHighlight(flashing = !isResting)
+        // The active set flashes; nothing is highlighted while resting (the next set waits for the rest).
+        val highlighted = isCurrent && !isResting
+        if (highlighted) ActiveSetHighlight(flashing = true)
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(enabled = !isLogged || isSkipped, onClick = onClick)   // a skipped set can still be logged
+                // A skipped set can still be logged — but nothing is logged while resting.
+                .clickable(enabled = (!isLogged || isSkipped) && !isResting, onClick = onClick)
                 .padding(horizontal = 16.dp, vertical = 18.dp)
         ) {
             Box(
@@ -493,7 +512,7 @@ private fun SetRow(index: Int, set: ExerciseSet, isLogged: Boolean, isSkipped: B
                     when {
                         isSkipped -> Color.White.copy(alpha = 0.08f)
                         isLogged -> CompletedGreen
-                        isCurrent -> TrackstarAccent
+                        highlighted -> TrackstarAccent
                         else -> Color.White.copy(alpha = 0.1f)
                     }
                 ),
@@ -507,8 +526,8 @@ private fun SetRow(index: Int, set: ExerciseSet, isLogged: Boolean, isSkipped: B
                     Text(
                         "$index",
                         fontSize = 13.sp,
-                        fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Medium,
-                        color = if (isCurrent) Color.White else Color.White.copy(alpha = 0.45f),
+                        fontWeight = if (highlighted) FontWeight.Bold else FontWeight.Medium,
+                        color = if (highlighted) Color.White else Color.White.copy(alpha = 0.45f),
                     )
                 }
             }
@@ -530,7 +549,7 @@ private fun SetRow(index: Int, set: ExerciseSet, isLogged: Boolean, isSkipped: B
                 )
             }
             if (!isLogged) {
-                Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Color.White.copy(alpha = if (isCurrent) 0.6f else 0.35f), modifier = Modifier.size(16.dp).padding(start = 8.dp))
+                Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Color.White.copy(alpha = if (highlighted) 0.6f else 0.35f), modifier = Modifier.size(16.dp).padding(start = 8.dp))
             }
         }
     }
@@ -591,7 +610,7 @@ private fun exerciseSummary(exercise: ExerciseData): String {
 private fun BottomArea(viewModel: ActiveSessionViewModel, onLogCurrentSet: () -> Unit, onFinish: () -> Unit) {
     when {
         viewModel.durationSet != null -> DurationHelperCard(viewModel = viewModel)
-        viewModel.isResting -> RestTimerCard(viewModel = viewModel)
+        viewModel.isResting -> Unit   // the rest row in the list has Skip / +1 min; nothing to log yet
         viewModel.isSessionComplete -> FinishButton(isSaving = viewModel.isSaving, onFinish = onFinish)
         else -> BottomCTA(viewModel = viewModel, onLogCurrentSet = onLogCurrentSet)
     }
@@ -636,9 +655,10 @@ private fun DurationHelperCard(viewModel: ActiveSessionViewModel) {
                 CancelText { viewModel.cancelDurationHelper() }
             }
             viewModel.durationRunning -> {
-                Text("RUNNING", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp, color = Color.White.copy(alpha = 0.45f))
+                val target = parseDurationSeconds(set.frequencyValue?.duration ?: "")
+                Text(if (target > 0) "Time left" else "RUNNING", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp, color = Color.White.copy(alpha = 0.45f))
                 Text(
-                    formatElapsed(viewModel.durationElapsedSeconds),
+                    formatElapsed(if (target > 0) viewModel.durationSecondsLeft else viewModel.durationElapsedSeconds),
                     fontSize = 52.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = Color.White
                 )
                 DurationPillButton("Stop & Log", Color(0xFFFF453A).copy(alpha = 0.85f)) { viewModel.stopDurationAndLog() }
@@ -725,14 +745,17 @@ private fun BottomCTA(viewModel: ActiveSessionViewModel, onLogCurrentSet: () -> 
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         modifier = Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(width = 48.dp, height = 54.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .then(if (isDuration && set != null) Modifier.clickable { viewModel.openDurationHelper(set) } else Modifier),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(Icons.Filled.Timer, contentDescription = null, tint = if (isDuration) Color.White else Color.White.copy(alpha = 0.2f), modifier = Modifier.size(20.dp))
+        // The timer only means something for a timed set — no disabled button otherwise.
+        if (isDuration && set != null) {
+            Box(
+                modifier = Modifier
+                    .size(width = 48.dp, height = 54.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable { viewModel.openDurationHelper(set) },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Filled.Timer, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+            }
         }
         Box(
             modifier = Modifier
@@ -785,45 +808,40 @@ private fun FinishButton(isSaving: Boolean, onFinish: () -> Unit) {
     }
 }
 
+/** The rest countdown, in the list where the rest happens: under the set just logged, or above the
+ *  next exercise (`standalone`) — with +1 min and Skip, and a bar that empties as the rest runs. */
 @Composable
-private fun RestTimerCard(viewModel: ActiveSessionViewModel) {
+private fun RestRow(viewModel: ActiveSessionViewModel, standalone: Boolean) {
+    val progress = viewModel.restSecondsRemaining.toFloat() / maxOf(viewModel.restTotalSeconds, 1)
+    val animated by androidx.compose.animation.core.animateFloatAsState(progress, tween(1000, easing = androidx.compose.animation.core.LinearEasing), label = "rest")
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .navigationBarsPadding()
-            .padding(horizontal = 15.dp)
-            .padding(bottom = 10.dp)
-            .clip(RoundedCornerShape(30.dp))
-            .background(Color.White.copy(alpha = 0.06f))
-            .padding(top = 24.dp, bottom = 32.dp)
-    ) {
-        Text("Rest", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.5f))
-        Text(
-            formatElapsed(viewModel.restSecondsRemaining),
-            fontSize = 56.sp,
-            fontWeight = FontWeight.Bold,
-            fontFamily = FontFamily.Monospace,
-            color = Color.White,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(
-                "Skip", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.7f),
-                modifier = Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(Color.White.copy(alpha = 0.1f))
-                    .clickable(onClick = viewModel::skipRest)
-                    .padding(horizontal = 28.dp, vertical = 12.dp)
+            .then(
+                if (standalone) Modifier.clip(RoundedCornerShape(20.dp)).background(Color.White.copy(alpha = 0.06f))
+                else Modifier.padding(horizontal = 8.dp).clip(RoundedCornerShape(12.dp)).background(TrackstarAccent.copy(alpha = 0.1f))
             )
+            .padding(horizontal = if (standalone) 16.dp else 8.dp, vertical = 18.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Icon(Icons.Filled.Timer, contentDescription = null, tint = TrackstarAccent, modifier = Modifier.size(18.dp))
+            Text("Rest", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.7f))
+            Text(formatElapsed(viewModel.restSecondsRemaining), fontSize = 22.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, color = Color.White)
+            Spacer(Modifier.weight(1f))
             Text(
                 "+1 min", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(Color.White.copy(alpha = 0.2f))
-                    .clickable(onClick = viewModel::addMinuteToRest)
-                    .padding(horizontal = 28.dp, vertical = 12.dp)
+                modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.15f))
+                    .clickable(onClick = viewModel::addMinuteToRest).padding(horizontal = 16.dp, vertical = 11.dp)
             )
+            Text(
+                "Skip", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White,
+                modifier = Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.25f))
+                    .clickable(onClick = viewModel::skipRest).padding(horizontal = 16.dp, vertical = 11.dp)
+            )
+        }
+        Box(Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.1f))) {
+            Box(Modifier.fillMaxWidth(animated.coerceIn(0f, 1f)).fillMaxSize().background(TrackstarAccent, RoundedCornerShape(50)))
         }
     }
 }

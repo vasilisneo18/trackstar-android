@@ -112,7 +112,10 @@ class MainActivity : ComponentActivity() {
         val activityDemo = if (BuildConfig.DEBUG) intent.getStringExtra("activityDemo") else null
         setContent {
             if (activityDemo != null) {
-                TrackstarTheme { com.vasilisneo.trackstar.ui.screens.main.activity.ActivityDemo(activityDemo, intent.getIntExtra("demoSteps", 0).takeIf { it > 0 }) }
+                TrackstarTheme {
+                    if (activityDemo == "session") com.vasilisneo.trackstar.ui.screens.main.activity.SessionDemo(intent.getIntExtra("logSets", 0))
+                    else com.vasilisneo.trackstar.ui.screens.main.activity.ActivityDemo(activityDemo, intent.getIntExtra("demoSteps", 0).takeIf { it > 0 })
+                }
                 return@setContent
             }
             TrackstarTheme {

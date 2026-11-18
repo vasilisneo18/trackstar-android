@@ -60,7 +60,7 @@ fun AddExerciseRowButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
-        modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Color.White.copy(alpha = 0.08f))
+        modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
             .clickable(onClick = onClick).padding(vertical = 14.dp),
     ) {
         Icon(Icons.Filled.Add, contentDescription = null, tint = Color.White.copy(alpha = 0.8f), modifier = Modifier.size(18.dp))

@@ -49,6 +49,8 @@ data class LoggedSet(
 class ActiveSessionViewModel(
     private val date: LocalDate,
     private val sessionId: String,
+    /** Debug harness only (see ActivityDemo): these exercises instead of loading the plan. */
+    demoExercises: List<ExerciseData>? = null,
 ) {
 
     // The planned session this active session was started from — used by the Workout tab to
@@ -81,6 +83,14 @@ class ActiveSessionViewModel(
         private set
     var restSecondsRemaining by mutableStateOf(0)
         private set
+    /** The rest's full length (grows with +1 min) — drives the rest row's progress bar. */
+    var restTotalSeconds by mutableStateOf(0)
+        private set
+    /** The set the current rest follows: the rest row sits under it, or above the next exercise. */
+    var currentRestSetId by mutableStateOf<String?>(null)
+        private set
+    /** When the rest ends (SystemClock.elapsedRealtime), so the countdown can't drift. */
+    private var restEndsAt = 0L
     var isSaving by mutableStateOf(false)
         private set
 
@@ -183,7 +193,11 @@ class ActiveSessionViewModel(
     }
 
     init {
-        scope.launch {
+        if (demoExercises != null) {
+            title = "Push Day"
+            exercises = demoExercises
+            isLoading = false
+        } else scope.launch {
             val weekId = weekIdentifierFor(date)
             when (val result = planRepository.getPlan(weekId)) {
                 is ApiResult.Success -> {
@@ -263,7 +277,7 @@ class ActiveSessionViewModel(
 
         val restSeconds = set.restSeconds ?: 0
         if (restSeconds > 0 && !isSessionComplete) {
-            startRestTimer(restSeconds)
+            startRestTimer(restSeconds, after = setId)
         }
     }
 
@@ -281,7 +295,7 @@ class ActiveSessionViewModel(
 
         val restSeconds = maxOf(setA.restSeconds ?: 0, setB.restSeconds ?: 0)
         if (restSeconds > 0 && !isSessionComplete) {
-            startRestTimer(restSeconds)
+            startRestTimer(restSeconds, after = idB)
         }
     }
 
@@ -295,6 +309,9 @@ class ActiveSessionViewModel(
     var durationRunning by mutableStateOf(false)
         private set
     var durationElapsedSeconds by mutableStateOf(0)
+        private set
+    /** Seconds left on the running timed set — counts down from its planned length (iOS parity). */
+    var durationSecondsLeft by mutableStateOf(0)
         private set
     var durationDone by mutableStateOf(false)
         private set
@@ -332,19 +349,29 @@ class ActiveSessionViewModel(
         }
     }
 
+    /** Counts down from the set's planned length (0:30, 0:29 … 0:01, then "Time's up"), timed
+     *  against the clock so it neither drifts nor stops a second early. Counts up when the planned
+     *  length can't be read. */
     private fun startDurationRunning(set: ExerciseSet) {
         val target = parseDurationSeconds(set.frequencyValue?.duration ?: "")
         durationRunning = true
         durationElapsedSeconds = 0
+        durationSecondsLeft = target
         durationJob?.cancel()
+        val startedAt = android.os.SystemClock.elapsedRealtime()
         durationJob = scope.launch {
             while (true) {
-                delay(1000)
-                durationElapsedSeconds += 1
-                if (target > 0 && durationElapsedSeconds >= target) {
-                    durationRunning = false
-                    durationDone = true
-                    break
+                delay(200)
+                val elapsedMs = android.os.SystemClock.elapsedRealtime() - startedAt
+                durationElapsedSeconds = (elapsedMs / 1000).toInt()
+                if (target > 0) {
+                    durationSecondsLeft = secondsLeft(startedAt + target * 1000L)
+                    if (durationSecondsLeft == 0) {
+                        durationElapsedSeconds = target
+                        durationRunning = false
+                        durationDone = true
+                        break
+                    }
                 }
             }
         }
@@ -379,6 +406,7 @@ class ActiveSessionViewModel(
         durationRunning = false
         durationDone = false
         durationElapsedSeconds = 0
+        durationSecondsLeft = 0
     }
 
     fun skipRest() {
@@ -386,24 +414,38 @@ class ActiveSessionViewModel(
         restJob = null
         isResting = false
         restSecondsRemaining = 0
+        currentRestSetId = null
     }
 
     fun addMinuteToRest() {
-        restSecondsRemaining = minOf(restSecondsRemaining + 60, 3599)
+        if (!isResting || restSecondsRemaining + 60 > 3599) return
+        restEndsAt += 60_000
+        restTotalSeconds += 60
+        restSecondsRemaining = secondsLeft(restEndsAt)
     }
 
-    private fun startRestTimer(seconds: Int) {
+    private fun startRestTimer(seconds: Int, after: String) {
         restJob?.cancel()
         isResting = true
+        currentRestSetId = after
+        restTotalSeconds = seconds
+        restEndsAt = android.os.SystemClock.elapsedRealtime() + seconds * 1000L
         restSecondsRemaining = seconds
         restJob = scope.launch {
-            while (restSecondsRemaining > 0) {
-                delay(1000)
-                restSecondsRemaining -= 1
+            while (true) {
+                delay(200)
+                restSecondsRemaining = secondsLeft(restEndsAt)
+                if (restSecondsRemaining == 0) break
             }
             isResting = false
+            currentRestSetId = null
         }
     }
+
+    /** Whole seconds until `endsAt`, rounded up — so a 3:00 rest reads 3:00, 2:59 … 0:01. The
+     *  small allowance absorbs timer jitter. */
+    private fun secondsLeft(endsAt: Long): Int =
+        maxOf(0, kotlin.math.ceil((endsAt - android.os.SystemClock.elapsedRealtime() - 50) / 1000.0).toInt())
 
     fun finish(onSaved: () -> Unit) {
         if (isSaving) return

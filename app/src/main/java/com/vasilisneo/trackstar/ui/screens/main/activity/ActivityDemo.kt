@@ -3,6 +3,8 @@ package com.vasilisneo.trackstar.ui.screens.main.activity
 // Debug-only harness (like iOS's -activityDemo): opens a sample activity's detail without signing in.
 //   adb shell am start -n com.vasilisneo.trackstar/.MainActivity --es activityDemo run|walk|hike [--ei demoSteps 6240]
 // Tapping Share shows the drawn image full screen instead of opening the share sheet.
+//   ... --es activityDemo session [--ei logSets N]: a sample workout (180 s rests, a timed plank),
+//   with the first N sets logged after 1.5 s.
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
@@ -60,4 +62,25 @@ private fun sample(type: String): RecordedActivity {
         polyline = Polyline.encode(route),
         splits = (1..5).map { ActivitySplit(1000.0, 310 + it * 4) },
     )
+}
+
+@Composable
+fun SessionDemo(logSets: Int) {
+    val vm = remember {
+        fun set(id: String, reps: Int? = null, duration: String? = null, weight: String? = null) =
+            com.vasilisneo.trackstar.data.api.ExerciseSet(id, com.vasilisneo.trackstar.data.api.FrequencyValue(reps = reps, duration = duration),
+                com.vasilisneo.trackstar.data.api.ResistanceValue(weight = weight), restSeconds = 180, setType = null, repsMax = null)
+        fun exercise(id: String, name: String, sets: List<com.vasilisneo.trackstar.data.api.ExerciseSet>) =
+            com.vasilisneo.trackstar.data.api.ExerciseData(id, name, sets, null, null, com.vasilisneo.trackstar.data.api.ResistanceUnit(weight = "KG"), null)
+        com.vasilisneo.trackstar.ui.screens.main.workout.ActiveSessionViewModel(LocalDate.now(), "demo", listOf(
+            exercise("e1", "Bench Press", listOf(set("s1", 8, weight = "80"), set("s2", 8, weight = "80"))),
+            exercise("e2", "Plank", listOf(set("s3", duration = "30 sec"), set("s4", duration = "30 sec"))),
+            exercise("e3", "Dips", listOf(set("s5", 10), set("s6", 10))),
+        ))
+    }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(1500)
+        vm.exercises.flatMap { it.sets.orEmpty() }.take(logSets).forEach { vm.completeSet(it, it.frequencyValue?.reps, it.resistanceValue?.weight, it.frequencyValue?.duration) }
+    }
+    com.vasilisneo.trackstar.ui.screens.main.workout.ActiveSessionScreen(viewModel = vm, onMinimize = {}, onDiscard = {}, onFinish = {})
 }
