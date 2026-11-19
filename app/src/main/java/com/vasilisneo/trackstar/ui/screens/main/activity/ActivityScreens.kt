@@ -57,7 +57,7 @@ import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Route
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material.icons.filled.Snowboarding
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.AlertDialog
@@ -866,7 +866,7 @@ fun ActivityDetailContent(
             Box(Modifier.size(44.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.55f)).clickable(onClick = share),
                 contentAlignment = Alignment.Center) {
                 if (preparingShare) com.vasilisneo.trackstar.ui.components.LoadingCircle(Color.White, size = 18.dp)
-                else Icon(Icons.Filled.Share, contentDescription = tr("Share"), tint = Color.White, modifier = Modifier.size(18.dp))
+                else Icon(Icons.Filled.IosShare, contentDescription = tr("Share"), tint = Color.White, modifier = Modifier.size(18.dp))
             }
         }
         if (isNew) {

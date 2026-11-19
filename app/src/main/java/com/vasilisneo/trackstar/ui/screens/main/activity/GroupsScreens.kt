@@ -43,7 +43,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Sensors
-import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.IosShare
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -637,7 +637,7 @@ private fun GroupInviteDialog(groupId: String, name: String, initialLink: String
                         .putExtra(Intent.EXTRA_TEXT, trf("Join my group \"%s\" on Trackstar", name) + "\n" + link)
                     context.startActivity(Intent.createChooser(send, null))
                 }) {
-                Icon(Icons.Filled.Share, null, tint = Color.Black, modifier = Modifier.size(18.dp))
+                Icon(Icons.Filled.IosShare, null, tint = Color.Black, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text("Share link", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
             }
