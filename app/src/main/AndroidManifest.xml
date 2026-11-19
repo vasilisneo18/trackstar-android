@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- The buzz when the rest timer runs out. -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Read connectivity state so ConnectivityMonitor can tell online from offline (drives the
          cached-data banner and offline-write sync). -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />

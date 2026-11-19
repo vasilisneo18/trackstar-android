@@ -454,6 +454,8 @@ class ActiveSessionViewModel(
             }
             isResting = false
             currentRestSetId = null
+            // Ran out (Skip cancels this job, so skipping stays quiet).
+            com.vasilisneo.trackstar.data.workout.RestAlert.play()
         }
     }
 
