@@ -1,7 +1,7 @@
 package com.vasilisneo.trackstar.ui.screens.main.workout
 
-// Bottom sheet to log a set's actual performance. Mirrors iOS's LogSetSheet.swift closely: dark
-// solid background, a big reps stepper (circular -/+ buttons either side of a large monospaced
+// Bottom sheet to log a set's actual performance. Mirrors iOS's LogSetSheet.swift closely: the
+// theme background, a big reps stepper (circular -/+ buttons either side of a large monospaced
 // count), a labeled weight/duration/distance row, and a green "Log Set" pill + "Cancel" text
 // button. Native Android bottom sheet container (ModalBottomSheet), not a literal SwiftUI sheet.
 
@@ -25,7 +25,6 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import com.vasilisneo.trackstar.ui.components.TrackstarBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -45,8 +44,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.vasilisneo.trackstar.data.api.ExerciseSet
 import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
+import com.vasilisneo.trackstar.ui.theme.trackstarBackground
+import com.vasilisneo.trackstar.ui.components.EndCursorTextField
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 
-private val SheetBackground = Color(0xFF0D0D1F)
 private val RowBackground = Color.White.copy(alpha = 0.07f)
 private val CompletedGreen = Color(0xFF34C759)
 
@@ -55,6 +58,8 @@ private val CompletedGreen = Color(0xFF34C759)
 fun LogSetSheet(
     exerciseName: String,
     set: ExerciseSet,
+    /** What was logged, when correcting a logged set; null logs the planned values. */
+    initial: LoggedSet? = null,
     onLog: (reps: Int?, weight: String?, durationText: String?, distanceText: String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -62,17 +67,34 @@ fun LogSetSheet(
     val isDuration = set.frequencyValue?.duration != null
     val isDistance = set.frequencyValue?.distance != null
 
-    var repCount by remember { mutableStateOf(set.frequencyValue?.reps ?: 0) }
-    var weightText by remember { mutableStateOf(set.resistanceValue?.weight ?: "") }
-    var durationText by remember { mutableStateOf(set.frequencyValue?.duration ?: "") }
-    var distanceText by remember { mutableStateOf(set.frequencyValue?.distance ?: "") }
+    val freq = initial?.frequencyValue ?: set.frequencyValue
+    val res = initial?.resistanceValue ?: set.resistanceValue
+    var repCount by remember { mutableStateOf(freq?.reps ?: 0) }
+    var weightText by remember { mutableStateOf(res?.weight ?: "") }
+    var durationText by remember { mutableStateOf(freq?.duration ?: "") }
+    var distanceText by remember { mutableStateOf(freq?.distance ?: "") }
 
     TrackstarBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = SheetBackground,
+        // The theme's background, like the session screen behind it.
+        containerColor = Color.Transparent,
+        dragHandle = null,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                .trackstarBackground()
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(horizontal = 20.dp)
+        ) {
+            Box(
+                modifier = Modifier.padding(top = 12.dp, bottom = 20.dp).size(width = 40.dp, height = 4.dp)
+                    .clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.2f)).align(Alignment.CenterHorizontally)
+            )
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(bottom = 28.dp)) {
                 Text("Set", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 Spacer(modifier = Modifier.padding(top = 4.dp))
@@ -184,11 +206,10 @@ private fun LabeledTextField(
     ) {
         Text(label, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.55f))
         Spacer(modifier = Modifier.weight(1f))
-        OutlinedTextField(
+        EndCursorTextField(
             value = value,
             onValueChange = onValueChange,
             placeholder = { Text(placeholder, color = Color.White.copy(alpha = 0.3f)) },
-            singleLine = true,
             textStyle = androidx.compose.ui.text.TextStyle(
                 fontSize = 20.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace,
                 color = Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.End,

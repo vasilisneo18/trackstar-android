@@ -65,6 +65,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.filled.Link
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import com.vasilisneo.trackstar.data.api.ExerciseData
@@ -87,6 +88,10 @@ fun ActiveSessionScreen(
     var loggingRound by remember { mutableStateOf<Triple<ExerciseData, ExerciseData, Int>?>(null) }
     var showExitDialog by remember { mutableStateOf(false) }
     var addingExercise by remember { mutableStateOf(false) }
+    // A logged (or skipped) set being corrected.
+    var editingSet by remember { mutableStateOf<ExerciseSet?>(null) }
+    // Completed exercises opened to show (and edit) their sets.
+    var expandedCompleted by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     Box(modifier = Modifier.fillMaxSize().trackstarBackground()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -122,11 +127,16 @@ fun ActiveSessionScreen(
                                     isResting = viewModel.isResting,
                                     restAfterSetId = viewModel.currentRestSetId,
                                     restRow = { standalone -> RestRow(viewModel, standalone) },
+                                    loggedSets = viewModel.loggedSets,
                                     onSetClick = { set ->
-                                        // Timed sets (duration) go through the duration helper
-                                        // card, not the numeric LogSetSheet.
-                                        if (set.frequencyValue?.duration != null) viewModel.openDurationHelper(set)
-                                        else loggingSet = current.exercise to set
+                                        when {
+                                            // A logged set opens to be corrected.
+                                            viewModel.isHandled(set.id) -> editingSet = set
+                                            // Timed sets (duration) go through the duration helper
+                                            // card, not the numeric LogSetSheet.
+                                            set.frequencyValue?.duration != null -> viewModel.openDurationHelper(set)
+                                            else -> loggingSet = current.exercise to set
+                                        }
                                     }
                                 )
                             }
@@ -160,7 +170,16 @@ fun ActiveSessionScreen(
                                     is ExerciseDisplayUnit.Single -> unit.exercise.sets.orEmpty()
                                     is ExerciseDisplayUnit.Pair -> unit.a.sets.orEmpty() + unit.b.sets.orEmpty()
                                 }
-                                CompletedRow(unit = unit, skipped = viewModel.isAllSkipped(sets))
+                                val expanded = unit.id in expandedCompleted
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    // Tap to open its sets — a logged set can still be corrected from there.
+                                    CompletedRow(unit = unit, skipped = viewModel.isAllSkipped(sets), expanded = expanded, onClick = {
+                                        expandedCompleted = if (expanded) expandedCompleted - unit.id else expandedCompleted + unit.id
+                                    })
+                                    androidx.compose.animation.AnimatedVisibility(visible = expanded) {
+                                        CompletedSets(unit = unit, viewModel = viewModel, onSetClick = { editingSet = it })
+                                    }
+                                }
                             }
                         }
                         // An exercise that isn't in the plan — logged here and added to the plan too.
@@ -199,6 +218,20 @@ fun ActiveSessionScreen(
                 loggingSet = null
             },
             onDismiss = { loggingSet = null },
+        )
+    }
+
+    val editing = editingSet
+    if (editing != null) {
+        LogSetSheet(
+            exerciseName = "",
+            set = editing,
+            initial = viewModel.loggedSets[editing.id],
+            onLog = { reps, weight, durationText, distanceText ->
+                viewModel.updateLoggedSet(editing, reps, weight, durationText, distanceText)
+                editingSet = null
+            },
+            onDismiss = { editingSet = null },
         )
     }
 
@@ -328,6 +361,7 @@ private fun ProgressSection(viewModel: ActiveSessionViewModel) {
 private fun CurrentExerciseSection(
     exercise: ExerciseData, loggedSetIds: Set<String>, skippedSetIds: Set<String>, currentSetId: String?,
     isResting: Boolean, restAfterSetId: String?, restRow: @Composable (standalone: Boolean) -> Unit,
+    loggedSets: Map<String, LoggedSet>,
     onSetClick: (ExerciseSet) -> Unit, onSkipExercise: () -> Unit,
 ) {
     val isDuration = exercise.sets?.firstOrNull()?.frequencyValue?.duration != null
@@ -358,6 +392,7 @@ private fun CurrentExerciseSection(
                     set = set,
                     isLogged = logged,
                     isSkipped = skippedSetIds.contains(set.id),
+                    actual = loggedSets[set.id],
                     isCurrent = !logged && set.id == currentSetId,
                     isResting = isResting,
                     onClick = { onSetClick(set) },
@@ -494,7 +529,9 @@ private fun BoxScope.ActiveSetHighlight(flashing: Boolean) {
 }
 
 @Composable
-private fun SetRow(index: Int, set: ExerciseSet, isLogged: Boolean, isSkipped: Boolean = false, isCurrent: Boolean, isResting: Boolean, onClick: () -> Unit) {
+private fun SetRow(index: Int, set: ExerciseSet, isLogged: Boolean, isSkipped: Boolean = false, actual: LoggedSet? = null, isCurrent: Boolean, isResting: Boolean, onClick: () -> Unit) {
+    // A logged set shows what was logged, not what was planned.
+    val shown = if (actual != null) set.copy(frequencyValue = actual.frequencyValue, resistanceValue = actual.resistanceValue) else set
     Box(modifier = Modifier.fillMaxWidth()) {
         // The active set flashes; nothing is highlighted while resting (the next set waits for the rest).
         val highlighted = isCurrent && !isResting
@@ -503,8 +540,8 @@ private fun SetRow(index: Int, set: ExerciseSet, isLogged: Boolean, isSkipped: B
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
-                // A skipped set can still be logged — but nothing is logged while resting.
-                .clickable(enabled = (!isLogged || isSkipped) && !isResting, onClick = onClick)
+                // A logged or skipped set can be corrected any time; the next set waits for the rest.
+                .clickable(enabled = isLogged || !isResting, onClick = onClick)
                 .padding(horizontal = 16.dp, vertical = 18.dp)
         ) {
             Box(
@@ -536,19 +573,21 @@ private fun SetRow(index: Int, set: ExerciseSet, isLogged: Boolean, isSkipped: B
                 Text("Skipped", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = Color.White.copy(alpha = 0.3f), modifier = Modifier.weight(1f))
             } else {
                 Text(
-                    set.repsOrDurationText(),
+                    shown.repsOrDurationText(),
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Normal,
                     color = Color.White.copy(alpha = if (isLogged) 0.3f else 1f),
                     modifier = Modifier.weight(1f)
                 )
                 Text(
-                    set.weightText(),
+                    shown.weightText(),
                     fontSize = 17.sp,
                     color = Color.White.copy(alpha = if (isLogged) 0.3f else 1f)
                 )
             }
-            if (!isLogged) {
+            if (isLogged) {
+                Icon(Icons.Filled.Edit, contentDescription = tr("Edit"), tint = Color.White.copy(alpha = 0.25f), modifier = Modifier.size(15.dp).padding(start = 4.dp))
+            } else {
                 Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = Color.White.copy(alpha = if (highlighted) 0.6f else 0.35f), modifier = Modifier.size(16.dp).padding(start = 8.dp))
             }
         }
@@ -575,8 +614,8 @@ private fun UpNextRow(unit: ExerciseDisplayUnit, done: Int, total: Int) {
 }
 
 @Composable
-private fun CompletedRow(unit: ExerciseDisplayUnit, skipped: Boolean = false) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+private fun CompletedRow(unit: ExerciseDisplayUnit, skipped: Boolean = false, expanded: Boolean, onClick: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 4.dp)) {
         Box(modifier = Modifier.size(34.dp).clip(CircleShape).background(if (skipped) Color.White.copy(alpha = 0.08f) else CompletedGreen.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
             if (skipped) Icon(Icons.Filled.FastForward, contentDescription = null, tint = Color.White.copy(alpha = 0.35f), modifier = Modifier.size(14.dp))
             else Icon(Icons.Filled.Check, contentDescription = null, tint = CompletedGreen, modifier = Modifier.size(14.dp))
@@ -585,6 +624,38 @@ private fun CompletedRow(unit: ExerciseDisplayUnit, skipped: Boolean = false) {
         Column {
             Text(unitName(unit), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.35f))
             Text(if (skipped) tr("Skipped") else unitSummary(unit), fontSize = 12.sp, color = Color.White.copy(alpha = 0.2f))
+        }
+        Spacer(modifier = Modifier.weight(1f))
+        Icon(
+            if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown, contentDescription = null,
+            tint = Color.White.copy(alpha = 0.3f), modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
+/** A completed exercise's sets, opened from the Completed list; tapping one corrects it. */
+@Composable
+private fun CompletedSets(unit: ExerciseDisplayUnit, viewModel: ActiveSessionViewModel, onSetClick: (ExerciseSet) -> Unit) {
+    val groups: List<Pair<String?, List<ExerciseSet>>> = when (unit) {
+        is ExerciseDisplayUnit.Single -> listOf(null to unit.exercise.sets.orEmpty())
+        is ExerciseDisplayUnit.Pair -> listOf(unit.a.name to unit.a.sets.orEmpty(), unit.b.name to unit.b.sets.orEmpty())
+    }
+    Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color.White.copy(alpha = 0.06f))) {
+        groups.forEach { (name, sets) ->
+            if (name != null) {
+                Text(name, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF64D2FF).copy(alpha = 0.85f),
+                    modifier = Modifier.padding(start = 20.dp, top = 12.dp))
+            }
+            sets.forEachIndexed { index, set ->
+                SetRow(
+                    index = index + 1, set = set,
+                    isLogged = viewModel.isHandled(set.id),
+                    isSkipped = viewModel.skippedSetIds.contains(set.id),
+                    actual = viewModel.loggedSets[set.id],
+                    isCurrent = false, isResting = viewModel.isResting,
+                    onClick = { onSetClick(set) },
+                )
+            }
         }
     }
 }

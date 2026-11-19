@@ -26,7 +26,11 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import com.vasilisneo.trackstar.ui.components.TrackstarBottomSheet
-import androidx.compose.material3.OutlinedTextField
+import com.vasilisneo.trackstar.ui.components.EndCursorTextField
+import com.vasilisneo.trackstar.ui.theme.trackstarBackground
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -47,7 +51,6 @@ import androidx.compose.ui.unit.sp
 import com.vasilisneo.trackstar.data.api.ExerciseSet
 import com.vasilisneo.trackstar.ui.theme.TrackstarAccent
 
-private val SheetBackground = Color(0xFF0D0D1F)
 private val RowBackground = Color.White.copy(alpha = 0.07f)
 private val CompletedGreen = Color(0xFF34C759)
 
@@ -66,8 +69,25 @@ fun LogCompoundSetSheet(
     var repsB by remember { mutableStateOf(setB.frequencyValue?.reps ?: 0) }
     var weightB by remember { mutableStateOf(setB.resistanceValue?.weight ?: "") }
 
-    TrackstarBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState, containerColor = SheetBackground) {
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+    TrackstarBottomSheet(
+        onDismissRequest = onDismiss, sheetState = sheetState,
+        // The theme's background, like the session screen behind it.
+        containerColor = Color.Transparent, dragHandle = null,
+        contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                .trackstarBackground()
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(horizontal = 20.dp)
+        ) {
+            Box(
+                modifier = Modifier.padding(top = 12.dp, bottom = 20.dp).size(width = 40.dp, height = 4.dp)
+                    .clip(RoundedCornerShape(2.dp)).background(Color.White.copy(alpha = 0.2f)).align(Alignment.CenterHorizontally)
+            )
             Text(trf("Round %s", round), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White, modifier = Modifier.padding(bottom = 20.dp))
 
             CompoundExerciseBlock(name = nameA, reps = repsA, onRepsChange = { repsA = it }, weight = weightA, onWeightChange = { weightA = it })
@@ -120,11 +140,10 @@ private fun CompoundExerciseBlock(name: String, reps: Int, onRepsChange: (Int) -
                 contentAlignment = Alignment.Center
             ) { Icon(Icons.Filled.Add, contentDescription = "Increase", tint = Color.White, modifier = Modifier.size(12.dp)) }
             Spacer(modifier = Modifier.padding(start = 14.dp))
-            OutlinedTextField(
+            EndCursorTextField(
                 value = weight,
                 onValueChange = onWeightChange,
                 placeholder = { Text("kg", color = Color.White.copy(alpha = 0.3f)) },
-                singleLine = true,
                 textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.End),
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color.Transparent, unfocusedBorderColor = Color.Transparent, cursorColor = TrackstarAccent),

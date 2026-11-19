@@ -281,6 +281,21 @@ class ActiveSessionViewModel(
         }
     }
 
+    /** Corrects a set that's already logged or skipped — no rest, nothing else moves. iOS: updateLoggedSet. */
+    fun updateLoggedSet(set: ExerciseSet, reps: Int?, weight: String?, durationText: String?, distanceText: String? = null) {
+        val setId = set.id ?: return
+        if (!isHandled(setId)) return
+        skippedSetIds = skippedSetIds - setId   // logging a skipped set after all
+        val freq = when {
+            durationText != null -> FrequencyValue(duration = durationText)
+            distanceText != null -> FrequencyValue(distance = distanceText)
+            reps != null -> FrequencyValue(reps = reps)
+            else -> FrequencyValue()
+        }
+        val resistance = if (!weight.isNullOrBlank()) ResistanceValue(weight = weight) else ResistanceValue()
+        loggedSets = loggedSets + (setId to LoggedSet(freq, resistance))
+    }
+
     // Logs both halves of a superset round at once — mirrors completeCompoundRound on iOS.
     // Rest is shared: a single timer for max(setA.restSeconds, setB.restSeconds), not two.
     fun completeCompoundRound(setA: ExerciseSet, repsA: Int?, weightA: String?, setB: ExerciseSet, repsB: Int?, weightB: String?) {
