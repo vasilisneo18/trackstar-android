@@ -32,7 +32,7 @@ class TrackstarApplication : Application() {
         // runs, so cache-then-network reads and the offline banner work from the first frame.
         com.vasilisneo.trackstar.ui.i18n.I18n.init(this)
         LocalStore.init(this)
-        com.vasilisneo.trackstar.data.workout.RestAlert.init(this)
+        com.vasilisneo.trackstar.data.workout.WorkoutSounds.init(this)
         com.vasilisneo.trackstar.data.activity.ActivityStore.init(this)
         com.vasilisneo.trackstar.data.activity.PisteMapStore.init(this)
         com.vasilisneo.trackstar.data.activity.TrailMapStore.init(this)

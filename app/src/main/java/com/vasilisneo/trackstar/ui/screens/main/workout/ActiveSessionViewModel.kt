@@ -360,6 +360,7 @@ class ActiveSessionViewModel(
                 durationCountdown = c
             }
             durationCountdown = null
+            com.vasilisneo.trackstar.data.workout.WorkoutSounds.timedSetStart()
             startDurationRunning(set)
         }
     }
@@ -385,6 +386,7 @@ class ActiveSessionViewModel(
                         durationElapsedSeconds = target
                         durationRunning = false
                         durationDone = true
+                        com.vasilisneo.trackstar.data.workout.WorkoutSounds.timedSetDone()
                         break
                     }
                 }
@@ -455,7 +457,7 @@ class ActiveSessionViewModel(
             isResting = false
             currentRestSetId = null
             // Ran out (Skip cancels this job, so skipping stays quiet).
-            com.vasilisneo.trackstar.data.workout.RestAlert.play()
+            com.vasilisneo.trackstar.data.workout.WorkoutSounds.restOver()
         }
     }
 
