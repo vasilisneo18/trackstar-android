@@ -64,20 +64,23 @@ private fun sample(type: String): RecordedActivity {
     )
 }
 
-@Composable
-fun SessionDemo(logSets: Int) {
-    val vm = remember {
+/** The sample workout used by the session demos. */
+fun demoSessionViewModel(): com.vasilisneo.trackstar.ui.screens.main.workout.ActiveSessionViewModel {
         fun set(id: String, reps: Int? = null, duration: String? = null, weight: String? = null) =
             com.vasilisneo.trackstar.data.api.ExerciseSet(id, com.vasilisneo.trackstar.data.api.FrequencyValue(reps = reps, duration = duration),
                 com.vasilisneo.trackstar.data.api.ResistanceValue(weight = weight), restSeconds = 180, setType = null, repsMax = null)
         fun exercise(id: String, name: String, sets: List<com.vasilisneo.trackstar.data.api.ExerciseSet>) =
             com.vasilisneo.trackstar.data.api.ExerciseData(id, name, sets, null, null, com.vasilisneo.trackstar.data.api.ResistanceUnit(weight = "KG"), null)
-        com.vasilisneo.trackstar.ui.screens.main.workout.ActiveSessionViewModel(LocalDate.now(), "demo", listOf(
+        return com.vasilisneo.trackstar.ui.screens.main.workout.ActiveSessionViewModel(LocalDate.now(), "demo", listOf(
             exercise("e1", "Bench Press", listOf(set("s1", 8, weight = "80"), set("s2", 8, weight = "80"))),
             exercise("e2", "Plank", listOf(set("s3", duration = "30 sec"), set("s4", duration = "30 sec"))),
             exercise("e3", "Dips", listOf(set("s5", 10), set("s6", 10))),
         ))
-    }
+}
+
+@Composable
+fun SessionDemo(logSets: Int) {
+    val vm = remember { demoSessionViewModel() }
     androidx.compose.runtime.LaunchedEffect(Unit) {
         kotlinx.coroutines.delay(1500)
         vm.exercises.flatMap { it.sets.orEmpty() }.take(logSets).forEach { vm.completeSet(it, it.frequencyValue?.reps, it.resistanceValue?.weight, it.frequencyValue?.duration) }

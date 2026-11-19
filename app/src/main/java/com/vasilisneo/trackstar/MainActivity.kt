@@ -110,8 +110,13 @@ class MainActivity : ComponentActivity() {
         // app (mirrors MasterCoordinator.start() on iOS), otherwise start at Landing.
         val startDestination = if (TokenStore(this).isLoggedIn) "main" else "landing"
         val activityDemo = if (BuildConfig.DEBUG) intent.getStringExtra("activityDemo") else null
+        // Debug: the demo workout inside the real app (minimize / mini-bar / discard checks).
+        if (activityDemo == "sessionInApp" && savedInstanceState == null) {
+            com.vasilisneo.trackstar.data.workout.ActiveWorkout.session = com.vasilisneo.trackstar.ui.screens.main.activity.demoSessionViewModel()
+            com.vasilisneo.trackstar.data.workout.ActiveWorkout.showFull = true
+        }
         setContent {
-            if (activityDemo != null) {
+            if (activityDemo != null && activityDemo != "sessionInApp") {
                 TrackstarTheme {
                     if (activityDemo == "session") com.vasilisneo.trackstar.ui.screens.main.activity.SessionDemo(intent.getIntExtra("logSets", 0))
                     else com.vasilisneo.trackstar.ui.screens.main.activity.ActivityDemo(activityDemo, intent.getIntExtra("demoSteps", 0).takeIf { it > 0 })
@@ -132,6 +137,7 @@ class MainActivity : ComponentActivity() {
                             // Already at Landing (a prior expiry signal handled it) — don't navigate
                             // again, which would replay the transition and stack extra entries.
                             if (navController.currentDestination?.route != "landing") {
+                                com.vasilisneo.trackstar.data.workout.ActiveWorkout.clear()
                                 navController.navigate("landing") {
                                     popUpTo(navController.graph.id) { inclusive = true }
                                     launchSingleTop = true
@@ -359,6 +365,7 @@ class MainActivity : ComponentActivity() {
                             ProfileScreen(
                                 onBackClick = { navController.popBackStack() },
                                 onLogout = {
+                                    com.vasilisneo.trackstar.data.workout.ActiveWorkout.clear()
                                     navController.navigate("landing") {
                                         popUpTo("landing") { inclusive = true }
                                     }

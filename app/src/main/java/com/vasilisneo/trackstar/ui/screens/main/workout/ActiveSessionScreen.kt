@@ -87,6 +87,8 @@ fun ActiveSessionScreen(
     var loggingSet by remember { mutableStateOf<Pair<ExerciseData, ExerciseSet>?>(null) }
     var loggingRound by remember { mutableStateOf<Triple<ExerciseData, ExerciseData, Int>?>(null) }
     var showExitDialog by remember { mutableStateOf(false) }
+    // Back minimizes, like the chevron — the workout keeps running in the mini-bar.
+    androidx.activity.compose.BackHandler(onBack = onMinimize)
     var addingExercise by remember { mutableStateOf(false) }
     // A logged (or skipped) set being corrected.
     var editingSet by remember { mutableStateOf<ExerciseSet?>(null) }

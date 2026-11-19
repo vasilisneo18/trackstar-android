@@ -15,6 +15,7 @@ package com.vasilisneo.trackstar.ui.screens.main
 // approximates .ultraThinMaterial the same way those do.
 
 import androidx.compose.animation.AnimatedVisibility
+import com.vasilisneo.trackstar.data.workout.ActiveWorkout
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -163,12 +164,11 @@ fun MainAppScreen(
     // too). Matches iOS, which gates the Book card only on coachBookingEnabled.
     val showBookEntry = coachBookingEnabled
 
-    // Active session is owned here (not inside the Workout tab or a nav route) so it survives
-    // being minimized: the full-screen UI dismisses to a mini-bar while the session keeps
-    // running, mirroring iOS where ActiveSessionViewModel outlives its fullScreenCover. The
-    // full-screen surfaces render above the floating tab bar, like iOS's fullScreenCover.
-    var activeSession by remember { mutableStateOf<ActiveSessionViewModel?>(null) }
-    var showActiveFull by remember { mutableStateOf(false) }
+    // The active session lives in ActiveWorkout (app-wide), so it survives being minimized and
+    // this screen leaving composition when a route opens on top. The full-screen surfaces render
+    // above the floating tab bar, like iOS's fullScreenCover.
+    var activeSession by ActiveWorkout::session
+    var showActiveFull by ActiveWorkout::showFull
     var quickLog by remember { mutableStateOf<QuickLogViewModel?>(null) }
     // Bumped whenever a session is saved, so the Workout tab re-fetches its completed sessions.
     var workoutRefreshKey by remember { mutableIntStateOf(0) }
@@ -268,15 +268,9 @@ fun MainAppScreen(
                 ActiveSessionScreen(
                     viewModel = session,
                     onMinimize = { showActiveFull = false },
-                    onDiscard = {
-                        showActiveFull = false
-                        session.dispose()
-                        activeSession = null
-                    },
+                    onDiscard = { ActiveWorkout.clear() },
                     onFinish = {
-                        showActiveFull = false
-                        session.dispose()
-                        activeSession = null
+                        ActiveWorkout.clear()
                         workoutRefreshKey++
                     },
                 )
