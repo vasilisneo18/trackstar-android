@@ -40,7 +40,7 @@ fun ActivityDemo(type: String, steps: Int?) {
     }
     val activity = remember(type) { sample(type) }
     Box(Modifier.fillMaxSize()) {
-        ActivityDetailContent(activity = activity, isNew = false, onDelete = {}, onClose = {})
+        ActivityDetailDialog(activity = activity, onClose = {})
         image?.let {
             Box(Modifier.fillMaxSize().background(Color.Black).clickable { image = null }) {
                 Image(it.asImageBitmap(), null, modifier = Modifier.fillMaxSize().padding(20.dp))
