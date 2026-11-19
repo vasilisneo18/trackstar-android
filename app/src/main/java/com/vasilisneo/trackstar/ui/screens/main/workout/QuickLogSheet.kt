@@ -226,8 +226,8 @@ fun QuickLogSheet(viewModel: QuickLogViewModel, onClose: () -> Unit, onFinished:
         LogSetSheet(
             exerciseName = exercise.name ?: "Exercise",
             set = set,
-            onLog = { reps, weight, durationText, distanceText ->
-                viewModel.logSet(set, reps, weight, durationText, distanceText)
+            onLog = { reps, weight, durationText, distanceText, note ->
+                viewModel.logSet(set, reps, weight, durationText, distanceText, note)
                 loggingSet = null
             },
             onDismiss = { loggingSet = null },
@@ -244,9 +244,9 @@ fun QuickLogSheet(viewModel: QuickLogViewModel, onClose: () -> Unit, onFinished:
                 round = round + 1,
                 nameA = exerciseA.name ?: "Exercise", setA = setA,
                 nameB = exerciseB.name ?: "Exercise", setB = setB,
-                onLog = { repsA, weightA, repsB, weightB ->
-                    viewModel.logSet(setA, repsA, weightA, null, null)
-                    viewModel.logSet(setB, repsB, weightB, null, null)
+                onLog = { repsA, weightA, repsB, weightB, note ->
+                    viewModel.logSet(setA, repsA, weightA, null, null, note)
+                    viewModel.logSet(setB, repsB, weightB, null, null, note)
                     loggingRound = null
                 },
                 onDismiss = { loggingRound = null },

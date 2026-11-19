@@ -25,7 +25,9 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import com.vasilisneo.trackstar.ui.components.TrackstarBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.foundation.layout.widthIn
 import com.vasilisneo.trackstar.ui.i18n.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -60,7 +62,9 @@ fun LogSetSheet(
     set: ExerciseSet,
     /** What was logged, when correcting a logged set; null logs the planned values. */
     initial: LoggedSet? = null,
-    onLog: (reps: Int?, weight: String?, durationText: String?, distanceText: String?) -> Unit,
+    /** The set's note so far, when correcting a logged set. */
+    initialNote: String = "",
+    onLog: (reps: Int?, weight: String?, durationText: String?, distanceText: String?, note: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState()
@@ -73,6 +77,7 @@ fun LogSetSheet(
     var weightText by remember { mutableStateOf(res?.weight ?: "") }
     var durationText by remember { mutableStateOf(freq?.duration ?: "") }
     var distanceText by remember { mutableStateOf(freq?.distance ?: "") }
+    var note by remember { mutableStateOf(initialNote) }
 
     TrackstarBottomSheet(
         onDismissRequest = onDismiss,
@@ -112,7 +117,10 @@ fun LogSetSheet(
 
                 if (!isDuration && !isDistance) {
                     LabeledTextField("Weight (kg)", weightText, { weightText = it }, "0", KeyboardType.Decimal)
+                    Spacer(modifier = Modifier.padding(top = 12.dp))
                 }
+
+                LogNoteField(note) { note = it }
             }
 
             Spacer(modifier = Modifier.padding(top = 24.dp))
@@ -127,9 +135,9 @@ fun LogSetSheet(
                     .background(CompletedGreen)
                     .clickable {
                         when {
-                            isDuration -> onLog(null, null, durationText, null)
-                            isDistance -> onLog(null, null, null, distanceText)
-                            else -> onLog(repCount, weightText.ifBlank { null }, null, null)
+                            isDuration -> onLog(null, null, durationText, null, note)
+                            isDistance -> onLog(null, null, null, distanceText, note)
+                            else -> onLog(repCount, weightText.ifBlank { null }, null, null, note)
                         }
                     }
             ) {
@@ -185,6 +193,43 @@ private fun RepStepper(count: Int, onDecrement: () -> Unit, onIncrement: () -> U
                 Icon(Icons.Filled.Add, contentDescription = "Increase", tint = Color.White, modifier = Modifier.size(17.dp))
             }
         }
+    }
+}
+
+/** "Note" row — an optional free-text note saved with the set (iOS: LogSetSheet.noteField). */
+@Composable
+internal fun LogNoteField(note: String, onNoteChange: (String) -> Unit) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(RowBackground)
+            .padding(start = 20.dp, end = 4.dp, top = 4.dp, bottom = 4.dp)
+    ) {
+        Text("Note", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White.copy(alpha = 0.55f))
+        Spacer(modifier = Modifier.weight(1f))
+        OutlinedTextField(
+            value = note,
+            onValueChange = onNoteChange,
+            placeholder = {
+                Text("Optional note…", color = Color.White.copy(alpha = 0.3f), fontSize = 15.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.End, modifier = Modifier.fillMaxWidth())
+            },
+            maxLines = 3,
+            textStyle = androidx.compose.ui.text.TextStyle(
+                fontSize = 15.sp, color = Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            ),
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
+            ),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Color.Transparent,
+                unfocusedBorderColor = Color.Transparent,
+                cursorColor = TrackstarAccent,
+            ),
+            modifier = Modifier.widthIn(max = 240.dp),
+        )
     }
 }
 

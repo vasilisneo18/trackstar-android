@@ -60,7 +60,7 @@ fun LogCompoundSetSheet(
     round: Int,
     nameA: String, setA: ExerciseSet,
     nameB: String, setB: ExerciseSet,
-    onLog: (repsA: Int, weightA: String?, repsB: Int, weightB: String?) -> Unit,
+    onLog: (repsA: Int, weightA: String?, repsB: Int, weightB: String?, note: String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState()
@@ -68,6 +68,7 @@ fun LogCompoundSetSheet(
     var weightA by remember { mutableStateOf(setA.resistanceValue?.weight ?: "") }
     var repsB by remember { mutableStateOf(setB.frequencyValue?.reps ?: 0) }
     var weightB by remember { mutableStateOf(setB.resistanceValue?.weight ?: "") }
+    var note by remember { mutableStateOf("") }
 
     TrackstarBottomSheet(
         onDismissRequest = onDismiss, sheetState = sheetState,
@@ -93,6 +94,8 @@ fun LogCompoundSetSheet(
             CompoundExerciseBlock(name = nameA, reps = repsA, onRepsChange = { repsA = it }, weight = weightA, onWeightChange = { weightA = it })
             Spacer(modifier = Modifier.padding(top = 14.dp))
             CompoundExerciseBlock(name = nameB, reps = repsB, onRepsChange = { repsB = it }, weight = weightB, onWeightChange = { weightB = it })
+            Spacer(modifier = Modifier.padding(top = 14.dp))
+            LogNoteField(note) { note = it }
 
             Spacer(modifier = Modifier.padding(top = 24.dp))
 
@@ -104,7 +107,7 @@ fun LogCompoundSetSheet(
                     .height(54.dp)
                     .clip(RoundedCornerShape(50))
                     .background(CompletedGreen)
-                    .clickable { onLog(repsA, weightA.ifBlank { null }, repsB, weightB.ifBlank { null }) }
+                    .clickable { onLog(repsA, weightA.ifBlank { null }, repsB, weightB.ifBlank { null }, note) }
             ) {
                 Text("Log Round", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = Color.White)
             }

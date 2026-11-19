@@ -53,6 +53,9 @@ class QuickLogViewModel(
         private set
     var skippedSetIds by mutableStateOf<Set<String>>(emptySet())
         private set
+    /** Optional note per set, typed in the log sheet — saved with the set's result. */
+    var setNotes by mutableStateOf<Map<String, String>>(emptyMap())
+        private set
     var bulkLoggedExerciseIds by mutableStateOf<Set<String>>(emptySet())
         private set
 
@@ -112,8 +115,10 @@ class QuickLogViewModel(
         }
     }
 
-    fun logSet(set: ExerciseSet, reps: Int?, weight: String?, durationText: String?, distanceText: String?) {
+    fun logSet(set: ExerciseSet, reps: Int?, weight: String?, durationText: String?, distanceText: String?, note: String = "") {
         val setId = set.id ?: return
+        val trimmed = note.trim()
+        if (trimmed.isNotEmpty()) setNotes = setNotes + (setId to trimmed)
         val freq = when {
             durationText != null -> FrequencyValue(duration = durationText)
             distanceText != null -> FrequencyValue(distance = distanceText)
@@ -190,6 +195,7 @@ class QuickLogViewModel(
                     label = set.quickLogLabel(),
                     actualPerformance = logged?.let { ActualPerformance(it.frequencyValue, it.resistanceValue) },
                     configuredRestSeconds = set.restSeconds ?: 0,
+                    note = set.id?.let { setNotes[it] },
                     setType = set.setType ?: "Normal",
                 )
             }

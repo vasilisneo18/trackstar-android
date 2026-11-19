@@ -213,8 +213,9 @@ fun ActiveSessionScreen(
         LogSetSheet(
             exerciseName = exercise.name ?: "Exercise",
             set = set,
-            onLog = { reps, weight, durationText, distanceText ->
+            onLog = { reps, weight, durationText, distanceText, note ->
                 viewModel.completeSet(set, reps, weight, durationText, distanceText)
+                viewModel.setNote(set, note)
                 loggingSet = null
             },
             onDismiss = { loggingSet = null },
@@ -227,8 +228,10 @@ fun ActiveSessionScreen(
             exerciseName = "",
             set = editing,
             initial = viewModel.loggedSets[editing.id],
-            onLog = { reps, weight, durationText, distanceText ->
+            initialNote = editing.id?.let { viewModel.setNotes[it] }.orEmpty(),
+            onLog = { reps, weight, durationText, distanceText, note ->
                 viewModel.updateLoggedSet(editing, reps, weight, durationText, distanceText)
+                viewModel.setNote(editing, note)
                 editingSet = null
             },
             onDismiss = { editingSet = null },
@@ -245,8 +248,10 @@ fun ActiveSessionScreen(
                 round = round + 1,
                 nameA = exerciseA.name ?: "Exercise", setA = setA,
                 nameB = exerciseB.name ?: "Exercise", setB = setB,
-                onLog = { repsA, weightA, repsB, weightB ->
+                onLog = { repsA, weightA, repsB, weightB, note ->
                     viewModel.completeCompoundRound(setA, repsA, weightA, setB, repsB, weightB)
+                    viewModel.setNote(setA, note)
+                    viewModel.setNote(setB, note)
                     loggingRound = null
                 },
                 onDismiss = { loggingRound = null },

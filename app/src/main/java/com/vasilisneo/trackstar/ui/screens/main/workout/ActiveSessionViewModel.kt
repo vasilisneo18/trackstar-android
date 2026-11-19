@@ -76,6 +76,10 @@ class ActiveSessionViewModel(
     var activeSetId by mutableStateOf<String?>(null)
         private set
     var loggedSets by mutableStateOf<Map<String, LoggedSet>>(emptyMap())
+        private set
+    /** Optional note per set, typed in the log sheet — saved with the set's result. */
+    var setNotes by mutableStateOf<Map<String, String>>(emptyMap())
+        private set
     /** Sets the athlete skipped: handled (the session can finish) but without a result. */
     var skippedSetIds by mutableStateOf<Set<String>>(emptySet())
         private set
@@ -279,6 +283,13 @@ class ActiveSessionViewModel(
         if (restSeconds > 0 && !isSessionComplete) {
             startRestTimer(restSeconds, after = setId)
         }
+    }
+
+    /** Keeps the set's note; a blank one clears it (e.g. deleted while correcting the set). */
+    fun setNote(set: ExerciseSet, note: String) {
+        val setId = set.id ?: return
+        val trimmed = note.trim()
+        setNotes = if (trimmed.isEmpty()) setNotes - setId else setNotes + (setId to trimmed)
     }
 
     /** Corrects a set that's already logged or skipped — no rest, nothing else moves. iOS: updateLoggedSet. */
@@ -498,6 +509,7 @@ class ActiveSessionViewModel(
                     label = set.sessionLabel(),
                     actualPerformance = logged?.let { ActualPerformance(it.frequencyValue, it.resistanceValue) },
                     configuredRestSeconds = set.restSeconds ?: 0,
+                    note = set.id?.let { setNotes[it] },
                     setType = set.setType ?: "Normal",
                 )
             }
