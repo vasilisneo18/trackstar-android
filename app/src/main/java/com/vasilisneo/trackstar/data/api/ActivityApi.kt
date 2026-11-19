@@ -79,4 +79,6 @@ data class RecordedActivity(
     val polyline: String,
     val splits: List<ActivitySplit>? = emptyList(),
     val slopes: SlopeStats? = null,
+    /** Steps the phone's step sensor counted during the recording (null when not counted). */
+    val steps: Int? = null,
 )

@@ -17,6 +17,9 @@ import android.hardware.SensorManager
 import android.location.Location
 import android.os.Looper
 import androidx.core.content.ContextCompat
+import android.Manifest
+import android.os.Build
+import android.content.pm.PackageManager
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
@@ -88,6 +91,17 @@ object ActivityRecorder {
     private var baroAltitude: Double? = null
     private var baroBase: Double? = null
     private var sensorManager: SensorManager? = null
+    // The step sensor counts since boot; the recording's steps are the rise from the first reading.
+    private var stepBase: Float? = null
+    private var stepLatest: Float? = null
+    private val stepListener = object : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent) {
+            val total = event.values[0]
+            if (stepBase == null) stepBase = total
+            stepLatest = total
+        }
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+    }
     private val pressureListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
             baroAltitude = SensorManager.getAltitude(SensorManager.PRESSURE_STANDARD_ATMOSPHERE, event.values[0]).toDouble()
@@ -132,6 +146,7 @@ object ActivityRecorder {
         ContextCompat.startForegroundService(ctx, Intent(ctx, ActivityRecordingService::class.java))
         // Slopes need the barometer for runs vs lifts; hikes for a steady climb / descent.
         if (_snapshot.value.type.isSlope || _snapshot.value.type == ActivityType.Hike) startBarometer(ctx)
+        if (_snapshot.value.type.countsSteps) startStepCounter(ctx)
         startTimer()
     }
 
@@ -162,6 +177,7 @@ object ActivityRecorder {
         val remainder = s.distanceMeters - lastSplitDistance
         if (remainder >= 50) allSplits.add(ActivitySplit(remainder, s.movingSeconds - lastSplitSeconds))
         val slopes = if (s.type.isSlope) slopeAnalyzer.stats else null
+        val steps = stepBase?.let { base -> stepLatest?.let { (it - base).toInt() } }?.takeIf { it > 0 }
         update { copy(state = State.Finished) }
         return RecordedActivity(
             clientId = UUID.randomUUID().toString(),
@@ -178,6 +194,7 @@ object ActivityRecorder {
             polyline = Polyline.encode(s.route),
             splits = if (s.type.isSlope) emptyList() else allSplits,
             slopes = slopes,
+            steps = steps,
         )
     }
 
@@ -192,6 +209,7 @@ object ActivityRecorder {
         previousInSegment = null; recentWindow.clear(); smoothedAltitude = null; profile.clear()
         lastSplitDistance = 0.0; lastSplitSeconds = 0; totalDistance = 0.0
         slopeAnalyzer = SlopeAnalyzer(); baroAltitude = null; baroBase = null
+        stepBase = null; stepLatest = null
         _snapshot.value = Snapshot(type = type, lastLocation = _snapshot.value.lastLocation,
             hasGoodSignal = _snapshot.value.hasGoodSignal)
     }
@@ -204,6 +222,7 @@ object ActivityRecorder {
         }
         callback = null
         sensorManager?.unregisterListener(pressureListener)
+        sensorManager?.unregisterListener(stepListener)
         sensorManager = null
     }
 
@@ -212,6 +231,17 @@ object ActivityRecorder {
         val sensor = sm.getDefaultSensor(Sensor.TYPE_PRESSURE) ?: return
         sensorManager = sm
         sm.registerListener(pressureListener, sensor, SensorManager.SENSOR_DELAY_NORMAL)
+    }
+
+    /** Counts steps during the recording (needs ACTIVITY_RECOGNITION on Android 10+; no sensor or no
+     *  permission just leaves steps out, and the detail falls back to Health Connect). */
+    private fun startStepCounter(ctx: Context) {
+        if (Build.VERSION.SDK_INT >= 29 && ContextCompat.checkSelfPermission(ctx, Manifest.permission.ACTIVITY_RECOGNITION) !=
+            PackageManager.PERMISSION_GRANTED) return
+        val sm = ctx.getSystemService(Context.SENSOR_SERVICE) as? SensorManager ?: return
+        val sensor = sm.getDefaultSensor(Sensor.TYPE_STEP_COUNTER) ?: return
+        sensorManager = sm
+        sm.registerListener(stepListener, sensor, SensorManager.SENSOR_DELAY_NORMAL)
     }
 
     // MARK: Timer

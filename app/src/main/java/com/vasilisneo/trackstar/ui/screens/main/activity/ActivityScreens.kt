@@ -404,18 +404,22 @@ fun ActivityRecorderDialog(initialType: ActivityType, onClose: () -> Unit, guide
     var permissionDenied by remember { mutableStateOf(false) }
     val prefs = remember { context.getSharedPreferences("trackstar_prefs", android.content.Context.MODE_PRIVATE) }
 
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
-        if (result[Manifest.permission.ACCESS_FINE_LOCATION] == true) ActivityRecorder.prepare(context, initialType)
+    fun granted(permission: String) = androidx.core.content.ContextCompat.checkSelfPermission(context, permission) ==
+        android.content.pm.PackageManager.PERMISSION_GRANTED
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
+        if (granted(Manifest.permission.ACCESS_FINE_LOCATION)) ActivityRecorder.prepare(context, initialType)
         else permissionDenied = true
     }
     LaunchedEffect(Unit) {
+        // Location to record; notifications for the "Recording" banner; physical activity for the
+        // step sensor (runs / walks / hikes count their steps; the type can still change after opening).
         val needed = buildList {
             add(Manifest.permission.ACCESS_FINE_LOCATION); add(Manifest.permission.ACCESS_COARSE_LOCATION)
             if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
-        }
-        val fineGranted = androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
-            android.content.pm.PackageManager.PERMISSION_GRANTED
-        if (fineGranted) ActivityRecorder.prepare(context, initialType) else permissionLauncher.launch(needed.toTypedArray())
+            if (Build.VERSION.SDK_INT >= 29) add(Manifest.permission.ACTIVITY_RECOGNITION)
+        }.filterNot { granted(it) }
+        if (granted(Manifest.permission.ACCESS_FINE_LOCATION)) ActivityRecorder.prepare(context, initialType)
+        if (needed.isNotEmpty()) permissionLauncher.launch(needed.toTypedArray())
     }
     DisposableEffect(Unit) {
         onDispose { if (ActivityRecorder.snapshot.value.state == ActivityRecorder.State.Idle) ActivityRecorder.cancel() }
@@ -735,6 +739,8 @@ fun ActivityDetailContent(
     LaunchedEffect(activity.clientId) {
         if (!activity.activityType.countsSteps) return@LaunchedEffect
         ActivityShare.debugSteps?.let { steps = it; return@LaunchedEffect }
+        // Counted during the recording; older activities (or no step sensor) fall back to Health Connect.
+        activity.steps?.let { steps = it; return@LaunchedEffect }
         steps = com.vasilisneo.trackstar.data.health.HealthConnectManager(context)
             .steps(Instant.ofEpochMilli(activity.startedAt), Instant.ofEpochMilli(activity.endedAt))
     }
