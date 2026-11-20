@@ -1,23 +1,28 @@
 package com.vasilisneo.trackstar.data.auth
 
 /** Holds off a forced sign-out (the session died — e.g. this account signed in on another device)
- *  while an activity is recording or waiting to be saved: signing out leaves the recorder's screen,
- *  and the recording would go with it. The sign-out runs once the activity is saved or discarded; a
- *  saved activity stays on the phone and uploads after the next sign-in. Mirrors iOS's SignOutGuard. */
+ *  while an activity is recording or a workout is in progress (or either waits to be saved):
+ *  signing out leaves their screens, and they'd go with them. The sign-out runs once everything
+ *  holding it is saved or discarded; what was saved stays on the phone and uploads after the next
+ *  sign-in. Mirrors iOS's SignOutGuard. */
 object SignOutGuard {
-    private var held = false
+    /** One token per recording / workout holding it off. */
+    private val holds = mutableSetOf<Any>()
     private var pending: (() -> Unit)? = null
 
-    @Synchronized fun hold() { held = true }
+    @Synchronized fun hold(token: Any) { holds.add(token) }
 
-    fun release() {
-        val signOut = synchronized(this) { held = false; pending.also { pending = null } }
+    fun release(token: Any) {
+        val signOut = synchronized(this) {
+            holds.remove(token)
+            if (holds.isEmpty()) pending.also { pending = null } else null
+        }
         signOut?.invoke()
     }
 
-    /** Runs [signOut] now, or once the hold is released. */
+    /** Runs [signOut] now, or once nothing holds it off. */
     fun signOut(signOut: () -> Unit) {
-        val now = synchronized(this) { if (held) { pending = signOut; false } else true }
+        val now = synchronized(this) { if (holds.isEmpty()) true else { pending = signOut; false } }
         if (now) signOut()
     }
 }

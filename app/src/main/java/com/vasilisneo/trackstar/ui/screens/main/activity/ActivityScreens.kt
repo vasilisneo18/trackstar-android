@@ -588,6 +588,10 @@ private fun RecorderContent(
                 }
             }
             if (snapshot.type.isSlope) SlopeLiveStats(snapshot) else EverydayLiveStats(snapshot)
+            if (snapshot.recovered && snapshot.state == ActivityRecorder.State.Paused) {
+                Text("Recovered after the app closed. Resume or finish.", fontSize = 13.sp,
+                    color = Color.White.copy(alpha = 0.6f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            }
             Controls(snapshot, permissionDenied, onStart, onFinish)
         }
     }

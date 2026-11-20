@@ -12,7 +12,11 @@ sealed interface ApiResult<out T> {
     // `offline` is true only for connectivity failures (no network) — repositories fall back to the
     // local cache in that case, but NOT on real server/business errors (4xx/5xx), so stale data is
     // never shown in place of a legitimate error.
-    data class Error(val message: String, val offline: Boolean = false) : ApiResult<Nothing>
+    // `code` is the HTTP status when the server answered.
+    data class Error(val message: String, val offline: Boolean = false, val code: Int? = null) : ApiResult<Nothing> {
+        /** The login was rejected — the request can succeed after signing in again. */
+        val signedOut: Boolean get() = code != null && AuthTokenHolder.isSignedOutStatus(code)
+    }
 }
 
 /** In-memory session tokens, read by the OkHttp auth interceptor + Authenticator. Kept in sync
@@ -46,6 +50,10 @@ object AuthTokenHolder {
     private val _sessionExpired = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val sessionExpired: SharedFlow<Unit> = _sessionExpired
     fun notifySessionExpired() { _sessionExpired.tryEmit(Unit) }
+
+    /** An HTTP status meaning "not signed in": 401, or 403 once the dead login's token was dropped
+     *  (requests then go without one). Such a write is kept and replayed after the next sign-in. */
+    fun isSignedOutStatus(code: Int): Boolean = code == 401 || (code == 403 && token == null)
 }
 
 /** Runs a Retrofit call and maps HTTP/network failures to a user-facing message. Shared by
@@ -57,7 +65,7 @@ suspend fun <T> apiCall(block: suspend () -> Response<T>): ApiResult<T> {
         if (response.isSuccessful && body != null) {
             ApiResult.Success(body)
         } else {
-            ApiResult.Error(parseError(response))
+            ApiResult.Error(parseError(response), code = response.code())
         }
     } catch (e: IOException) {
         ApiResult.Error("No internet connection. Please try again.", offline = true)

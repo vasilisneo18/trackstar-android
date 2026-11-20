@@ -26,6 +26,12 @@ object PendingSyncService {
 
     private enum class Outcome { SUCCESS, RETRY, DROP }
 
+    /** Sends what's waiting now — after signing in again (a write can wait on a dead login, not
+     *  only on being offline). */
+    fun flush() {
+        scope.launch { drain() }
+    }
+
     fun start() {
         if (started) return
         started = true
@@ -57,34 +63,39 @@ object PendingSyncService {
     private suspend fun execute(action: PendingActionEntity): Outcome {
         val gson = LocalStore.gson
         return try {
-            val ok: Boolean = when (action.type) {
+            val response: retrofit2.Response<*> = when (action.type) {
                 Outbox.SESSION_SAVE -> {
                     val req = gson.fromJson(action.payload, WorkoutSessionRequest::class.java)
-                    NetworkClient.sessionApi.saveSession(req).isSuccessful
+                    NetworkClient.sessionApi.saveSession(req)
                 }
                 Outbox.PLAN_UPSERT -> {
                     val p = gson.fromJson(action.payload, Outbox.PlanUpsertPayload::class.java)
-                    if (p.athleteId == null) NetworkClient.planApi.upsertSession(p.request).isSuccessful
-                    else NetworkClient.athleteApi.upsertAthleteSession(p.athleteId, p.request).isSuccessful
+                    if (p.athleteId == null) NetworkClient.planApi.upsertSession(p.request)
+                    else NetworkClient.athleteApi.upsertAthleteSession(p.athleteId, p.request)
                 }
                 Outbox.PLAN_DELETE -> {
                     val p = gson.fromJson(action.payload, Outbox.PlanDeletePayload::class.java)
-                    if (p.athleteId == null) NetworkClient.planApi.deleteSession(p.sessionId).isSuccessful
-                    else NetworkClient.athleteApi.deleteAthleteSession(p.athleteId, p.sessionId).isSuccessful
+                    if (p.athleteId == null) NetworkClient.planApi.deleteSession(p.sessionId)
+                    else NetworkClient.athleteApi.deleteAthleteSession(p.athleteId, p.sessionId)
                 }
                 Outbox.PLAN_BATCH -> {
                     val p = gson.fromJson(action.payload, Outbox.PlanBatchPayload::class.java)
-                    if (p.athleteId == null) NetworkClient.planApi.upsertBatch(p.requests).isSuccessful
-                    else NetworkClient.athleteApi.upsertAthleteBatch(p.athleteId, p.requests).isSuccessful
+                    if (p.athleteId == null) NetworkClient.planApi.upsertBatch(p.requests)
+                    else NetworkClient.athleteApi.upsertAthleteBatch(p.athleteId, p.requests)
                 }
                 Outbox.DIET_SAVE -> {
                     val p = gson.fromJson(action.payload, Outbox.DietSavePayload::class.java)
-                    if (p.athleteId == null) NetworkClient.dietApi.saveDiet(DietSyncRequest(p.plan)).isSuccessful
-                    else NetworkClient.athleteApi.saveAthleteDiet(p.athleteId, DietSyncRequest(p.plan)).isSuccessful
+                    if (p.athleteId == null) NetworkClient.dietApi.saveDiet(DietSyncRequest(p.plan))
+                    else NetworkClient.athleteApi.saveAthleteDiet(p.athleteId, DietSyncRequest(p.plan))
                 }
-                else -> true // unknown type — drop it
+                else -> return Outcome.DROP // unknown type
             }
-            if (ok) Outcome.SUCCESS else Outcome.DROP
+            when {
+                response.isSuccessful -> Outcome.SUCCESS
+                // Signed out: keep it for after the next sign-in.
+                AuthTokenHolder.isSignedOutStatus(response.code()) -> Outcome.RETRY
+                else -> Outcome.DROP
+            }
         } catch (e: IOException) {
             Outcome.RETRY
         } catch (e: Exception) {

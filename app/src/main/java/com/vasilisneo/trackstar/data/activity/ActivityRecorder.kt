@@ -67,6 +67,8 @@ object ActivityRecorder {
         val slopeVerticalMeters: Double = 0.0,
         val slopeTopSpeedKmh: Double = 0.0,
         val startedAtMs: Long? = null,
+        /** Brought back after the app was closed mid-recording (it comes back paused). */
+        val recovered: Boolean = false,
     )
 
     private val _snapshot = MutableStateFlow(Snapshot())
@@ -143,8 +145,14 @@ object ActivityRecorder {
         startedAtMs = now
         segmentStartMs = now
         update { copy(state = State.Recording, startedAtMs = now) }
+        startSensors(ctx)
+        saveDraft()
+    }
+
+    /** The foreground service, barometer, step sensor and timer — for a new or a recovered recording. */
+    private fun startSensors(ctx: Context) {
         // No forced sign-out until it's saved or discarded (cancel), or it'd be lost.
-        com.vasilisneo.trackstar.data.auth.SignOutGuard.hold()
+        com.vasilisneo.trackstar.data.auth.SignOutGuard.hold(this)
         ContextCompat.startForegroundService(ctx, Intent(ctx, ActivityRecordingService::class.java))
         // Slopes need the barometer for runs vs lifts; hikes for a steady climb / descent.
         if (_snapshot.value.type.isSlope || _snapshot.value.type == ActivityType.Hike) startBarometer(ctx)
@@ -160,6 +168,7 @@ object ActivityRecorder {
         recentWindow.clear()
         update { copy(state = State.Paused, currentPaceSecondsPerKm = null, currentSpeedKmh = 0.0) }
         tick()
+        saveDraft()
     }
 
     fun resume() {
@@ -205,7 +214,8 @@ object ActivityRecorder {
     fun cancel() {
         stopEverything()
         reset(_snapshot.value.type)
-        com.vasilisneo.trackstar.data.auth.SignOutGuard.release()
+        com.vasilisneo.trackstar.data.local.DraftStore.delete(com.vasilisneo.trackstar.data.local.DraftStore.ACTIVITY)
+        com.vasilisneo.trackstar.data.auth.SignOutGuard.release(this)
     }
 
     private fun reset(type: ActivityType) {
@@ -261,6 +271,7 @@ object ActivityRecorder {
         var moving = accumulatedMovingMs
         segmentStartMs?.let { moving += System.currentTimeMillis() - it }
         update { copy(movingSeconds = (moving / 1000).toInt()) }
+        if (_snapshot.value.state == State.Recording && System.currentTimeMillis() - lastDraftSaveMs >= 10_000) saveDraft()
     }
 
     // MARK: Location processing
@@ -383,5 +394,97 @@ object ActivityRecorder {
                 currentSpeedKmh = (speed ?: slopeAnalyzer.recentSpeed) * 3.6,
             )
         }
+    }
+
+    // MARK: Saved to the phone while recording
+
+    /** The recording so far, saved every ~10 s (and on pause) so it survives the app being closed:
+     *  it comes back paused, to resume or finish. Per user; removed on save / discard. iOS: Draft. */
+    data class Draft(
+        val userId: String,
+        val type: String,
+        val startedAtMs: Long,
+        val movingMs: Long,
+        val route: List<DoubleArray>,          // [lat, lon]
+        val distanceMeters: Double,
+        val elevationGainMeters: Double,
+        val elevationLossMeters: Double,
+        val smoothedAltitude: Double?,
+        val profile: List<com.vasilisneo.trackstar.data.api.ElevationSample>,
+        val splits: List<ActivitySplit>,
+        val lastSplitDistance: Double,
+        val lastSplitSeconds: Int,
+        val totalDistance: Double,
+        val stepBase: Float?,
+        val stepLatest: Float?,
+        val slopeSamples: List<SlopeSample>,   // replayed to rebuild the runs / lifts
+    )
+
+    private var lastDraftSaveMs = 0L
+
+    /** A recording the app was closed in the middle of, for the signed-in user. */
+    fun savedDraft(): Draft? {
+        val userId = com.vasilisneo.trackstar.data.auth.AuthTokenHolder.userId ?: return null
+        return com.vasilisneo.trackstar.data.local.DraftStore
+            .read(com.vasilisneo.trackstar.data.local.DraftStore.ACTIVITY, Draft::class.java)
+            ?.takeIf { it.userId == userId }
+    }
+
+    private fun saveDraft() {
+        val s = _snapshot.value
+        if (s.state != State.Recording && s.state != State.Paused) return
+        val started = startedAtMs ?: return
+        val userId = com.vasilisneo.trackstar.data.auth.AuthTokenHolder.userId ?: return
+        lastDraftSaveMs = System.currentTimeMillis()
+        var moving = accumulatedMovingMs
+        segmentStartMs?.let { moving += System.currentTimeMillis() - it }
+        com.vasilisneo.trackstar.data.local.DraftStore.write(
+            com.vasilisneo.trackstar.data.local.DraftStore.ACTIVITY,
+            Draft(
+                userId = userId, type = s.type.raw, startedAtMs = started, movingMs = moving,
+                route = s.route.map { doubleArrayOf(it.latitude, it.longitude) },
+                distanceMeters = s.distanceMeters, elevationGainMeters = s.elevationGainMeters,
+                elevationLossMeters = s.elevationLossMeters, smoothedAltitude = smoothedAltitude,
+                profile = profile.toList(), splits = s.splits, lastSplitDistance = lastSplitDistance,
+                lastSplitSeconds = lastSplitSeconds, totalDistance = totalDistance,
+                stepBase = stepBase, stepLatest = stepLatest, slopeSamples = slopeAnalyzer.samples.toList(),
+            ),
+        )
+    }
+
+    /** Brings back a recording the app was closed in the middle of — paused at the last save, so the
+     *  time the app was closed isn't counted. GPS restarts, ready to resume (permission must already
+     *  be granted). */
+    fun restore(context: Context, draft: Draft) {
+        if (_snapshot.value.state != State.Idle) return
+        val type = ActivityType.of(draft.type)
+        prepare(context, type)
+        startedAtMs = draft.startedAtMs
+        accumulatedMovingMs = draft.movingMs
+        segmentStartMs = null
+        smoothedAltitude = draft.smoothedAltitude
+        profile.clear(); profile.addAll(draft.profile)
+        lastSplitDistance = draft.lastSplitDistance
+        lastSplitSeconds = draft.lastSplitSeconds
+        totalDistance = draft.totalDistance
+        // The step sensor counts since boot, so the base still holds (unless the phone restarted).
+        stepBase = draft.stepBase
+        stepLatest = draft.stepLatest
+        slopeAnalyzer = SlopeAnalyzer()
+        draft.slopeSamples.forEach { slopeAnalyzer.add(it) }
+        val stats = slopeAnalyzer.stats
+        update {
+            copy(
+                state = State.Paused, recovered = true, startedAtMs = draft.startedAtMs,
+                route = draft.route.map { LatLng(it[0], it[1]) },
+                distanceMeters = if (type.isSlope) stats.runs.sumOf { it.distanceMeters } else draft.distanceMeters,
+                elevationGainMeters = draft.elevationGainMeters, elevationLossMeters = draft.elevationLossMeters,
+                currentAltitude = draft.smoothedAltitude, splits = draft.splits,
+                slopePhase = slopeAnalyzer.phase, slopeRuns = stats.runCount,
+                slopeVerticalMeters = stats.verticalMeters, slopeTopSpeedKmh = stats.topSpeedKmh,
+            )
+        }
+        tick()
+        startSensors(context.applicationContext)
     }
 }

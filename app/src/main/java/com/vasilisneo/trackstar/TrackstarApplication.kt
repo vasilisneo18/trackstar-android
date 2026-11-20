@@ -34,6 +34,7 @@ class TrackstarApplication : Application() {
         LocalStore.init(this)
         com.vasilisneo.trackstar.data.workout.WorkoutSounds.init(this)
         com.vasilisneo.trackstar.data.activity.ActivityStore.init(this)
+        com.vasilisneo.trackstar.data.local.DraftStore.init(this)
         com.vasilisneo.trackstar.data.activity.PisteMapStore.init(this)
         com.vasilisneo.trackstar.data.activity.TrailMapStore.init(this)
         com.vasilisneo.trackstar.data.activity.TrailCatalog.init(this)

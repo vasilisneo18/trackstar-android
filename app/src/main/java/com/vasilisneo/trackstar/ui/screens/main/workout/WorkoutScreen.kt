@@ -174,6 +174,25 @@ fun WorkoutScreen(
     // GPS activities (run / walk / ride): the Activity card records; the day's activities follow.
     val showActivityWidget = com.vasilisneo.trackstar.ui.util.rememberBooleanPref("widgetShowActivity", true)
     var recordActivityType by remember { mutableStateOf<com.vasilisneo.trackstar.data.activity.ActivityType?>(null) }
+    // A recording still going without its screen, or one the app was closed in the middle of (brought
+    // back paused): open the recorder on it.
+    val recorderContext = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(Unit) {
+        if (recordActivityType != null) return@LaunchedEffect
+        val recorder = com.vasilisneo.trackstar.data.activity.ActivityRecorder
+        val live = recorder.snapshot.value
+        if (live.state == com.vasilisneo.trackstar.data.activity.ActivityRecorder.State.Recording ||
+            live.state == com.vasilisneo.trackstar.data.activity.ActivityRecorder.State.Paused) {
+            recordActivityType = live.type
+        } else if (live.state == com.vasilisneo.trackstar.data.activity.ActivityRecorder.State.Idle &&
+            androidx.core.content.ContextCompat.checkSelfPermission(recorderContext, android.Manifest.permission.ACCESS_FINE_LOCATION) ==
+                android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            recorder.savedDraft()?.let { draft ->
+                recorder.restore(recorderContext, draft)
+                recordActivityType = recorder.snapshot.value.type
+            }
+        }
+    }
     var openedActivity by remember { mutableStateOf<com.vasilisneo.trackstar.data.api.RecordedActivity?>(null) }
     val allActivities by com.vasilisneo.trackstar.data.activity.ActivityStore.activities.collectAsState()
     val activityPrefs = androidx.compose.ui.platform.LocalContext.current.let { ctx ->

@@ -43,7 +43,8 @@ open class SessionRepository {
     // stats reflect the workout immediately and it's never lost.
     suspend fun saveSession(request: WorkoutSessionRequest): ApiResult<WorkoutSessionResponse> {
         val result = apiCall { api.saveSession(request) }
-        if (result is ApiResult.Error && result.offline) {
+        // Offline, or the login died: kept on the phone and sent later, so the workout isn't lost.
+        if (result is ApiResult.Error && (result.offline || result.signedOut)) {
             Outbox.enqueueSessionSave(request)
             AuthTokenHolder.userId?.let { cacheOne(it, request.toEcho()) }
             return ApiResult.Success(request.toEcho())

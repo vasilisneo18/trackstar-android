@@ -55,6 +55,8 @@ class TokenStore(context: Context) {
         AuthTokenHolder.token = auth.token
         AuthTokenHolder.refreshToken = auth.refreshToken
         AuthTokenHolder.userId = auth.userId
+        // Signed in: send what waited on the dead login (a finished workout, a plan edit…).
+        com.vasilisneo.trackstar.data.local.PendingSyncService.flush()
     }
 
     val token: String? get() = prefs.getString(KEY_TOKEN, null)

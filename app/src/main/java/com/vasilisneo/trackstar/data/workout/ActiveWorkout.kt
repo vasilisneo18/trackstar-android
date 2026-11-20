@@ -15,6 +15,13 @@ object ActiveWorkout {
     /** Full screen (true) or minimized to the mini-bar (false). */
     var showFull by mutableStateOf(false)
 
+    /** Finished or discarded: also drops the copy saved on the phone. clear() alone (sign-out)
+     *  keeps it, so the same user gets the workout back after signing in again. */
+    fun end() {
+        session?.end()
+        clear()
+    }
+
     fun clear() {
         session?.dispose()
         session = null

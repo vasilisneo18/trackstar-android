@@ -51,7 +51,48 @@ class ActiveSessionViewModel(
     private val sessionId: String,
     /** Debug harness only (see ActivityDemo): these exercises instead of loading the plan. */
     demoExercises: List<ExerciseData>? = null,
+    /** A workout the app was closed in the middle of, brought back (see WorkoutDraft). */
+    draft: WorkoutDraft? = null,
 ) {
+
+    /** The workout so far, saved to the phone as it changes, so it survives the app being closed:
+     *  it comes back in the mini-bar with its sets, rest and notes. Per user; removed when the
+     *  workout is finished or discarded. A timed set mid-way isn't kept. iOS: WorkoutDraft. */
+    data class WorkoutDraft(
+        val userId: String,
+        val date: String,
+        val sessionId: String,
+        val title: String,
+        val exercises: List<ExerciseData>,
+        val planned: com.vasilisneo.trackstar.data.api.PlannedSessionResponse?,
+        val startedAtMs: Long,
+        val loggedSets: Map<String, LoggedSet>,
+        val setNotes: Map<String, String>,
+        val skippedSetIds: List<String>,
+        val restEndsAtWallMs: Long?,
+        val restTotalSeconds: Int,
+        val currentRestSetId: String?,
+    )
+
+    companion object {
+        /** A workout the app was closed in the middle of, for the signed-in user. */
+        fun savedDraft(): WorkoutDraft? {
+            val userId = com.vasilisneo.trackstar.data.auth.AuthTokenHolder.userId ?: return null
+            return com.vasilisneo.trackstar.data.local.DraftStore
+                .read(com.vasilisneo.trackstar.data.local.DraftStore.WORKOUT, WorkoutDraft::class.java)
+                ?.takeIf { it.userId == userId }
+        }
+    }
+
+    /** Saved to the phone and holding off a forced sign-out — off only for the debug demo. */
+    private val persists = demoExercises == null
+    /** Finished or discarded: nothing more is saved. */
+    private var ended = false
+    /** Wall-clock start, so the workout's time is right after the app was closed (or asleep). */
+    private val startedAtMs = draft?.startedAtMs ?: System.currentTimeMillis()
+    /** When the rest ends, in wall-clock time — what's saved (restEndsAt doesn't survive a restart). */
+    private var restEndsAtWallMs: Long? = null
+    private var lastSavedFingerprint: Int? = null
 
     // The planned session this active session was started from — used by the Workout tab to
     // swap the Start Session button for an in-progress card on the matching day.
@@ -197,7 +238,25 @@ class ActiveSessionViewModel(
     }
 
     init {
-        if (demoExercises != null) {
+        if (persists) {
+            // No forced sign-out until it's finished or discarded (end / dispose), or it'd be lost.
+            com.vasilisneo.trackstar.data.auth.SignOutGuard.hold(this)
+        }
+        if (draft != null) {
+            title = draft.title
+            exercises = draft.exercises
+            planned = draft.planned
+            loggedSets = draft.loggedSets
+            setNotes = draft.setNotes
+            skippedSetIds = draft.skippedSetIds.toSet()
+            isLoading = false
+            val restLeft = draft.restEndsAtWallMs?.let { ((it - System.currentTimeMillis()) / 1000).toInt() } ?: 0
+            val restAfter = draft.currentRestSetId
+            if (restAfter != null && restLeft > 0) {
+                startRestTimer(restLeft, after = restAfter)
+                restTotalSeconds = draft.restTotalSeconds
+            }
+        } else if (demoExercises != null) {
             title = "Push Day"
             exercises = demoExercises
             isLoading = false
@@ -224,8 +283,9 @@ class ActiveSessionViewModel(
     private fun startSessionTimer() {
         scope.launch {
             while (true) {
+                elapsedSeconds = ((System.currentTimeMillis() - startedAtMs) / 1000).toInt()
+                saveDraftIfChanged()
                 delay(1000)
-                elapsedSeconds += 1
             }
         }
     }
@@ -440,6 +500,7 @@ class ActiveSessionViewModel(
     fun skipRest() {
         restJob?.cancel()
         restJob = null
+        restEndsAtWallMs = null
         isResting = false
         restSecondsRemaining = 0
         currentRestSetId = null
@@ -448,6 +509,7 @@ class ActiveSessionViewModel(
     fun addMinuteToRest() {
         if (!isResting || restSecondsRemaining + 60 > 3599) return
         restEndsAt += 60_000
+        restEndsAtWallMs = restEndsAtWallMs?.plus(60_000)
         restTotalSeconds += 60
         restSecondsRemaining = secondsLeft(restEndsAt)
     }
@@ -458,6 +520,7 @@ class ActiveSessionViewModel(
         currentRestSetId = after
         restTotalSeconds = seconds
         restEndsAt = android.os.SystemClock.elapsedRealtime() + seconds * 1000L
+        restEndsAtWallMs = System.currentTimeMillis() + seconds * 1000L
         restSecondsRemaining = seconds
         restJob = scope.launch {
             while (true) {
@@ -467,6 +530,7 @@ class ActiveSessionViewModel(
             }
             isResting = false
             currentRestSetId = null
+            restEndsAtWallMs = null
             // Ran out (Skip cancels this job, so skipping stays quiet).
             com.vasilisneo.trackstar.data.workout.WorkoutSounds.restOver()
         }
@@ -494,6 +558,34 @@ class ActiveSessionViewModel(
     // session is finished or discarded so nothing leaks after the holder is dropped.
     fun dispose() {
         scope.cancel()
+        if (persists) com.vasilisneo.trackstar.data.auth.SignOutGuard.release(this)
+    }
+
+    /** The workout was finished (and saved) or discarded: drop the copy on the phone. */
+    fun end() {
+        if (!persists || ended) return
+        ended = true
+        com.vasilisneo.trackstar.data.local.DraftStore.delete(com.vasilisneo.trackstar.data.local.DraftStore.WORKOUT)
+    }
+
+    /** Checked every second by the session timer; writes only when something changed. */
+    private fun saveDraftIfChanged() {
+        if (!persists || ended || isLoading || loadError) return
+        val userId = com.vasilisneo.trackstar.data.auth.AuthTokenHolder.userId ?: return
+        val fingerprint = listOf(exercises, loggedSets, setNotes, skippedSetIds, currentRestSetId,
+            restTotalSeconds, restEndsAtWallMs, title).hashCode()
+        if (fingerprint == lastSavedFingerprint) return
+        lastSavedFingerprint = fingerprint
+        com.vasilisneo.trackstar.data.local.DraftStore.write(
+            com.vasilisneo.trackstar.data.local.DraftStore.WORKOUT,
+            WorkoutDraft(
+                userId = userId, date = date.toString(), sessionId = sessionId, title = title,
+                exercises = exercises, planned = planned, startedAtMs = startedAtMs,
+                loggedSets = loggedSets, setNotes = setNotes, skippedSetIds = skippedSetIds.toList(),
+                restEndsAtWallMs = restEndsAtWallMs, restTotalSeconds = restTotalSeconds,
+                currentRestSetId = currentRestSetId,
+            ),
+        )
     }
 
     private fun buildRequest(): WorkoutSessionRequest {

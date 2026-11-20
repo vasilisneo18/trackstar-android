@@ -173,6 +173,14 @@ fun MainAppScreen(
     // Bumped whenever a session is saved, so the Workout tab re-fetches its completed sessions.
     var workoutRefreshKey by remember { mutableIntStateOf(0) }
 
+    // A workout the app was closed in the middle of comes back, in the mini-bar.
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        if (activeSession == null) ActiveSessionViewModel.savedDraft()?.let { draft ->
+            activeSession = ActiveSessionViewModel(java.time.LocalDate.parse(draft.date), draft.sessionId, draft = draft)
+                .apply { onPlanChanged = { workoutRefreshKey++ } }
+        }
+    }
+
     fun startSession(date: java.time.LocalDate, sessionId: String) {
         if (activeSession != null) { showActiveFull = true; return }
         activeSession = ActiveSessionViewModel(date, sessionId).apply { onPlanChanged = { workoutRefreshKey++ } }
@@ -268,9 +276,9 @@ fun MainAppScreen(
                 ActiveSessionScreen(
                     viewModel = session,
                     onMinimize = { showActiveFull = false },
-                    onDiscard = { ActiveWorkout.clear() },
+                    onDiscard = { ActiveWorkout.end() },
                     onFinish = {
-                        ActiveWorkout.clear()
+                        ActiveWorkout.end()
                         workoutRefreshKey++
                     },
                 )
