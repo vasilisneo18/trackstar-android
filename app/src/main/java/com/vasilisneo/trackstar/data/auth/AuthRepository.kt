@@ -23,7 +23,7 @@ class AuthRepository(private val tokenStore: TokenStore) {
 
     suspend fun login(email: String, password: String): ApiResult<AuthResponse> {
         val cleanEmail = email.trim().lowercase()
-        val result = apiCall { api.login(LoginRequest(cleanEmail, password)) }
+        val result = withDeviceLimitPrompt { replace -> apiCall { api.login(LoginRequest(cleanEmail, password, replaceOldest = replace)) } }
         if (result is ApiResult.Success) {
             tokenStore.save(result.data)
             com.vasilisneo.trackstar.data.billing.BillingManager.logIn(result.data.userId)
@@ -65,8 +65,8 @@ class AuthRepository(private val tokenStore: TokenStore) {
         lastName: String?,
         email: String?,
     ): ApiResult<AuthResponse> {
-        val result = apiCall {
-            api.social(SocialAuthRequest(provider, idToken, firstName, lastName, email))
+        val result = withDeviceLimitPrompt { replace ->
+            apiCall { api.social(SocialAuthRequest(provider, idToken, firstName, lastName, email, replaceOldest = replace)) }
         }
         if (result is ApiResult.Success) {
             tokenStore.save(result.data)
@@ -74,6 +74,14 @@ class AuthRepository(private val tokenStore: TokenStore) {
             com.vasilisneo.trackstar.data.push.PushTokenRegistrar.register()
         }
         return result
+    }
+
+    /** All three device slots taken (409): ask first, then log in again replacing the oldest. */
+    private suspend fun withDeviceLimitPrompt(call: suspend (replaceOldest: Boolean?) -> ApiResult<AuthResponse>): ApiResult<AuthResponse> {
+        val first = call(null)
+        if (first !is ApiResult.Error || first.code != 409) return first
+        if (!DeviceLimitPrompt.confirm()) return ApiResult.Error(com.vasilisneo.trackstar.ui.i18n.tr("Not logged in."))
+        return call(true)
     }
 
     suspend fun forgotPassword(email: String): ApiResult<MessageResponse> =

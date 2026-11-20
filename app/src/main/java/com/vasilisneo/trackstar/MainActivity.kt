@@ -126,6 +126,7 @@ class MainActivity : ComponentActivity() {
             TrackstarTheme {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                   com.vasilisneo.trackstar.ui.components.ScreenOverlayHostBox {
+                    com.vasilisneo.trackstar.data.auth.DeviceLimitPrompt.Host()
                     // Mirrors AuthCoordinator on iOS: Landing is the real entry point
                     // (.resetStack root), Login/Create-Account are pushed from it with a
                     // back button.

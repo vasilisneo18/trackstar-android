@@ -8,7 +8,14 @@ import com.google.gson.annotations.SerializedName
 data class CheckEmailRequest(val email: String)
 data class CheckEmailResponse(val exists: Boolean)
 
-data class LoginRequest(val email: String, val password: String)
+// checkDevices: warn before this log-in logs out the oldest device (409 → DeviceLimitPrompt →
+// again with replaceOldest).
+data class LoginRequest(
+    val email: String,
+    val password: String,
+    val checkDevices: Boolean? = true,
+    val replaceOldest: Boolean? = null,
+)
 
 data class RegisterRequest(
     val email: String,
@@ -44,6 +51,8 @@ data class SocialAuthRequest(
     val firstName: String?,
     val lastName: String?,
     val email: String?,
+    val checkDevices: Boolean? = true,
+    val replaceOldest: Boolean? = null,
 )
 
 data class RefreshRequest(val refreshToken: String)
