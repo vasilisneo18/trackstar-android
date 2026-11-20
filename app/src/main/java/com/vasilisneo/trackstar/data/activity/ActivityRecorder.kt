@@ -143,6 +143,8 @@ object ActivityRecorder {
         startedAtMs = now
         segmentStartMs = now
         update { copy(state = State.Recording, startedAtMs = now) }
+        // No forced sign-out until it's saved or discarded (cancel), or it'd be lost.
+        com.vasilisneo.trackstar.data.auth.SignOutGuard.hold()
         ContextCompat.startForegroundService(ctx, Intent(ctx, ActivityRecordingService::class.java))
         // Slopes need the barometer for runs vs lifts; hikes for a steady climb / descent.
         if (_snapshot.value.type.isSlope || _snapshot.value.type == ActivityType.Hike) startBarometer(ctx)
@@ -198,10 +200,12 @@ object ActivityRecorder {
         )
     }
 
-    /** Abandons the recording (or stops GPS if never started). */
+    /** Abandons the recording (or stops GPS if never started). Also called once a finished
+     *  activity is saved, to let a held-off sign-out go ahead. */
     fun cancel() {
         stopEverything()
         reset(_snapshot.value.type)
+        com.vasilisneo.trackstar.data.auth.SignOutGuard.release()
     }
 
     private fun reset(type: ActivityType) {

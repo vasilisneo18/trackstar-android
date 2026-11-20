@@ -68,8 +68,7 @@ object ActivityStore {
         _hasLoaded.value = true
     }
 
-    private fun loadCacheIfNeeded() {
-        val current = AuthTokenHolder.userId
+    private fun loadCacheIfNeeded(current: String? = AuthTokenHolder.userId) {
         if (current == userId) return
         userId = current
         _activities.value = emptyList()
@@ -89,9 +88,12 @@ object ActivityStore {
     // MARK: Mutations
 
     fun save(activity: RecordedActivity) {
+        // Whose it is, taken now: a sign-out held off until the save (SignOutGuard) can clear the
+        // user before this runs, and the activity must still land in their file.
+        val owner = AuthTokenHolder.userId
         scope.launch {
             mutex.withLock {
-                loadCacheIfNeeded()
+                loadCacheIfNeeded(owner)
                 _activities.value = (_activities.value.filter { it.clientId != activity.clientId } + activity)
                     .sortedByDescending { it.startedAt }
                 pendingUploads.add(activity.clientId)

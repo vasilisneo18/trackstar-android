@@ -31,10 +31,13 @@ class TokenStore(context: Context) {
         // Refresh token also expired/invalid (e.g. signed in on another device): fully log out —
         // wipe the session + cached data and signal the UI to route to Landing immediately, so the
         // app never keeps running against a dead session (mirrors iOS's forced logout on expiry).
+        // Held off while an activity is recording (SignOutGuard), so it isn't lost.
         AuthTokenHolder.onSessionExpired = {
-            clearAll()
-            com.vasilisneo.trackstar.data.billing.BillingManager.logOut()
-            AuthTokenHolder.notifySessionExpired()
+            SignOutGuard.signOut {
+                clearAll()
+                com.vasilisneo.trackstar.data.billing.BillingManager.logOut()
+                AuthTokenHolder.notifySessionExpired()
+            }
         }
     }
 
