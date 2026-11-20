@@ -3,6 +3,7 @@
 //
 //   node scripts/release.mjs             build, upload and create a draft release on Production
 //   node scripts/release.mjs --dry-run   everything up to the upload (tests, signed .aab); no keys needed
+//   node scripts/release.mjs --check     only check the key and show what Play has (changes nothing)
 //
 //   --track <name>   production (default), beta, alpha or internal
 //   --rollout        send the release for review / roll it out instead of leaving a draft
@@ -37,6 +38,7 @@ const argv = process.argv.slice(2);
 const dryRun = argv.includes('--dry-run');
 const rollout = argv.includes('--rollout');
 const skipTests = argv.includes('--skip-tests');
+const checkOnly = argv.includes('--check');
 const track = argv.includes('--track') ? argv[argv.indexOf('--track') + 1] : 'production';
 if (!['production', 'beta', 'alpha', 'internal'].includes(track)) {
     console.error(`Unknown track "${track}"`);
@@ -149,6 +151,20 @@ async function main() {
     const notes = releaseNotes(name);
     console.log(`Trackstar Android ${name} (versionCode ${code}) → ${track}${dryRun ? ' — dry run' : ''}`);
     console.log(`  release notes: ${Object.entries(notes).map(([l, t]) => `${l} ${t.length}/500`).join(', ')}`);
+
+    if (checkOnly) {
+        const api = await makeClient();
+        const edit = await api('POST', `${API}/edits`, {});
+        const { tracks = [] } = await api('GET', `${API}/edits/${edit.id}/tracks`);
+        const { listings = [] } = await api('GET', `${API}/edits/${edit.id}/listings`);
+        await api('DELETE', `${API}/edits/${edit.id}`);
+        console.log('  key works');
+        for (const t of tracks) {
+            for (const r of t.releases || []) console.log(`  ${t.track}: ${r.name || ''} [${(r.versionCodes || []).join(', ')}] ${r.status}`);
+        }
+        console.log(`  store listing languages: ${listings.map((l) => l.language).join(', ')}`);
+        return;
+    }
 
     if (!existsSync(join(ROOT, 'keystore.properties'))) fail('keystore.properties missing: the release bundle would be unsigned');
 

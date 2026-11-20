@@ -25,6 +25,7 @@ dependencies).
 
 Options:
 - `--dry-run`: tests and the signed `.aab`, with no upload, commit or key needed.
+- `--check`: only check the key and show what Play has (changes nothing).
 - `--track internal|alpha|beta`: another track (default `production`).
 - `--rollout`: send it straight away instead of leaving a draft.
 - `--skip-tests`.
