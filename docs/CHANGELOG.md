@@ -8,6 +8,74 @@ parentheses). Newest first.
 
 ## [Unreleased]
 
+## [30] (1.2.0) — 2026-11-20
+_iOS 1.2.0 parity: activities, slopes and groups. Needs the Play declarations for
+background location (recording), ACTIVITY_RECOGNITION (step sensor) and Health
+Connect exercise / steps. Release notes for the store: below._
+
+**Play release notes (en-US, 407/500):**
+```
+• Record runs, walks, hikes & rides with GPS: live map, pace, splits, elevation, steps
+• Ski & snowboard: runs, lifts, vertical, top speed
+• Groups: friends on a live map + leaderboard
+• Share activities as images
+• 870 exercises with photos
+• Add exercises mid-workout, skip sets, set notes
+• Recordings & workouts survive the app closing
+• Customise your Home
+• Now in Greek
+• Free plan: 5 workouts a week
+```
+**(el-GR, 435/500):**
+```
+• Καταγραφή τρεξίματος, περπατήματος, πεζοπορίας & ποδηλάτου με GPS: χάρτης, ρυθμός, υψομετρικά, βήματα
+• Σκι & snowboard: κατεβάσεις, αναβατήρες, μέγιστη ταχύτητα
+• Ομάδες: φίλοι σε ζωντανό χάρτη + κατάταξη
+• Κοινοποίηση δραστηριοτήτων ως εικόνα
+• 870 ασκήσεις με φωτογραφίες
+• Πρόσθεση ασκήσεων, παράλειψη σετ, σημειώσεις
+• Οι καταγραφές σώζονται αν κλείσει η εφαρμογή
+• Προσαρμογή Αρχικής
+• Ελληνικά
+• Δωρεάν: 5 προπονήσεις/εβδομάδα
+```
+### Added
+- **GPS activities** — run / walk / hike / ride recorder on Google Maps with a
+  foreground service (keeps recording with the screen off): distance, pace, 1 km
+  splits, elevation (barometer when present). Steps counted by the phone's step
+  sensor during the recording, saved with the activity; Health Connect as the
+  fallback. Saved to Health Connect as an exercise session. Detail screen with route,
+  splits, elevation profile, start / end time, steps and cadence.
+- **Slopes** — ski / snowboard: runs vs lifts, vertical, top speed; piste maps and a
+  bundled resort browser.
+- **Hiking** — climb, descent, altitude, terrain map (trail browser behind the remote
+  switch, off for now).
+- **Groups** — QR / `trackstar://group/` links, live map while recording,
+  leaderboard. Creating needs Bronze; joining is free.
+- **Share an activity** as an image (same icon as iOS).
+- **Exercise library** — about 870 exercises with photos and a muscle filter.
+- **Live workout / Quick Log** — add an exercise mid-session (also added to the plan),
+  skip sets / exercises, a note per set (Log Set + superset sheets), correct finished
+  sets.
+- **Recovery** — the recording (every ~10 s) and the live workout (on every change)
+  are saved to the phone (`DraftStore`); after the app is closed the recording
+  reopens paused and the workout returns to the mini-bar.
+- **Home widgets** add / remove gallery; Diet as a Home card.
+- **Greek** localization (`assets/i18n/el.json`); Accept-Language to the backend.
+- **Log-in warning** before a fourth device logs out the oldest (`DeviceLimitPrompt`).
+### Changed
+- Free plan 5 sessions / week, 14-day history; Silver €4.99; no template cap on Gold;
+  piste / trail maps are a paid feature.
+- The minimized workout lives app-wide (`ActiveWorkout`), so it survives opening
+  Profile / Diet / History; system Back minimizes it.
+- Loading buttons: the shared spinner + "Saving…"-style text.
+### Fixed
+- A login rejected mid-recording no longer throws away the activity or the workout
+  (`SignOutGuard`); a workout finished while signed out is queued and sent after the
+  next log-in (the outbox kept it instead of dropping it on 401 / 403).
+- Discard Session / minimize of the live workout when another screen opened on top.
+- Stale unit tests brought up to date — all 161 pass.
+
 ## [27] (1.1.0) — 2026-09-14
 _Ports the iOS 1.1.0 feature set. Requires the backend attendance endpoints in
 production + Play declarations for Health Connect and location. Full detail in
