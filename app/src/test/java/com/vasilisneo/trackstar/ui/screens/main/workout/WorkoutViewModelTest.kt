@@ -2,6 +2,7 @@ package com.vasilisneo.trackstar.ui.screens.main.workout
 
 import androidx.test.core.app.ApplicationProvider
 import com.vasilisneo.trackstar.data.api.ExerciseComment
+import com.vasilisneo.trackstar.data.billing.FeatureGate
 import com.vasilisneo.trackstar.data.api.PlannedSessionResponse
 import com.vasilisneo.trackstar.data.api.WorkoutSessionData
 import com.vasilisneo.trackstar.data.api.WorkoutSessionResponse
@@ -116,8 +117,8 @@ class WorkoutViewModelTest {
     }
 
     @Test fun `free user at the weekly cap cannot start a session`() = runTest(dispatcher.scheduler) {
-        val threeThisWeek = (1..3).map { completedFor("x$it") } // dated today -> current week
-        val vm = vm(emptyList(), threeThisWeek)
+        val fullWeek = (1..FeatureGate.WEEKLY_SESSION_LIMIT).map { completedFor("x$it") } // dated today -> current week
+        val vm = vm(emptyList(), fullWeek)
         advanceUntilIdle()
         assertFalse(vm.canStartSession)
     }

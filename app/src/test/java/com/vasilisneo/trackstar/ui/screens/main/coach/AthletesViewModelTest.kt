@@ -1,13 +1,12 @@
 package com.vasilisneo.trackstar.ui.screens.main.coach
 
 import androidx.test.core.app.ApplicationProvider
+import com.vasilisneo.trackstar.data.api.AthleteSummaryResponse
 import com.vasilisneo.trackstar.data.api.MessageResponse
-import com.vasilisneo.trackstar.data.api.PlannedSessionResponse
 import com.vasilisneo.trackstar.data.api.ProfileResponse
-import com.vasilisneo.trackstar.data.api.WorkoutSessionData
-import com.vasilisneo.trackstar.data.api.WorkoutSessionResponse
 import com.vasilisneo.trackstar.data.auth.ApiResult
 import com.vasilisneo.trackstar.data.workout.AthleteRepository
+import com.vasilisneo.trackstar.ui.screens.main.workout.weekIdentifierFor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -38,15 +37,17 @@ class AthletesViewModelTest {
 
     private class FakeAthleteRepo(
         private val roster: List<ProfileResponse>,
-        private val plans: Map<String, List<PlannedSessionResponse>> = emptyMap(),
-        private val sessions: Map<String, List<WorkoutSessionResponse>> = emptyMap(),
+        private val summaries: List<AthleteSummaryResponse> = emptyList(),
     ) : AthleteRepository() {
         val removed = mutableListOf<String>()
+        /** The week the summaries were asked for (week identifier, Monday). */
+        var summaryWeek: Pair<String, String>? = null
         override suspend fun getAthletes() = ApiResult.Success(roster)
-        override suspend fun getAthletePlan(athleteId: String, weekIdentifier: String) =
-            ApiResult.Success(plans[athleteId].orEmpty())
-        override suspend fun getAthleteSessions(athleteId: String) =
-            ApiResult.Success(sessions[athleteId].orEmpty())
+        override suspend fun getAthleteSummaries(weekIdentifier: String, weekStart: String): ApiResult<List<AthleteSummaryResponse>> {
+            summaryWeek = weekIdentifier to weekStart
+            return ApiResult.Success(summaries)
+        }
+        override suspend fun cachedAthleteSummaries(weekIdentifier: String): List<AthleteSummaryResponse>? = null
         override suspend fun removeAthlete(athleteId: String): ApiResult<MessageResponse> {
             removed.add(athleteId)
             return ApiResult.Success(MessageResponse("ok"))
@@ -62,17 +63,6 @@ class AthletesViewModelTest {
             coachName = null, coachingSince = null,
         )
 
-    private fun planned(id: String) =
-        PlannedSessionResponse(id = id, weekIdentifier = "w", day = "Monday", orderIndex = 0, title = "S", exercises = emptyList())
-
-    private fun sessionOn(date: LocalDate) = WorkoutSessionResponse(
-        id = "c", clientId = null, date = date.toString(), durationSeconds = 0,
-        sessionData = WorkoutSessionData(
-            id = "sd", date = 0.0, completedAt = 0.0, durationSeconds = 0,
-            exercises = emptyList(), planSessionId = null, title = "S",
-        ),
-    )
-
     private fun vm(repo: FakeAthleteRepo) = AthletesViewModel(ApplicationProvider.getApplicationContext(), repo)
 
     @Test fun `fetch loads the roster`() = runTest(dispatcher.scheduler) {
@@ -81,23 +71,25 @@ class AthletesViewModelTest {
         assertEquals(listOf("a1", "a2"), vm.athletes.map { it.id })
     }
 
-    @Test fun `weekly summary counts planned sessions and this-week completions`() = runTest(dispatcher.scheduler) {
+    // The week's totals come from one server call for the whole roster (the server counts them).
+    @Test fun `weekly summaries come from this week's batch call`() = runTest(dispatcher.scheduler) {
         val repo = FakeAthleteRepo(
-            roster = listOf(profile("a1")),
-            plans = mapOf("a1" to listOf(planned("p1"), planned("p2"))),          // planned = 2
-            sessions = mapOf(
-                "a1" to listOf(
-                    sessionOn(monday),                 // this week
-                    sessionOn(monday.plusDays(2)),     // this week
-                    sessionOn(monday.minusDays(1)),    // last week -> excluded
-                ),
+            roster = listOf(profile("a1"), profile("a2")),
+            summaries = listOf(
+                AthleteSummaryResponse(athleteId = "a1", plannedCount = 2, completedCount = 1, hasSessionToday = true),
+                AthleteSummaryResponse(athleteId = "a2", plannedCount = 3, completedCount = 3),
             ),
         )
         val vm = vm(repo)
         advanceUntilIdle()
-        val summary = vm.weeklySummaries["a1"]!!
-        assertEquals(2, summary.plannedCount)
-        assertEquals(2, summary.completedCount)
+        assertEquals(weekIdentifierFor(monday) to monday.toString(), repo.summaryWeek)
+        val a1 = vm.weeklySummaries["a1"]!!
+        assertEquals(2, a1.plannedCount)
+        assertEquals(1, a1.completedCount)
+        assertTrue(a1.hasSessionToday)
+        assertEquals(4, vm.finishedSessionsCount)
+        assertEquals(5, vm.plannedSessionsCount)
+        assertEquals(1, vm.athletesWithSessionTodayCount)
     }
 
     @Test fun `removeAthlete optimistically drops from the roster and calls the repo`() = runTest(dispatcher.scheduler) {

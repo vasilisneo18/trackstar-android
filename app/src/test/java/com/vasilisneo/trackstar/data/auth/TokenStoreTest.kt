@@ -49,37 +49,45 @@ class TokenStoreTest {
         assertEquals("user-1", AuthTokenHolder.userId)
     }
 
-    @Test fun `saveCredentials enables cached quick-login`() {
+    // "Continue as" re-signs in with the kept refresh token — no password is ever stored.
+    @Test fun `save remembers the account for Continue as`() {
         val s = store()
-        assertFalse(s.hasCachedCredentials)
-        s.saveCredentials("a@b.com", "pw")
-        assertTrue(s.hasCachedCredentials)
+        assertFalse(s.hasRememberedSession)
+        s.save(auth)
+        assertTrue(s.hasRememberedSession)
         assertEquals("a@b.com", s.lastEmail)
-        assertEquals("pw", s.lastPassword)
     }
 
-    @Test fun `clear drops the session but keeps cached credentials`() {
+    @Test fun `clear drops the session but keeps Continue as`() {
         val s = store()
         s.save(auth)
-        s.saveCredentials("a@b.com", "pw")
         s.clear()
         assertNull(s.token)
         assertNull(s.userId)
         assertFalse(s.isLoggedIn)
         assertNull(AuthTokenHolder.token)
         assertNull(AuthTokenHolder.userId)
-        // "Continue as" credentials survive a normal logout.
-        assertTrue(s.hasCachedCredentials)
+        // The refresh token and email survive a normal logout, for "Continue as".
+        assertEquals("ref", s.refreshToken)
+        assertTrue(s.hasRememberedSession)
     }
 
-    @Test fun `clearAll wipes everything including cached credentials`() {
+    @Test fun `clearAll wipes everything including Continue as`() {
         val s = store()
         s.save(auth)
-        s.saveCredentials("a@b.com", "pw")
         s.clearAll()
         assertNull(s.token)
-        assertFalse(s.hasCachedCredentials)
+        assertNull(s.refreshToken)
+        assertFalse(s.hasRememberedSession)
         assertNull(AuthTokenHolder.token)
         assertNull(AuthTokenHolder.userId)
+    }
+
+    @Test fun `a password saved by an older version is scrubbed`() {
+        val prefs = ApplicationProvider.getApplicationContext<android.content.Context>()
+            .getSharedPreferences("trackstar_auth", android.content.Context.MODE_PRIVATE)
+        prefs.edit().putString("lastPassword", "pw").commit()
+        store()
+        assertFalse(prefs.contains("lastPassword"))
     }
 }

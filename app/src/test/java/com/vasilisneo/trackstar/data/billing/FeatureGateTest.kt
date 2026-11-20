@@ -34,8 +34,8 @@ class FeatureGateTest {
     }
 
     @Test
-    fun `template limit is 20 for gold and 0 otherwise`() {
-        assertEquals(FeatureGate.GOLD_TEMPLATE_LIMIT, FeatureGate.templateLimit(AppPlan.GOLD))
+    fun `templates are unlimited on gold and unavailable otherwise`() {
+        assertEquals(Int.MAX_VALUE, FeatureGate.templateLimit(AppPlan.GOLD))
         assertEquals(0, FeatureGate.templateLimit(AppPlan.SILVER))
         assertEquals(0, FeatureGate.templateLimit(AppPlan.BRONZE))
         assertEquals(0, FeatureGate.templateLimit(AppPlan.FREE))

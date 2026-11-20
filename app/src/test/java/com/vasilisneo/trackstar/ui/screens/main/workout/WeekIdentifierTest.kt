@@ -9,8 +9,8 @@ import org.junit.Test
 import java.time.LocalDate
 import java.util.Locale
 
-// weekIdentifierFor() reads Locale.getDefault(), so pin a fixed locale for deterministic weeks and
-// restore it afterwards. Locale.US = weeks start Sunday, minimal-days-in-first-week = 1.
+// weekIdentifierFor() uses ISO weeks (Monday-first, like iOS and the backend) whatever the phone's
+// locale — so the tests run under Locale.US, whose own weeks start on Sunday, to prove it.
 class WeekIdentifierTest {
 
     private lateinit var original: Locale
@@ -32,24 +32,24 @@ class WeekIdentifierTest {
 
     @Test
     fun `single-digit week is zero-padded`() {
-        // Early January falls in week 1 or 2 under US rules — either way two digits.
-        val id = weekIdentifierFor(LocalDate.of(2026, 1, 5))
-        assertTrue("was: $id", id.substringAfter("-W").length == 2)
+        assertEquals("2026-W02", weekIdentifierFor(LocalDate.of(2026, 1, 5)))
     }
 
     @Test
     fun `dates in the same week produce the same identifier`() {
-        // 2026-03-15 is a Sunday (start of a US week); the following Saturday is the same week.
-        val sunday = LocalDate.of(2026, 3, 15)
-        val saturday = LocalDate.of(2026, 3, 21)
-        assertEquals(weekIdentifierFor(sunday), weekIdentifierFor(saturday))
+        // 2026-03-16 is a Monday; the Sunday after is still the same ISO week.
+        val monday = LocalDate.of(2026, 3, 16)
+        val sunday = LocalDate.of(2026, 3, 22)
+        assertEquals(weekIdentifierFor(monday), weekIdentifierFor(sunday))
+        assertEquals("2026-W12", weekIdentifierFor(sunday))
     }
 
     @Test
     fun `crossing into the next week changes the identifier`() {
-        val saturday = LocalDate.of(2026, 3, 21)
-        val nextSunday = LocalDate.of(2026, 3, 22)
-        assertNotEquals(weekIdentifierFor(saturday), weekIdentifierFor(nextSunday))
+        // Sunday ends the week; Monday starts the next (in the US locale Sunday would start it).
+        val sunday = LocalDate.of(2026, 3, 22)
+        val nextMonday = LocalDate.of(2026, 3, 23)
+        assertNotEquals(weekIdentifierFor(sunday), weekIdentifierFor(nextMonday))
     }
 
     @Test
