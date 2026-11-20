@@ -206,17 +206,20 @@ async function main() {
     const uploaded = await api('POST', `${UPLOAD_API}/edits/${edit.id}/bundles?uploadType=media`,
         readFileSync(BUNDLE), 'application/octet-stream');
     console.log(`  uploaded versionCode ${uploaded.versionCode}`);
+    // Notes only for the languages the store listing has (Play shows the rest nowhere).
+    const { listings = [] } = await api('GET', `${API}/edits/${edit.id}/listings`);
+    const languages = LANGUAGES.filter((l) => listings.some((x) => x.language === l));
     await api('PUT', `${API}/edits/${edit.id}/tracks/${track}`, {
         track,
         releases: [{
             name: `${name} (${code})`,
             versionCodes: [String(code)],
             status: rollout ? 'completed' : 'draft',
-            releaseNotes: Object.entries(notes).map(([language, text]) => ({ language, text })),
+            releaseNotes: languages.map((language) => ({ language, text: notes[language] })),
         }],
     });
     await api('POST', `${API}/edits/${edit.id}:commit`);
-    console.log(`  ${rollout ? 'release sent' : 'draft release created'} with notes in ${LANGUAGES.join(', ')}`);
+    console.log(`  ${rollout ? 'release sent' : 'draft release created'} with notes in ${languages.join(', ')}`);
 
     step('Tagging and pushing');
     const tag = `android-${name}-${code}`;
