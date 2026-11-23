@@ -126,8 +126,12 @@ object ActivityRecorder {
         }
         if (callback != null) return
         val client = LocationServices.getFusedLocationProviderClient(context)
+        // Every fix, even standing still: a distance filter here held back the better fixes that
+        // follow a rough first one, so the badge sat on "Finding GPS…" until you walked off.
+        // handle() already ignores moves under 2 m.
         val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000L)
-            .setMinUpdateDistanceMeters(3f)
+            .setMinUpdateDistanceMeters(0f)
+            .setWaitForAccurateLocation(false)
             .build()
         val cb = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
