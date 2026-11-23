@@ -8,6 +8,12 @@ parentheses). Newest first.
 
 ## [Unreleased]
 
+### Fixed
+- Recorder: "Finding GPS…" no longer sticks while standing still before Start (the 3 m
+  distance filter held back the accurate fixes; now every fix is taken).
+- Maps blank in the Play build: fixed outside the app, by adding Play's app-signing SHA-1 to the
+  Maps API key (2026-11-23). No code change.
+
 ## [30] (1.2.0) — 2026-11-20
 _iOS 1.2.0 parity: activities, slopes and groups. Needs the Play declarations for
 background location (recording), ACTIVITY_RECOGNITION (step sensor) and Health
